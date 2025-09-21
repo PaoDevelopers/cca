@@ -1,0 +1,27 @@
+url https://cca.runxiyu.org
+
+database postgres:///cca-ng?host=/var/run/postgresql
+
+listen {
+	protocol http
+	network tcp
+	address :8192
+	transport tls
+	tls {
+		cert /etc/ssl/pub.pem
+		key /etc/ssl/priv.pem
+	}
+}
+
+oidc {
+	client e8101cb5-84a3-49d7-860b-e5a75e63219a
+	authorize https://login.microsoftonline.com/ddd3d26c-b197-4d00-a32d-1ffd84c0c295/oauth2/v2.0/authorize
+	jwks https://login.microsoftonline.com/ddd3d26c-b197-4d00-a32d-1ffd84c0c295/discovery/keys
+}
+
+admins {
+	s22537
+	ed.chapman
+	tracy.zhou
+}
+
