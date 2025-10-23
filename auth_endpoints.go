@@ -30,6 +30,11 @@ func (app *App) setupJWKS() error {
 }
 
 func (app *App) handleUserInfo(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
+	w.Header().Set("Content-Type", "application/json")
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
@@ -170,9 +175,9 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 	cookie := http.Cookie{
 		Name:     "session",
 		Value:    tst,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteLaxMode, // XXX TODO SHOULD BE LAX
 		HttpOnly: true,
-		Secure:   false, // TODO
+		Secure:   true, // TODO
 		Expires:  time.Now().Add(72 * time.Hour),
 	}
 	http.SetCookie(w, &cookie)

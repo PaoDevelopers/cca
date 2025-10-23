@@ -44,7 +44,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/auth", app.handleAuth)
-	mux.HandleFunc("/userinfo", app.handleUserInfo)
+	mux.HandleFunc("/api/userinfo", app.handleUserInfo)
 
 	log.Fatal(http.ListenAndServe(config.Listen.Address, mux))
 	// TODO
