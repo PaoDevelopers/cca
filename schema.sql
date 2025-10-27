@@ -131,14 +131,14 @@ CREATE TABLE course_allowed_grades (
 
 -- Choices (student selections and/or invitations)
 CREATE TABLE choices (
-	student_id BIGINT NOT NULL REFERENCES students(id) ON UPDATE CASCADE ON DELETE CASCADE,
+	student_id BIGINT NOT NULL REFERENCES students(id) ON UPDATE CASCADE ON DELETE RESTRICT,
 	course_id TEXT NOT NULL,
 	period TEXT NOT NULL,
 	selection_type selection_type NOT NULL DEFAULT 'no',
 	PRIMARY KEY (student_id, period),
 	UNIQUE (student_id, course_id),
 	-- This is the reason for the UNIQUE on courses.
-	FOREIGN KEY (course_id, period) REFERENCES courses(id, period) ON UPDATE CASCADE ON DELETE CASCADE
+	FOREIGN KEY (course_id, period) REFERENCES courses(id, period) ON UPDATE CASCADE ON DELETE RESTRICT
 );
 
 -- Enforce legal_sex/grade/membership/capacity/selection_window only when
@@ -265,6 +265,8 @@ CREATE TRIGGER trg_choices_constraints
 BEFORE INSERT OR UPDATE OF course_id, selection_type ON choices
 FOR EACH ROW
 EXECUTE FUNCTION enforce_choice_constraints();
+
+-- TODO: trigger for deletion of choices when forced?
 
 
 -- Views

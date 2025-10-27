@@ -39,5 +39,11 @@ func (app *App) admRenderTemplate(w http.ResponseWriter, name string, data any) 
 		panic("unknown template " + name)
 	}
 
-	t.ExecuteTemplate(w, "base", data)
+	t.ExecuteTemplate(w, "base", struct {
+		ActiveTab string
+		Data      any
+	}{
+		ActiveTab: name,
+		Data:      data,
+	})
 }

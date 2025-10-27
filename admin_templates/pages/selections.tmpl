@@ -2,5 +2,107 @@
 Selections
 {{ end }}
 
+{{ define "head" }}
+<script defer src="/admin/static/search.js"></script>
+{{ end }}
+
 {{ define "content" }}
+{{ $data := . }}
+<section class="intro">
+<p>
+Selections record which courses each student is currently assigned to.
+Use this page to add administrator-driven invitations or force
+assignments, or to move students between courses.
+</p>
+</section>
+<section class="listing">
+<h2>Current selections</h2>
+<div>
+<input type="text" id="search-bar" placeholder="Search..." class="search-bar">
+</div>
+<div class="cards-grid">
+{{ range $data.Selections }}
+{{ $row := . }}
+<article class="card">
+<div class="hfill"><span>{{ $row.StudentName }}</span><span>{{ $row.StudentID }}</span></div>
+<div class="hfill"><span>{{ $row.CourseName }}</span><span>{{ $row.CourseID }}</span></div>
+<div class="hfill"><span>{{ $row.StudentGrade }}</span><span>{{ $row.Period }}</span></div>
+<div class="hfill"><span>{{ $row.SelectionType }}</span><span></span></div>
+<details>
+<summary>Actions</summary>
+<form method="POST" action="/admin/selections/edit" class="stack-form">
+<input type="hidden" name="current_student_id" value="{{ $row.StudentID }}" />
+<input type="hidden" name="period" value="{{ $row.Period }}" />
+<div class="form-field">
+<label for="selection-student-{{ $row.StudentID }}-{{ $row.Period }}">Student</label>
+<select id="selection-student-{{ $row.StudentID }}-{{ $row.Period }}" name="student_id" required>
+{{ range $data.Students }}
+<option value="{{ .ID }}" {{ if eq .ID $row.StudentID }}selected{{ end }}>{{ .ID }} — {{ .Name }} ({{ .Grade }})</option>
+{{ end }}
+</select>
+</div>
+<div class="form-field">
+<label for="selection-course-{{ $row.StudentID }}-{{ $row.Period }}">Course</label>
+<select id="selection-course-{{ $row.StudentID }}-{{ $row.Period }}" name="course_id" required>
+{{ range $data.Courses }}
+<option value="{{ .ID }}" {{ if eq .ID $row.CourseID }}selected{{ end }}>{{ .ID }} — {{ .Name }}</option>
+{{ end }}
+</select>
+</div>
+<div class="form-field">
+<label for="selection-type-{{ $row.StudentID }}-{{ $row.Period }}">Type</label>
+<select id="selection-type-{{ $row.StudentID }}-{{ $row.Period }}" name="selection_type" required>
+{{ range $data.SelectionTypes }}
+<option value="{{ . }}" {{ if eq . $row.SelectionType }}selected{{ end }}>{{ . }}</option>
+{{ end }}
+</select>
+</div>
+<div class="form-actions">
+<button type="submit">Save</button>
+</div>
+</form>
+<form method="POST" action="/admin/selections/delete" class="stack-form">
+<input type="hidden" name="student_id" value="{{ $row.StudentID }}" />
+<input type="hidden" name="period" value="{{ $row.Period }}" />
+<div class="form-actions">
+<button type="submit">Delete</button>
+</div>
+</form>
+</details>
+</article>
+{{ end }}
+</div>
+</section>
+<section class="new">
+<h2>New selection</h2>
+<form method="POST" action="/admin/selections/new" class="stack-form">
+<div class="form-field">
+<label for="new-selection-student">Student</label>
+<select id="new-selection-student" name="student_id" required>
+{{ range $data.Students }}
+<option value="{{ .ID }}">{{ .ID }} &mdash; {{ .Name }} ({{ .Grade }})</option>
+{{ end }}
+</select>
+</div>
+<div class="form-field">
+<label for="new-selection-course">Course</label>
+<select id="new-selection-course" name="course_id" required>
+{{ range $data.Courses }}
+<option value="{{ .ID }}">{{ .ID }} &mdash; {{ .Name }} (Period {{ .Period }})</option>
+{{ end }}
+</select>
+</div>
+<div class="form-field">
+<label for="new-selection-type">Type</label>
+<select id="new-selection-type" name="selection_type" required>
+{{ range $data.SelectionTypes }}
+<option value="{{ . }}">{{ . }}</option>
+{{ end }}
+</select>
+</div>
+<div class="form-actions">
+<button type="submit">Add</button>
+</div>
+</form>
+</section>
 {{ end }}

@@ -21,27 +21,33 @@ in the courses tab, you may reference these periods.
 </section>
 <section class="listing">
 <h2>Current periods</h2>
-<ul>
+<div class="cards-grid">
 {{ range . }}
-<li>
-{{ . }}
+<article class="card">
+<header class="card-header">{{ . }}</header>
 <details>
-<summary>Delete</summary>
-<form method="POST" action="/admin/periods/delete">
+<summary>Actions</summary>
+<form method="POST" action="/admin/periods/delete" class="stack-form">
 <input type="hidden" name="id" value="{{ . }}" />
-<input value="Confirm delete" type="submit" />
+<div class="form-actions">
+<button type="submit">Delete</button>
+</div>
 </form>
 </details>
-</li>
+</article>
 {{ end }}
-</ul>
+</div>
 </section>
 <section class="new">
 <h2>New period</h2>
-<form method="POST" action="/admin/periods/new">
-<label for="id">ID:</label>
+<form method="POST" action="/admin/periods/new" class="stack-form">
+<div class="form-field">
+<label for="id">ID</label>
 <input type="text" id="id" name="id" required />
-<input value="Add" type="submit" />
+</div>
+<div class="form-actions">
+<button type="submit">Add</button>
+</div>
 </form>
 </section>
 {{ end }}

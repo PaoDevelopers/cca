@@ -1,15 +1,27 @@
 {{ define "base" }}
+{{ $ctx := . }}
 <!DOCTYPE html>
 <head>
 <title>{{ block "title" . }}Untitled{{ end }} &ndash; CCA Admin</title>
+<link rel="stylesheet" href="/admin/static/style.css" />
+{{ block "head" $ctx.Data }}{{ end }}
 </head>
 <body>
-{{ template "header" . }}
+<header class="layout-header">
+<nav class="nav-tabs">
+<a href="/admin/categories" class="nav-tab{{ if eq $ctx.ActiveTab "categories" }} is-active{{ end }}">Categories</a>
+<a href="/admin/periods" class="nav-tab{{ if eq $ctx.ActiveTab "periods" }} is-active{{ end }}">Periods</a>
+<a href="/admin/grades" class="nav-tab{{ if eq $ctx.ActiveTab "grades" }} is-active{{ end }}">Grades</a>
+<a href="/admin/courses" class="nav-tab{{ if eq $ctx.ActiveTab "courses" }} is-active{{ end }}">Courses</a>
+<a href="/admin/students" class="nav-tab{{ if eq $ctx.ActiveTab "students" }} is-active{{ end }}">Students</a>
+<a href="/admin/selections" class="nav-tab{{ if eq $ctx.ActiveTab "selections" }} is-active{{ end }}">Selections</a>
+</nav>
+</header>
 <main>
-{{ block "content" . }}
+{{ block "content" $ctx.Data }}
 Unpopulated content
 {{ end }}
 </main>
-{{ template "footer" . }}
+{{ template "footer" $ctx.Data }}
 </body>
 {{ end }}

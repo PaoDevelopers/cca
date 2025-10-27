@@ -2,5 +2,117 @@
 Students
 {{ end }}
 
+{{ define "head" }}
+<script defer src="/admin/static/search.js"></script>
+{{ end }}
+
 {{ define "content" }}
+{{ $data := . }}
+<section class="intro">
+<p>
+Students are the users who will make selections.
+Each student is identified by their numerical ID and belongs to a single grade.
+</p>
+</section>
+<section class="listing">
+<h2>Current students</h2>
+<div>
+<input type="text" id="search-bar" placeholder="Search..." class="search-bar">
+</div>
+<div class="cards-grid">
+{{ range $data.Students }}
+{{ $student := . }}
+<article class="card">
+<header class="card-header hfill"><span>{{ $student.Name }}</span><span>{{ $student.ID }}</span></header>
+<div class="hfill"><span>{{ $student.Grade }}</span><span>Legal sex: {{ $student.LegalSex }}</span></div>
+<details>
+<summary>Actions</summary>
+<form method="POST" action="/admin/students/edit" class="stack-form">
+<input type="hidden" name="id" value="{{ $student.ID }}" />
+<div class="form-field">
+<label for="student-name-{{ $student.ID }}">Name</label>
+<input type="text" id="student-name-{{ $student.ID }}" name="name" value="{{ $student.Name }}" required />
+</div>
+<div class="form-field">
+<label for="student-grade-{{ $student.ID }}">Grade</label>
+<select id="student-grade-{{ $student.ID }}" name="grade" required>
+{{ range $data.Grades }}
+<option value="{{ .Grade }}" {{ if eq .Grade $student.Grade }}selected{{ end }}>{{ .Grade }}{{ if not .Enabled }} (disabled){{ end }}</option>
+{{ end }}
+</select>
+</div>
+<div class="form-field">
+<label for="student-legal-sex-{{ $student.ID }}">Legal sex</label>
+<select id="student-legal-sex-{{ $student.ID }}" name="legal_sex" required>
+{{ range $data.LegalSexes }}
+<option value="{{ . }}" {{ if eq . $student.LegalSex }}selected{{ end }}>{{ . }}</option>
+{{ end }}
+</select>
+</div>
+<div class="form-actions">
+<button type="submit">Save</button>
+</div>
+</form>
+<form method="POST" action="/admin/students/delete" class="stack-form">
+<input type="hidden" name="id" value="{{ $student.ID }}" />
+<div class="form-actions">
+<button type="submit">Delete</button>
+</div>
+</form>
+</details>
+</article>
+{{ end }}
+</div>
+</section>
+<section class="new">
+<h2>New student</h2>
+<form method="POST" action="/admin/students/new" class="stack-form">
+<div class="form-field">
+<label for="new-student-id">ID</label>
+<input type="number" id="new-student-id" name="id" min="0" step="1" required />
+</div>
+<div class="form-field">
+<label for="new-student-name">Name</label>
+<input type="text" id="new-student-name" name="name" required />
+</div>
+<div class="form-field">
+<label for="new-student-grade">Grade</label>
+<select id="new-student-grade" name="grade" required>
+{{ range $data.Grades }}
+<option value="{{ .Grade }}">{{ .Grade }}{{ if not .Enabled }} (disabled){{ end }}</option>
+{{ end }}
+</select>
+</div>
+<div class="form-field">
+<label for="new-student-legal-sex">Legal sex</label>
+<select id="new-student-legal-sex" name="legal_sex" required>
+{{ range $data.LegalSexes }}
+<option value="{{ . }}">{{ . }}</option>
+{{ end }}
+</select>
+</div>
+<div class="form-actions">
+<button type="submit">Add</button>
+</div>
+</form>
+</section>
+<section class="import">
+<h2>Import CSV</h2>
+<p>
+Upload a CSV to bulk-create students. Fields must appear in the following order:
+<code>id,name,grade,legal_sex</code>.
+</p>
+<p>
+Download an example file: <a href="/admin/static/students_example.csv">students_example.csv</a>
+</p>
+<form method="POST" action="/admin/students/import" enctype="multipart/form-data" class="stack-form">
+<div class="form-field">
+<label for="students-import-csv">CSV file</label>
+<input type="file" id="students-import-csv" name="csv" accept=".csv" required />
+</div>
+<div class="form-actions">
+<button type="submit">Import</button>
+</div>
+</form>
+</section>
 {{ end }}

@@ -32,81 +32,87 @@ in that grade must satisfy.
 {{ $categories := .Categories }}
 <section class="listing">
 <h2>Current grades</h2>
-<ul>
+<div class="cards-grid">
 {{ range .Grades }}
-<li>
-{{ .Grade }} ({{ if .Enabled }}enabled{{ else }}disabled{{ end }})
-<section>
-<h3 style="margin: 0rem; font-size: 100%;">Current requirement groups</h3> <!-- TODO: Temporary inline styling! -->
-<ul>
+<article class="card">
+<header class="card-header hfill"><span>{{ .Grade }}</span><span>{{ if .Enabled }}Enabled{{ else }}Disabled{{ end }}</span></header>
+<div>
+{{ if .ReqGroups }}
+<ul class="card-list">
 {{ range .ReqGroups }}
-<li>
-At least {{ .MinCount }} from any {{ .CategoryIds }}
-<form style="display: inline-block;" method="POST" action="/admin/grades/delete-requirement-group">
+<li class="card-list-item">
+<span>At least {{ .MinCount }} from {{ .CategoryIds }}</span>
+<form method="POST" action="/admin/grades/delete-requirement-group" class="stack-form">
 <input type="hidden" name="id" value="{{ .ID }}" />
-<input value="Delete" type="submit" />
+<div class="form-actions">
+<button type="submit">Remove</button>
+</div>
 </form>
 </li>
 {{ end }}
 </ul>
-</section>
-<section>
-<h3 style="margin: 0rem; font-size: 100%;">New requirement groups</h3> <!-- TODO: Temporary inline styling! -->
-<form method="POST" action="/admin/grades/new-requirement-group">
+{{ end }}
+</div>
+<details>
+<summary>Add requirement group</summary>
+<form method="POST" action="/admin/grades/new-requirement-group" class="stack-form">
 <input type="hidden" name="grade" value="{{ .Grade }}" />
-<label for="mincount-new-{{ .Grade }}">Minimum count:</label>
+<div class="form-field">
+<label for="mincount-new-{{ .Grade }}">Minimum count</label>
 <input id="mincount-new-{{ .Grade }}" type="number" min="0" max="65535" step="1" name="min_count" />
-<br />
+</div>
+<fieldset class="checkbox-group">
+<legend>Categories</legend>
 {{ $grade := .Grade }}
 {{ range $categories }}
+<div class="checkbox-option">
 <input type="checkbox" id="category-{{ . }}-{{ $grade }}" value="{{ . }}" name="category-{{ . }}" />
 <label for="category-{{ . }}-{{ $grade }}">{{ . }}</label>
+</div>
 {{ end }}
-<br />
-<input value="Add" type="submit" />
-</form>
-</section>
-<section>
-<h3 style="margin: 0rem; font-size: 100%;">Edit</h3> <!-- TODO: Temporary inline styling! -->
-<form method="POST" action="/admin/grades/edit">
-<input type="hidden" name="grade" value="{{ .Grade }}" />
-<label for="enabled-{{ .Grade }}">Enabled:</label>
-<input type="checkbox" id="enabled-{{ .Grade }}" name="enabled" {{ if .Enabled }}checked{{ end }} />
-<br />
-<input value="Submit" type="submit" />
-</form>
-</section>
-<details>
-<summary>Delete</summary>
-<form method="POST" action="/admin/grades/delete">
-<input type="hidden" name="grade" value="{{ .Grade }}" />
-<input value="Confirm delete" type="submit" />
+</fieldset>
+<div class="form-actions">
+<button type="submit">Add group</button>
+</div>
 </form>
 </details>
-</li>
+<details>
+<summary>Actions</summary>
+<form method="POST" action="/admin/grades/delete" class="stack-form">
+<input type="hidden" name="grade" value="{{ .Grade }}" />
+<div class="form-actions">
+<button type="submit">Delete</button>
+</div>
+</form>
+</details>
+</article>
 {{ end }}
-</ul>
+</div>
 </section>
 <section class="new">
 <h2>New grade</h2>
-<form method="POST" action="/admin/grades/new">
-<label for="new-grade-grade">Grade:</label>
+<form method="POST" action="/admin/grades/new" class="stack-form">
+<div class="form-field">
+<label for="new-grade-grade">Grade</label>
 <input type="text" id="new-grade-grade" name="grade" required />
-<input value="Add" type="submit" />
+</div>
+<div class="form-actions">
+<button type="submit">Add</button>
+</div>
 </form>
 </section>
-<section>
+<section class="listing">
 <h2>Bulk-update enabled status</h2>
-<form method="POST" action="/admin/grades/bulk-enabled-update">
-<ul>
+<form method="POST" action="/admin/grades/bulk-enabled-update" class="stack-form">
 {{ range .Grades }}
-<li>
-<label for="bulk-enabled-{{ .Grade }}">Grade {{ .Grade }} ({{ if .Enabled }}enabled{{ else }}disabled{{ end }}):</label>
+<div class="checkbox-option">
 <input type="checkbox" id="bulk-enabled-{{ .Grade }}" value="{{ .Grade }}" name="{{ .Grade }}" {{ if .Enabled }}checked{{ end }} />
-</li>
+<label for="bulk-enabled-{{ .Grade }}">{{ .Grade }}</label>
+</div>
 {{ end }}
-</ul>
-<input value="Bulk update" type="submit" />
+<div class="form-actions">
+<button type="submit">Bulk update</button>
+</div>
 </form>
 </section>
 {{ end }}

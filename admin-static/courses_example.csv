@@ -1,0 +1,3 @@
+id,name,description,period,max_students,membership,teacher,location,category_id,allowed_legal_sexes,allowed_grades
+robotics-intro,Introduction to Robotics,"Hands-on introduction to robotics projects",MW1,24,free,Ms Chan,Innovation Lab,Technology,"",""
+advanced-art,Advanced Painting Studio,"Studio sessions focused on advanced painting techniques",TT3,16,invite_only,Mr Lee,Art Room,Arts,"F","Year 10,Year 11"
