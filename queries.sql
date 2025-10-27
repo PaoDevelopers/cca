@@ -54,6 +54,61 @@ VALUES ($1);
 DELETE FROM periods
 WHERE id = $1;
 
+---- Courses
+
+-- name: GetCourses :many
+SELECT
+	id,
+	name,
+	description,
+	period,
+	max_students,
+	membership,
+	teacher,
+	location,
+	category_id
+FROM courses
+ORDER BY id;
+
+-- name: NewCourse :exec
+INSERT INTO courses (
+	id,
+	name,
+	description,
+	period,
+	max_students,
+	membership,
+	teacher,
+	location,
+	category_id
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
+
+-- name: UpdateCourse :exec
+UPDATE courses
+SET
+	name = $2,
+	description = $3,
+	period = $4,
+	max_students = $5,
+	membership = $6,
+	teacher = $7,
+	location = $8,
+	category_id = $9
+WHERE id = $1;
+
+-- name: DeleteCourse :exec
+DELETE FROM courses
+WHERE id = $1;
+
+-- name: AddCourseAllowedLegalSex :exec
+INSERT INTO course_allowed_legal_sexes (course_id, legal_sex)
+VALUES ($1, $2);
+
+-- name: AddCourseAllowedGrade :exec
+INSERT INTO course_allowed_grades (course_id, grade)
+VALUES ($1, $2);
+
 ---- Grades
 
 -- name: GetGrades :many
@@ -111,6 +166,11 @@ WHERE id = $1;
 
 ---- Students
 
+-- name: GetStudents :many
+SELECT id, name, grade, legal_sex, session_token
+FROM students
+ORDER BY id;
+
 -- name: NewStudent :exec
 INSERT INTO students (id, name, grade, legal_sex)
 VALUES ($1, $2, $3, $4);
@@ -119,3 +179,59 @@ VALUES ($1, $2, $3, $4);
 SELECT id, name, grade, legal_sex
 FROM students
 WHERE id = $1;
+
+-- name: UpdateStudent :exec
+UPDATE students
+SET name = $2, grade = $3, legal_sex = $4
+WHERE id = $1;
+
+-- name: DeleteStudent :exec
+DELETE FROM students
+WHERE id = $1;
+
+---- Selections
+
+-- name: GetSelections :many
+SELECT
+	ch.student_id,
+	s.name AS student_name,
+	s.grade AS student_grade,
+	ch.course_id,
+	c.name AS course_name,
+	ch.period,
+	ch.selection_type
+FROM choices ch
+JOIN students s ON s.id = ch.student_id
+JOIN courses c ON c.id = ch.course_id
+ORDER BY ch.student_id, ch.period;
+
+-- name: NewSelection :exec
+INSERT INTO choices (
+	student_id,
+	course_id,
+	period,
+	selection_type
+)
+SELECT
+	$1,
+	$2,
+	c.period,
+	$3
+FROM courses c
+WHERE c.id = $2;
+
+-- name: UpdateSelection :exec
+UPDATE choices AS ch
+SET
+	course_id = $3,
+	period = c.period,
+	selection_type = $4
+FROM courses c
+WHERE
+	ch.student_id = $1
+	AND ch.period = $2
+	AND c.id = $3;
+
+-- name: DeleteSelection :exec
+DELETE FROM choices
+WHERE student_id = $1 AND period = $2;

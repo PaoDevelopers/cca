@@ -3,4 +3,96 @@ Selections
 {{ end }}
 
 {{ define "content" }}
+<section class="intro">
+<p>
+Selections record which courses each student is currently assigned to.
+Use this page to add administrator-driven invitations or force
+assignments, or to move students between courses.
+</p>
+</section>
+<section class="listing">
+<h2>Current selections</h2>
+<table>
+<thead>
+<tr>
+<th>Student</th>
+<th>Course</th>
+<th>Period</th>
+<th>Type</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody>
+{{ range .Selections }}
+<tr>
+<td>{{ .StudentID }} &mdash; {{ .StudentName }} ({{ .StudentGrade }})</td>
+<td>{{ .CourseID }} &mdash; {{ .CourseName }}</td>
+<td>{{ .Period }}</td>
+<td>{{ .SelectionType }}</td>
+<td>
+<details>
+<summary>Edit</summary>
+<form method="POST" action="/admin/selections/edit">
+<input type="hidden" name="student_id" value="{{ .StudentID }}" />
+<input type="hidden" name="period" value="{{ .Period }}" />
+<label for="selection-course-{{ .StudentID }}-{{ .Period }}">Course:</label>
+<select id="selection-course-{{ .StudentID }}-{{ .Period }}" name="course_id" required>
+{{ $row := . }}
+{{ range $.Courses }}
+<option value="{{ .ID }}" {{ if eq .ID $row.CourseID }}selected{{ end }}>{{ .ID }} &mdash; {{ .Name }}</option>
+{{ end }}
+</select>
+<br />
+<label for="selection-type-{{ .StudentID }}-{{ .Period }}">Type:</label>
+<select id="selection-type-{{ .StudentID }}-{{ .Period }}" name="selection_type" required>
+{{ range $.SelectionTypes }}
+<option value="{{ . }}" {{ if eq . $row.SelectionType }}selected{{ end }}>{{ . }}</option>
+{{ end }}
+</select>
+<br />
+<input value="Submit" type="submit" />
+</form>
+</details>
+<details>
+<summary>Delete</summary>
+<form method="POST" action="/admin/selections/delete">
+<input type="hidden" name="student_id" value="{{ .StudentID }}" />
+<input type="hidden" name="period" value="{{ .Period }}" />
+<input value="Confirm delete" type="submit" />
+</form>
+</details>
+<br />
+</td>
+</tr>
+{{ end }}
+</tbody>
+</table>
+</section>
+<section class="new">
+<h2>New selection</h2>
+<form method="POST" action="/admin/selections/new">
+<label for="new-selection-student">Student:</label>
+<select id="new-selection-student" name="student_id" required>
+{{ range .Students }}
+<option value="{{ .ID }}">{{ .ID }} &mdash; {{ .Name }} ({{ .Grade }})</option>
+{{ end }}
+</select>
+<br />
+<label for="new-selection-course">Course:</label>
+<select id="new-selection-course" name="course_id" required>
+{{ range .Courses }}
+<option value="{{ .ID }}">{{ .ID }} &mdash; {{ .Name }} (Period {{ .Period }})</option>
+{{ end }}
+</select>
+<br />
+<label for="new-selection-type">Type:</label>
+<select id="new-selection-type" name="selection_type" required>
+{{ range .SelectionTypes }}
+<option value="{{ . }}">{{ . }}</option>
+{{ end }}
+</select>
+<br />
+<input value="Add" type="submit" />
+</form>
+</section>
 {{ end }}

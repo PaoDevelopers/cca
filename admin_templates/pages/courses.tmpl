@@ -3,4 +3,176 @@ Courses
 {{ end }}
 
 {{ define "content" }}
+<section class="intro">
+<p>
+Courses represent the offerings that students may select.
+Each course belongs to a single period and category, and
+includes details such as capacity, membership type, and location.
+</p>
+</section>
+<section class="listing">
+<h2>Current courses</h2>
+<table>
+<thead>
+<tr>
+<th>ID</th>
+<th>Name</th>
+<th>Period</th>
+<th>Category</th>
+<th>Teacher</th>
+<th>Location</th>
+<th>Max students</th>
+<th>Membership</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody>
+{{ range .Courses }}
+<tr>
+<td>{{ .ID }}</td>
+<td>{{ .Name }}</td>
+<td>{{ .Period }}</td>
+<td>{{ .CategoryID }}</td>
+<td>{{ .Teacher }}</td>
+<td>{{ .Location }}</td>
+<td>{{ .MaxStudents }}</td>
+<td>{{ .Membership }}</td>
+<td>
+<details>
+<summary>Edit</summary>
+<form method="POST" action="/admin/courses/edit">
+<input type="hidden" name="id" value="{{ .ID }}" />
+<label for="name-{{ .ID }}">Name:</label>
+<input type="text" id="name-{{ .ID }}" name="name" value="{{ .Name }}" required />
+<br />
+<label for="description-{{ .ID }}">Description:</label>
+<textarea id="description-{{ .ID }}" name="description" rows="3">{{ .Description }}</textarea>
+<br />
+<label for="period-{{ .ID }}">Period:</label>
+<select id="period-{{ .ID }}" name="period" required>
+{{ $course := . }}
+{{ range $.Periods }}
+<option value="{{ . }}" {{ if eq . $course.Period }}selected{{ end }}>{{ . }}</option>
+{{ end }}
+</select>
+<br />
+<label for="max-students-{{ .ID }}">Max students:</label>
+<input type="number" id="max-students-{{ .ID }}" name="max_students" min="0" step="1" value="{{ .MaxStudents }}" required />
+<br />
+<label for="membership-{{ .ID }}">Membership:</label>
+<select id="membership-{{ .ID }}" name="membership" required>
+{{ range $.Memberships }}
+<option value="{{ . }}" {{ if eq . $course.Membership }}selected{{ end }}>{{ . }}</option>
+{{ end }}
+</select>
+<br />
+<label for="teacher-{{ .ID }}">Teacher:</label>
+<input type="text" id="teacher-{{ .ID }}" name="teacher" value="{{ .Teacher }}" required />
+<br />
+<label for="location-{{ .ID }}">Location:</label>
+<input type="text" id="location-{{ .ID }}" name="location" value="{{ .Location }}" required />
+<br />
+<label for="category-{{ .ID }}">Category:</label>
+<select id="category-{{ .ID }}" name="category_id" required>
+{{ range $.Categories }}
+<option value="{{ . }}" {{ if eq . $course.CategoryID }}selected{{ end }}>{{ . }}</option>
+{{ end }}
+</select>
+<br />
+<input value="Submit" type="submit" />
+</form>
+</details>
+<details>
+<summary>Delete</summary>
+<form method="POST" action="/admin/courses/delete">
+<input type="hidden" name="id" value="{{ .ID }}" />
+<input value="Confirm delete" type="submit" />
+</form>
+</details>
+<br />
+</td>
+</tr>
+{{ end }}
+</tbody>
+</table>
+</section>
+<section class="new">
+<h2>New course</h2>
+<form method="POST" action="/admin/courses/new">
+<label for="new-course-id">ID:</label>
+<input type="text" id="new-course-id" name="id" required />
+<br />
+<label for="new-course-name">Name:</label>
+<input type="text" id="new-course-name" name="name" required />
+<br />
+<label for="new-course-description">Description:</label>
+<textarea id="new-course-description" name="description" rows="3"></textarea>
+<br />
+<label for="new-course-period">Period:</label>
+<select id="new-course-period" name="period" required>
+{{ range .Periods }}
+<option value="{{ . }}">{{ . }}</option>
+{{ end }}
+</select>
+<br />
+<label for="new-course-max-students">Max students:</label>
+<input type="number" id="new-course-max-students" name="max_students" min="0" step="1" required />
+<br />
+<label for="new-course-membership">Membership:</label>
+<select id="new-course-membership" name="membership" required>
+{{ range .Memberships }}
+<option value="{{ . }}">{{ . }}</option>
+{{ end }}
+</select>
+<br />
+<label for="new-course-teacher">Teacher:</label>
+<input type="text" id="new-course-teacher" name="teacher" required />
+<br />
+<label for="new-course-location">Location:</label>
+<input type="text" id="new-course-location" name="location" required />
+<br />
+<label for="new-course-category">Category:</label>
+<select id="new-course-category" name="category_id" required>
+{{ range .Categories }}
+<option value="{{ . }}">{{ . }}</option>
+{{ end }}
+</select>
+<br />
+<fieldset>
+<legend>Allowed legal sexes</legend>
+{{ range .LegalSexes }}
+<input type="checkbox" id="new-course-legal-sex-{{ . }}" name="legal_sexes" value="{{ . }}" />
+<label for="new-course-legal-sex-{{ . }}">{{ . }}</label>
+{{ end }}
+<p style="margin: 0.25rem 0rem; font-size: 90%;">Leave all unchecked to allow all legal sexes.</p>
+</fieldset>
+<fieldset>
+<legend>Allowed grades</legend>
+{{ range .Grades }}
+<input type="checkbox" id="new-course-grade-{{ .Grade }}" name="allowed_grades" value="{{ .Grade }}" />
+<label for="new-course-grade-{{ .Grade }}">{{ .Grade }}</label>
+{{ end }}
+<p style="margin: 0.25rem 0rem; font-size: 90%;">Leave all unchecked to allow all grades.</p>
+</fieldset>
+<br />
+<input value="Add" type="submit" />
+</form>
+</section>
+<section class="import">
+<h2>Import CSV</h2>
+<p>
+Upload a CSV to bulk-create courses. Fields must appear in the following order:
+<code>id,name,description,period,max_students,membership,teacher,location,category_id,allowed_legal_sexes,allowed_grades</code>.
+Use comma-separated lists inside the legal sex and grade columns (e.g. <code>"F,M"</code> or <code>"Year 9,Year 10"</code>).
+</p>
+<p>
+Download an example file: <a href="/admin/static/courses_example.csv">courses_example.csv</a>
+</p>
+<form method="POST" action="/admin/courses/import" enctype="multipart/form-data">
+<label for="courses-import-csv">CSV file:</label>
+<input type="file" id="courses-import-csv" name="csv" accept=".csv" required />
+<br />
+<input value="Import" type="submit" />
+</form>
+</section>
 {{ end }}
