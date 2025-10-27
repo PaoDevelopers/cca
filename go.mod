@@ -1,4 +1,4 @@
-module github.com/PaoDevelopers/cca
+module git.sr.ht/~runxiyu/cca
 
 go 1.24.6
 

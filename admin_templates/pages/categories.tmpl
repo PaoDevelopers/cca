@@ -1,0 +1,48 @@
+{{ define "title" }}
+Categories
+{{ end }}
+
+{{ define "content" }}
+<section class="intro">
+<p>
+Categories are arbitrary classification tags that may be applied to
+courses.
+</p>
+<p>
+Some example categories may include
+&ldquo;Sport&rdquo;,
+&ldquo;Enrichment&rdquo;,
+&ldquo;Culture&rdquo;,
+etc.
+</p>
+<p>
+On this page you may define a set of categories up-front;
+in the courses tab, you may reference these categories.
+</p>
+</section>
+<section class="listing">
+<h2>Current categories</h2>
+<ul>
+{{ range . }}
+<li>
+{{ . }}
+<details>
+<summary>Delete</summary>
+<form method="POST" action="/admin/categories/delete">
+<input type="hidden" name="id" value="{{ . }}" />
+<input value="Confirm delete" type="submit" />
+</form>
+</details>
+</li>
+{{ end }}
+</ul>
+</section>
+<section class="new">
+<h2>New category</h2>
+<form method="POST" action="/admin/categories/new">
+<label for="id">ID:</label>
+<input type="text" id="id" name="id" required />
+<input value="Add" type="submit" />
+</form>
+</section>
+{{ end }}

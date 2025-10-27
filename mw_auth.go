@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/PaoDevelopers/cca/db"
+	"git.sr.ht/~runxiyu/cca/db"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -26,7 +26,7 @@ func (u *UserInfoAdmin) isUserInfo() {}
 func (app *App) authenticateRequest(r *http.Request) (UserInfo, error) {
 	cookie, err := r.Cookie("session")
 	if err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("Failed fetching cookie: %w", err)
 	}
 
 	ty, st, ok := strings.Cut(cookie.Value, ":")
@@ -69,5 +69,35 @@ func (app *App) authenticateRequest(r *http.Request) (UserInfo, error) {
 		return &uu, nil
 	default:
 		return nil, fmt.Errorf("Malformed session cookie contains unknown session type")
+	}
+}
+
+func (app *App) studentOnly(handler func(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ui, err := app.authenticateRequest(r)
+		if err != nil {
+			http.Error(w, "Unauthorized\n"+err.Error(), http.StatusUnauthorized)
+		}
+		sui, ok := ui.(*UserInfoStudent)
+		if !ok {
+			http.Error(w, "Student-only endpoint", http.StatusForbidden)
+			return
+		}
+		handler(w, r, sui)
+	}
+}
+
+func (app *App) adminOnly(handler func(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin)) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ui, err := app.authenticateRequest(r)
+		if err != nil {
+			http.Error(w, "Unauthorized\n"+err.Error(), http.StatusUnauthorized)
+		}
+		aui, ok := ui.(*UserInfoAdmin)
+		if !ok {
+			http.Error(w, "Admin-only endpoint", http.StatusForbidden)
+			return
+		}
+		handler(w, r, aui)
 	}
 }

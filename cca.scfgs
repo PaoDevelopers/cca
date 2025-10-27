@@ -1,15 +1,15 @@
 url https://cca.runxiyu.org
 
-database postgres:///cca-ng?host=/var/run/postgresql
+database postgres:///cca?host=/var/run/postgresql
 
 listen {
 	protocol http
 	network tcp
-	address :8192
+	address :443
 	transport tls
 	tls {
-		cert /etc/ssl/pub.pem
-		key /etc/ssl/priv.pem
+		cert /home/runxiyu/.local/share/secrets/cca.r.o-cert.pem
+		key /home/runxiyu/.local/share/secrets/cca.r.o-key.pem
 	}
 }
 
