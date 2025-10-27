@@ -1,3 +1,7 @@
+-- Global TODO:
+-- a few more non-empty string checks
+
+
 -- All fixed constraints declared in the tables directly are the ones that
 -- must always be invariant. The constraints that could be over-ridden
 -- depending on the role should be done in the triggers.
@@ -55,7 +59,6 @@ CREATE TABLE categories (
 CREATE TABLE grade_requirement_groups (
 	id BIGSERIAL PRIMARY KEY,
 	grade TEXT NOT NULL REFERENCES grades(grade) ON UPDATE RESTRICT ON DELETE CASCADE,
-	label TEXT NOT NULL DEFAULT '',
 	min_count BIGINT NOT NULL CHECK (min_count >= 0)
 );
 CREATE TABLE grade_requirement_group_categories (
@@ -214,6 +217,8 @@ BEGIN
 		EXISTS (SELECT 1 FROM course_allowed_grades g WHERE g.course_id = NEW.course_id),
 		EXISTS (SELECT 1 FROM course_allowed_grades g WHERE g.course_id = NEW.course_id AND g.grade = v_student_grade)
 	INTO v_has_grade_list, v_grade_allowed;
+	-- TODO: Consider if we really should allow passing when there are no grades set.
+	-- It's actually a bit ugly/inconsistent, in my opinion.
 
 	IF v_has_grade_list AND NOT v_grade_allowed THEN
 		RAISE EXCEPTION 'Student % grade % not allowed for course %',

@@ -2,16 +2,13 @@ package main
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/MicahParks/keyfunc/v3"
-	"github.com/PaoDevelopers/cca/db"
+	"git.sr.ht/~runxiyu/cca/db"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -21,79 +18,6 @@ type Claims struct {
 	Name  string `json:"name"`
 	Email string `json:"email"`
 	jwt.RegisteredClaims
-}
-
-func (app *App) setupJWKS() error {
-	var err error
-	app.kf, err = keyfunc.NewDefault([]string{app.config.OIDC.JWKS})
-	return err
-}
-
-func (app *App) handleUserInfo(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
-	w.Header().Set("Pragma", "no-cache")
-	w.Header().Set("Expires", "0")
-	w.Header().Set("Content-Type", "application/json")
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	ui, err := app.authenticateRequest(r)
-	if err != nil {
-		http.Error(w, "Error authenticating request: "+err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	switch ui := ui.(type) {
-	case nil:
-		json.NewEncoder(w).Encode(
-			struct {
-				Type      string `json:"type"`
-				Authorize string `json:"authorize"`
-			}{
-				Type: "none",
-				Authorize: fmt.Sprintf(
-					"%s?client_id=%s&response_type=id_token%%20code&redirect_uri=%s%%2Fauth&response_mode=form_post&scope=openid+profile+email+User.Read&nonce=%s",
-					app.config.OIDC.Authorize,
-					app.config.OIDC.Client,
-					app.config.URL,
-					rand.Text(),
-				),
-			},
-		)
-	case *UserInfoStudent:
-		json.NewEncoder(w).Encode(
-			struct {
-				Type     string `json:"type"`
-				ID       int64  `json:"id"`
-				Name     string `json:"name"`
-				Grade    string `json:"grade"`
-				LegalSex string `json:"legal_sex"`
-			}{
-				Type:     "student",
-				ID:       ui.ID,
-				Name:     ui.Name,
-				Grade:    ui.Grade,
-				LegalSex: string(ui.LegalSex),
-			},
-		)
-	case *UserInfoAdmin:
-		json.NewEncoder(w).Encode(
-			struct {
-				Type     string `json:"type"`
-				ID       int64  `json:"id"`
-				Username string `json:"username"`
-			}{
-				Type:     "student",
-				ID:       ui.ID,
-				Username: ui.Username,
-			},
-		)
-	}
 }
 
 func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
@@ -175,9 +99,9 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 	cookie := http.Cookie{
 		Name:     "session",
 		Value:    tst,
-		SameSite: http.SameSiteLaxMode, // XXX TODO SHOULD BE LAX
+		SameSite: http.SameSiteLaxMode,
 		HttpOnly: true,
-		Secure:   true, // TODO
+		Secure:   true,
 		Expires:  time.Now().Add(72 * time.Hour),
 	}
 	http.SetCookie(w, &cookie)
@@ -194,13 +118,15 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal Server Error\nCannot set admin session token", http.StatusInternalServerError)
 			return
 		}
+
+		http.Redirect(w, r, "/admin", http.StatusSeeOther)
 	} else {
 		sid, err := strconv.ParseInt(strings.TrimLeft(lp, "sS"), 10, 64)
 		if err != nil {
 			http.Error(w, "Unauthorized\nInvalid student ID", http.StatusUnauthorized)
 			return
 		}
-		err = app.queries.SetStudentSession(
+		_, err = app.queries.SetStudentSession(
 			r.Context(),
 			db.SetStudentSessionParams{
 				SessionToken: pgtype.Text{String: st, Valid: true},
@@ -215,5 +141,7 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal Server Error\nCannot set student session token", http.StatusInternalServerError)
 			return
 		}
+
+		http.Redirect(w, r, "/student", http.StatusSeeOther)
 	}
 }

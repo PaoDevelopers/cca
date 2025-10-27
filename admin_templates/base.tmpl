@@ -1,0 +1,15 @@
+{{ define "base" }}
+<!DOCTYPE html>
+<head>
+<title>{{ block "title" . }}Untitled{{ end }} &ndash; CCA Admin</title>
+</head>
+<body>
+{{ template "header" . }}
+<main>
+{{ block "content" . }}
+Unpopulated content
+{{ end }}
+</main>
+{{ template "footer" . }}
+</body>
+{{ end }}

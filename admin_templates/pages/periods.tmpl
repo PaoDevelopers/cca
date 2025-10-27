@@ -1,0 +1,47 @@
+{{ define "title" }}
+Periods
+{{ end }}
+
+{{ define "content" }}
+<section class="intro">
+<p>
+Periods are timetable slots. Each course must have one unique period.
+No student may choose more than one course per period.
+</p>
+<p>
+Some example periods include
+&ldquo;Monday/Wednesday CCA 1&rdquo;,
+&ldquo;Tuesday/Thursday CCA 2&rdquo;,
+etc.
+</p>
+<p>
+On this page you may define a set of periods up-front;
+in the courses tab, you may reference these periods.
+</p>
+</section>
+<section class="listing">
+<h2>Current periods</h2>
+<ul>
+{{ range . }}
+<li>
+{{ . }}
+<details>
+<summary>Delete</summary>
+<form method="POST" action="/admin/periods/delete">
+<input type="hidden" name="id" value="{{ . }}" />
+<input value="Confirm delete" type="submit" />
+</form>
+</details>
+</li>
+{{ end }}
+</ul>
+</section>
+<section class="new">
+<h2>New period</h2>
+<form method="POST" action="/admin/periods/new">
+<label for="id">ID:</label>
+<input type="text" id="id" name="id" required />
+<input value="Add" type="submit" />
+</form>
+</section>
+{{ end }}
