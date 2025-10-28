@@ -29,7 +29,7 @@ const selectPeriod = (period: string) => {
   emit('periodChange', period)
 }
 
-const filteredCCAs = computed(() => props.searchActive ? props.ccas : props.ccas.filter(c => c.period === selectedPeriod.value))
+const filteredCCAs = computed(() => props.ccas.filter(c => c.period === selectedPeriod.value))
 
 const ccasByPeriod = computed(() => {
   const grouped: Record<string, CourseWithSelection[]> = {}
@@ -37,6 +37,13 @@ const ccasByPeriod = computed(() => {
     if (!grouped[c.period]) grouped[c.period] = []
     grouped[c.period].push(c)
   })
+  if (props.searchActive && Object.keys(grouped).length > 0) {
+    const firstPeriodWithResults = periods.value.find(p => grouped[p]?.length > 0)
+    if (firstPeriodWithResults && selectedPeriod.value !== firstPeriodWithResults && !grouped[selectedPeriod.value]?.length) {
+      selectedPeriod.value = firstPeriodWithResults
+      emit('periodChange', firstPeriodWithResults)
+    }
+  }
   return grouped
 })
 
@@ -48,7 +55,7 @@ const selectedEnrichment = computed(() => props.ccas.filter(c => c.selected && (
   <div class="flex flex-1">
     <aside class="w-56 border-r border-gray-200 bg-white p-8">
       <ul class="space-y-2 text-sm text-gray-600">
-        <li v-for="period in periods" :key="period" @click="selectPeriod(period)" class="cursor-pointer hover:text-gray-900" :class="selectedPeriod === period ? 'text-[#5bae31] font-medium' : ''">
+        <li v-for="period in periods" :key="period" @click="selectPeriod(period)" class="cursor-pointer" :class="[selectedPeriod === period ? 'text-[#5bae31] font-medium' : '', searchActive && !ccasByPeriod[period]?.length ? 'text-gray-300' : 'hover:text-gray-900']">
           {{ period }}
         </li>
       </ul>
@@ -73,17 +80,8 @@ const selectedEnrichment = computed(() => props.ccas.filter(c => c.selected && (
         </button>
       </div>
 
-      <template v-if="searchActive">
-        <div v-for="(ccas, period) in ccasByPeriod" :key="period" class="mb-8">
-          <h2 class="text-lg font-medium mb-4 text-gray-900">{{ period }}</h2>
-          <CCAGrid v-if="viewMode === 'grid'" :ccas="ccas" @toggle="emit('toggle', $event)" />
-          <CCATable v-else :ccas="ccas" @toggle="emit('toggle', $event)" />
-        </div>
-      </template>
-      <template v-else>
-        <CCAGrid v-if="viewMode === 'grid'" :ccas="filteredCCAs" @toggle="emit('toggle', $event)" />
-        <CCATable v-else :ccas="filteredCCAs" @toggle="emit('toggle', $event)" />
-      </template>
+      <CCAGrid v-if="viewMode === 'grid'" :ccas="filteredCCAs" @toggle="emit('toggle', $event)" />
+      <CCATable v-else :ccas="filteredCCAs" @toggle="emit('toggle', $event)" />
     </main>
   </div>
 </template>
