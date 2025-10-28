@@ -25,3 +25,4 @@ admins {
 	tracy.zhou
 }
 
+sse_buf 256

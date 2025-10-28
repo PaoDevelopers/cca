@@ -15,5 +15,6 @@ type App struct {
 	queries *db.Queries
 	kf      keyfunc.Keyfunc
 	admTmpl map[string]*template.Template
+	broker  *Broker
 	// sseHub  *SSEHub
 }

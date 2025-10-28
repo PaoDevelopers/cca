@@ -60,6 +60,10 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	// SSE broker
+	log.Println("Setting up SSE broker")
+	app.broker = NewBroker(app.config.SSEBuf)
+
 	// Router
 	log.Println("Registering routes")
 	mux := http.NewServeMux()
@@ -95,6 +99,7 @@ func main() {
 	mux.HandleFunc("/admin/selections/edit", app.adminOnly(app.handleAdmSelectionsEdit))
 	mux.HandleFunc("/admin/selections/delete", app.adminOnly(app.handleAdmSelectionsDelete))
 	mux.HandleFunc("/student", app.studentOnly(app.handleStu))
+	mux.HandleFunc("/student/api/events", app.studentOnly(app.handleStuAPIEvents))
 	mux.HandleFunc("/student/api/user_info", app.studentOnly(app.handleStuAPIInfo))
 	mux.HandleFunc("/student/api/courses", app.studentOnly(app.handleStuAPICourses))
 	mux.HandleFunc("/student/api/periods", app.studentOnly(app.handleStuAPIPeriods))
