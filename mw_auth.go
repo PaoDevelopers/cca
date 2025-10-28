@@ -77,6 +77,7 @@ func (app *App) studentOnly(handler func(w http.ResponseWriter, r *http.Request,
 		ui, err := app.authenticateRequest(r)
 		if err != nil {
 			http.Error(w, "Unauthorized\n"+err.Error(), http.StatusUnauthorized)
+			return
 		}
 		sui, ok := ui.(*UserInfoStudent)
 		if !ok {
@@ -92,6 +93,7 @@ func (app *App) adminOnly(handler func(w http.ResponseWriter, r *http.Request, a
 		ui, err := app.authenticateRequest(r)
 		if err != nil {
 			http.Error(w, "Unauthorized\n"+err.Error(), http.StatusUnauthorized)
+			return
 		}
 		aui, ok := ui.(*UserInfoAdmin)
 		if !ok {
