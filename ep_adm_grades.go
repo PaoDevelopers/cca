@@ -14,34 +14,10 @@ func (app *App) handleAdmGrades(w http.ResponseWriter, r *http.Request, aui *Use
 		return
 	}
 
-	// TODO: Transaction!
-
-	grades, err := app.queries.GetGrades(r.Context())
+	grades2, err := app.AbsGrades(r.Context())
 	if err != nil {
 		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
 		return
-	}
-
-	grades2 := []struct {
-		Grade     string
-		Enabled   bool
-		ReqGroups []db.GetRequirementGroupsByGradeRow
-	}{}
-	for _, grade := range grades {
-		reqGroups, err := app.queries.GetRequirementGroupsByGrade(r.Context(), grade.Grade)
-		if err != nil {
-			http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
-			return
-		}
-		grades2 = append(grades2, struct {
-			Grade     string
-			Enabled   bool
-			ReqGroups []db.GetRequirementGroupsByGradeRow
-		}{
-			grade.Grade,
-			grade.Enabled,
-			reqGroups,
-		})
 	}
 
 	categories, err := app.queries.GetCategories(r.Context())
@@ -51,11 +27,7 @@ func (app *App) handleAdmGrades(w http.ResponseWriter, r *http.Request, aui *Use
 	}
 
 	app.admRenderTemplate(w, "grades", struct {
-		Grades []struct {
-			Grade     string
-			Enabled   bool
-			ReqGroups []db.GetRequirementGroupsByGradeRow
-		}
+		Grades     []AbsGradesRow
 		Categories []string
 	}{
 		grades2,
