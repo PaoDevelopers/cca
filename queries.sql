@@ -242,3 +242,7 @@ WHERE student_id = $1 AND period = $2;
 SELECT course_id, period, selection_type
 FROM choices
 WHERE student_id = $1;
+
+
+-- name: DeleteChoiceByStudentAndCourse :exec
+SELECT delete_choice($1, $2);

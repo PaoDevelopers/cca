@@ -266,6 +266,40 @@ BEFORE INSERT OR UPDATE OF course_id, selection_type ON choices
 FOR EACH ROW
 EXECUTE FUNCTION enforce_choice_constraints();
 
+
+
+
+CREATE FUNCTION delete_choice(p_student_id BIGINT, p_course_id TEXT)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_selection_type selection_type;
+BEGIN
+	SELECT selection_type
+	INTO v_selection_type
+	FROM choices
+	WHERE student_id = p_student_id AND course_id = p_course_id
+	FOR UPDATE;
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'No selection found for student % and course %',
+			p_student_id, p_course_id
+			USING ERRCODE = 'no_data_found';
+	END IF;
+
+	IF v_selection_type = 'force' THEN
+		RAISE EXCEPTION 'Cannot delete forced selection for student % and course %',
+			p_student_id, p_course_id
+			USING ERRCODE = 'check_violation';
+	END IF;
+
+	DELETE FROM choices
+	WHERE student_id = p_student_id AND course_id = p_course_id;
+END;
+$$;
+
+
 -- TODO: trigger for deletion of choices when forced?
 
 
