@@ -65,7 +65,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/{$}", app.handleIndex)
 	mux.HandleFunc("/auth", app.handleAuth)
-	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(http.Dir("admin-static"))))
+	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(http.Dir("admin_static"))))
 	mux.HandleFunc("/admin", app.adminOnly(app.handleAdm))
 	mux.HandleFunc("/admin/periods", app.adminOnly(app.handleAdmPeriods))
 	mux.HandleFunc("/admin/periods/new", app.adminOnly(app.handleAdmPeriodsNew))
