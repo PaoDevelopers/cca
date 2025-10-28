@@ -45,7 +45,7 @@ const isOutOfCapacity = computed(() => props.cca.current_students >= props.cca.m
             </div>
             <div class="flex justify-between">
                 <span class="text-gray-500">Capacity</span>
-                <span class="font-medium">{{ cca.current_students }}/{{ cca.max_students }}</span>
+                <span class="font-medium">{{ cca.current_students }}/{{ cca.max_students }} <span v-if="cca.current_students >= cca.max_students" class="text-red-500">(Full!)</span></span>
             </div>
             <div v-if="cca.membership === 'invite_only'" class="flex justify-between">
                 <span class="text-gray-500">Membership</span>

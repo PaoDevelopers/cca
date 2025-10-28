@@ -56,7 +56,7 @@ const groupedCCAs = computed(() => {
                         </button>
                     </td>
                     <td class="p-4 font-medium">{{ cca.name }}</td>
-                    <td class="p-4 text-gray-600">{{ cca.current_students }}/{{ cca.max_students }}</td>
+                    <td class="p-4 text-gray-600">{{ cca.current_students }}/{{ cca.max_students }} <span v-if="cca.current_students >= cca.max_students" class="text-red-500">(Full!)</span></td>
                     <td class="p-4 text-gray-600">{{ cca.id }}</td>
                     <td class="p-4 text-gray-600">{{ cca.membership }}</td>
                     <td class="p-4 text-gray-600">{{ cca.teacher }}</td>
