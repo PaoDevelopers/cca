@@ -76,12 +76,12 @@ func (app *App) studentOnly(handler func(w http.ResponseWriter, r *http.Request,
 	return func(w http.ResponseWriter, r *http.Request) {
 		ui, err := app.authenticateRequest(r)
 		if err != nil {
-			http.Error(w, "Unauthorized\n"+err.Error(), http.StatusUnauthorized)
+			http.Error(w, "Unauthorized\nGo to the root URL (remove everything after the \"/\") to authenticate?\n"+err.Error(), http.StatusUnauthorized)
 			return
 		}
 		sui, ok := ui.(*UserInfoStudent)
 		if !ok {
-			http.Error(w, "Student-only endpoint", http.StatusForbidden)
+			http.Error(w, "Forbidden\nStudent-only endpoint\nGo to the root URL (remove everything after the \"/\") to authenticate?", http.StatusForbidden)
 			return
 		}
 		handler(w, r, sui)
@@ -92,12 +92,12 @@ func (app *App) adminOnly(handler func(w http.ResponseWriter, r *http.Request, a
 	return func(w http.ResponseWriter, r *http.Request) {
 		ui, err := app.authenticateRequest(r)
 		if err != nil {
-			http.Error(w, "Unauthorized\n"+err.Error(), http.StatusUnauthorized)
+			http.Error(w, "Unauthorized\nGo to the root URL (remove everything after the \"/\") to authenticate?\n"+err.Error(), http.StatusUnauthorized)
 			return
 		}
 		aui, ok := ui.(*UserInfoAdmin)
 		if !ok {
-			http.Error(w, "Admin-only endpoint", http.StatusForbidden)
+			http.Error(w, "Forbidden\nAdmin-only endpoint\nGo to the root URL (remove everything after the \"/\") to authenticate?", http.StatusForbidden)
 			return
 		}
 		handler(w, r, aui)

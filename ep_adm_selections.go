@@ -8,6 +8,8 @@ import (
 	"git.sr.ht/~runxiyu/cca/db"
 )
 
+// TODO: See how SSEs should be handled here. We may need a way to map from usernames to connections.
+
 func (app *App) handleAdmSelections(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
 	if r.Method != http.MethodGet {
 		apiError(w, http.StatusMethodNotAllowed, nil)

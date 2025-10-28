@@ -74,7 +74,7 @@ includes details such as capacity, membership type, and location.
 </div>
 <div class="form-field">
 <label for="category-{{ $course.ID }}">Category</label>
-<select id="category-{{ $course.ID }}" name="category_id" required>
+<select id="category-{{ $course.ID }}" name="category" required>
 {{ range $data.Categories }}
 <option value="{{ . }}" {{ if eq . $course.CategoryID }}selected{{ end }}>{{ . }}</option>
 {{ end }}
@@ -140,7 +140,7 @@ includes details such as capacity, membership type, and location.
 </div>
 <div class="form-field">
 <label for="new-course-category">Category</label>
-<select id="new-course-category" name="category_id" required>
+<select id="new-course-category" name="category" required>
 {{ range $data.Categories }}
 <option value="{{ . }}">{{ . }}</option>
 {{ end }}
@@ -183,7 +183,7 @@ Upload a CSV to bulk-create courses. Fields must appear in the following order:
 <code>membership</code>,
 <code>teacher</code>,
 <code>location</code>,
-<code>category_id</code>,
+<code>category</code>,
 <code>allowed_legal_sexes</code>,
 <code>allowed_grades</code>.
 Use comma-separated lists inside the legal sex and grade columns (e.g. <code>"F,M"</code> or <code>"Year 9,Year 10"</code>).

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/csv"
 	"errors"
 	"io"
@@ -116,7 +117,7 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 		return
 	}
 
-	category := strings.TrimSpace(r.FormValue("category_id"))
+	category := strings.TrimSpace(r.FormValue("category"))
 	if category == "" {
 		http.Error(w, "Bad Request\nYou are trying to add a course without a category, which is not allowed", http.StatusBadRequest)
 		return
@@ -156,6 +157,8 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 		allowedGrades = append(allowedGrades, grade)
 	}
 
+	// TODO: transactions!!!
+
 	err = app.queries.NewCourse(r.Context(), db.NewCourseParams{
 		ID:          id,
 		Name:        name,
@@ -193,6 +196,8 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 			return
 		}
 	}
+
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
 
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
@@ -255,7 +260,7 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		return
 	}
 
-	category := strings.TrimSpace(r.FormValue("category_id"))
+	category := strings.TrimSpace(r.FormValue("category"))
 	if category == "" {
 		http.Error(w, "Bad Request\nYou are trying to edit a course without a category, which is not allowed", http.StatusBadRequest)
 		return
@@ -277,6 +282,8 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		return
 	}
 
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
+
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
 
@@ -292,6 +299,8 @@ func (app *App) handleAdmCoursesDelete(w http.ResponseWriter, r *http.Request, a
 		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
 
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
@@ -315,7 +324,15 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 	}
 	defer f.Close()
 
-	reader := csv.NewReader(f)
+	br := bufio.NewReader(f)
+	if b, _ := br.Peek(3); len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
+		if _, err := br.Discard(3); err != nil {
+			http.Error(w, "Bad Request\n"+err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	reader := csv.NewReader(br)
 	header, err := reader.Read()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -335,7 +352,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		"membership",
 		"teacher",
 		"location",
-		"category_id",
+		"category",
 		"allowed_legal_sexes",
 		"allowed_grades",
 	}
@@ -501,6 +518,8 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
 
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }

@@ -60,6 +60,10 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	// SSE broker
+	log.Println("Setting up SSE broker")
+	app.broker = NewBroker(app.config.SSEBuf)
+
 	// Router
 	log.Println("Registering routes")
 	mux := http.NewServeMux()
@@ -67,6 +71,7 @@ func main() {
 	mux.HandleFunc("/auth", app.handleAuth)
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(http.Dir("admin_static"))))
 	mux.HandleFunc("/admin", app.adminOnly(app.handleAdm))
+	mux.HandleFunc("/admin/notify", app.adminOnly(app.handleAdmNotify))
 	mux.HandleFunc("/admin/periods", app.adminOnly(app.handleAdmPeriods))
 	mux.HandleFunc("/admin/periods/new", app.adminOnly(app.handleAdmPeriodsNew))
 	mux.HandleFunc("/admin/periods/delete", app.adminOnly(app.handleAdmPeriodsDelete))
@@ -95,8 +100,11 @@ func main() {
 	mux.HandleFunc("/admin/selections/edit", app.adminOnly(app.handleAdmSelectionsEdit))
 	mux.HandleFunc("/admin/selections/delete", app.adminOnly(app.handleAdmSelectionsDelete))
 	mux.HandleFunc("/student", app.studentOnly(app.handleStu))
+	mux.HandleFunc("/student/api/events", app.studentOnly(app.handleStuAPIEvents))
 	mux.HandleFunc("/student/api/user_info", app.studentOnly(app.handleStuAPIInfo))
 	mux.HandleFunc("/student/api/courses", app.studentOnly(app.handleStuAPICourses))
+	mux.HandleFunc("/student/api/periods", app.studentOnly(app.handleStuAPIPeriods))
+	mux.HandleFunc("/student/api/categories", app.studentOnly(app.handleStuAPICategories))
 	mux.HandleFunc("/student/api/grades", app.studentOnly(app.handleStuAPIGrades))
 	mux.HandleFunc("/student/api/my_selections", app.studentOnly(app.handleStuAPIMySelections))
 
