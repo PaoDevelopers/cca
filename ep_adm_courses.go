@@ -157,6 +157,8 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 		allowedGrades = append(allowedGrades, grade)
 	}
 
+	// TODO: transactions!!!
+
 	err = app.queries.NewCourse(r.Context(), db.NewCourseParams{
 		ID:          id,
 		Name:        name,
@@ -194,6 +196,8 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 			return
 		}
 	}
+
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
 
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
@@ -278,6 +282,8 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		return
 	}
 
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
+
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
 
@@ -293,6 +299,8 @@ func (app *App) handleAdmCoursesDelete(w http.ResponseWriter, r *http.Request, a
 		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
 
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
@@ -510,6 +518,8 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
 
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }

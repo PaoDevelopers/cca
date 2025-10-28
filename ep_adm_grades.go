@@ -48,6 +48,8 @@ func (app *App) handleAdmGradesNew(w http.ResponseWriter, r *http.Request, aui *
 		return
 	}
 
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_grades"})
+
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
 func (app *App) handleAdmGradesBulkEnabledUpdate(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
@@ -72,8 +74,12 @@ func (app *App) handleAdmGradesBulkEnabledUpdate(w http.ResponseWriter, r *http.
 		return
 	}
 
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_grades"})
+
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
+
+// Is this even still used?
 func (app *App) handleAdmGradesEdit(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
 	grade := r.FormValue("grade")
 	if grade == "" {
@@ -92,6 +98,8 @@ func (app *App) handleAdmGradesEdit(w http.ResponseWriter, r *http.Request, aui 
 		return
 	}
 
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_grades"})
+
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
 func (app *App) handleAdmGradesDelete(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
@@ -106,6 +114,8 @@ func (app *App) handleAdmGradesDelete(w http.ResponseWriter, r *http.Request, au
 		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_grades"})
 
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
@@ -143,6 +153,8 @@ func (app *App) handleAdmGradesNewRequirementGroup(w http.ResponseWriter, r *htt
 		return
 	}
 
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_grades"})
+
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
 func (app *App) handleAdmGradesDeleteRequirementGroup(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
@@ -157,6 +169,8 @@ func (app *App) handleAdmGradesDeleteRequirementGroup(w http.ResponseWriter, r *
 		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_grades"})
 
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }

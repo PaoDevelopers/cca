@@ -32,6 +32,8 @@ func (app *App) handleAdmPeriodsNew(w http.ResponseWriter, r *http.Request, aui 
 		return
 	}
 
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_periods"})
+
 	http.Redirect(w, r, "/admin/periods", http.StatusSeeOther)
 }
 func (app *App) handleAdmPeriodsDelete(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
@@ -46,6 +48,8 @@ func (app *App) handleAdmPeriodsDelete(w http.ResponseWriter, r *http.Request, a
 		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_periods"})
 
 	http.Redirect(w, r, "/admin/periods", http.StatusSeeOther)
 }

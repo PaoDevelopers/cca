@@ -32,6 +32,8 @@ func (app *App) handleAdmCategoriesNew(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_categories"})
+
 	http.Redirect(w, r, "/admin/categories", http.StatusSeeOther)
 }
 func (app *App) handleAdmCategoriesDelete(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
@@ -46,6 +48,8 @@ func (app *App) handleAdmCategoriesDelete(w http.ResponseWriter, r *http.Request
 		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	app.broker.Broadcast(BrokerMsg{event: "invalidate_categories"})
 
 	http.Redirect(w, r, "/admin/categories", http.StatusSeeOther)
 }
