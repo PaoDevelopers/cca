@@ -8,42 +8,34 @@ interface CourseWithSelection extends Course {
   selected: boolean
 }
 
-const props = defineProps<{ ccas: CourseWithSelection[], searchActive: boolean, userGrade?: string }>()
+const props = defineProps<{ ccas: CourseWithSelection[], searchActive: boolean, userGrade?: string, grades: any[], periods: string[] }>()
 const emit = defineEmits<{ toggle: [id: string], periodChange: [period: string] }>()
 
-const periods = ref<string[]>([])
 const selectedPeriod = ref<string>('')
 const viewMode = ref<'grid' | 'table'>('grid')
 const reqGroups = ref<Array<{ id: number, min_count: number, category_ids: string[] }>>([])
 
-const grades = ref<any[]>([])
-
-const loadPeriods = async () => {
-  const periodsRes = await fetch('/student/api/periods', { credentials: 'include' })
-  periods.value = await periodsRes.json()
-  if (periods.value.length > 0 && !selectedPeriod.value) {
-    selectedPeriod.value = periods.value[0]
-    emit('periodChange', periods.value[0])
-  }
-}
-
 const updateReqGroups = () => {
-  if (props.userGrade && grades.value.length) {
-    const userGradeData = grades.value.find((g: any) => g.grade === props.userGrade)
+  if (props.userGrade && props.grades.length) {
+    const userGradeData = props.grades.find((g: any) => g.grade === props.userGrade)
     if (userGradeData) reqGroups.value = userGradeData.req_groups
   }
 }
 
-onMounted(async () => {
-  const gradesRes = await fetch('/student/api/grades', { credentials: 'include' })
-  grades.value = await gradesRes.json()
+const initPeriod = () => {
+  if (props.periods.length > 0 && !selectedPeriod.value) {
+    selectedPeriod.value = props.periods[0]
+    emit('periodChange', props.periods[0])
+  }
+}
+
+onMounted(() => {
   updateReqGroups()
-  await loadPeriods()
+  initPeriod()
 })
 
-defineExpose({ loadPeriods })
-
-watch(() => props.userGrade, updateReqGroups)
+watch(() => [props.userGrade, props.grades], updateReqGroups)
+watch(() => props.periods, initPeriod, { immediate: true })
 
 const selectPeriod = (period: string) => {
   selectedPeriod.value = period
@@ -59,7 +51,7 @@ const ccasByPeriod = computed(() => {
     grouped[c.period].push(c)
   })
   if (props.searchActive && Object.keys(grouped).length > 0) {
-    const firstPeriodWithResults = periods.value.find(p => grouped[p]?.length > 0)
+    const firstPeriodWithResults = props.periods.find(p => grouped[p]?.length > 0)
     if (firstPeriodWithResults && selectedPeriod.value !== firstPeriodWithResults && !grouped[selectedPeriod.value]?.length) {
       selectedPeriod.value = firstPeriodWithResults
       emit('periodChange', firstPeriodWithResults)
@@ -81,7 +73,7 @@ const requirementCounts = computed(() => {
   <div class="flex flex-1">
     <aside class="w-56 border-r border-gray-200 bg-white p-8">
       <ul class="space-y-2 text-sm text-gray-600">
-        <li v-for="period in periods" :key="period" @click="selectPeriod(period)" class="cursor-pointer" :class="[selectedPeriod === period ? 'text-[#5bae31] font-medium' : '', searchActive && !ccasByPeriod[period]?.length ? 'text-gray-300' : 'hover:text-gray-900']">
+        <li v-for="period in props.periods" :key="period" @click="selectPeriod(period)" class="cursor-pointer" :class="[selectedPeriod === period ? 'text-[#5bae31] font-medium' : '', searchActive && !ccasByPeriod[period]?.length ? 'text-gray-300' : 'hover:text-gray-900']">
           {{ period }}
         </li>
       </ul>
