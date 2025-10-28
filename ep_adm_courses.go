@@ -6,11 +6,20 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
 	"git.sr.ht/~runxiyu/cca/db"
 )
+
+type adminCourse struct {
+	Course               db.Course
+	AllowedLegalSexes    []db.LegalSex
+	AllowedLegalSexesMap map[db.LegalSex]bool
+	AllowedGrades        []string
+	AllowedGradesMap     map[string]bool
+}
 
 func (app *App) handleAdmCourses(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
 	if r.Method != http.MethodGet {
@@ -42,15 +51,67 @@ func (app *App) handleAdmCourses(w http.ResponseWriter, r *http.Request, aui *Us
 		return
 	}
 
+	legalSexRestrictions, err := app.queries.GetCourseAllowedLegalSexes(r.Context())
+	if err != nil {
+		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	gradeRestrictions, err := app.queries.GetCourseAllowedGrades(r.Context())
+	if err != nil {
+		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	courseViews := make([]adminCourse, len(courses))
+	courseByID := make(map[string]*adminCourse, len(courses))
+	for i := range courses {
+		courseViews[i] = adminCourse{
+			Course: courses[i],
+		}
+		courseByID[courses[i].ID] = &courseViews[i]
+	}
+
+	for _, restriction := range legalSexRestrictions {
+		if course, ok := courseByID[restriction.CourseID]; ok {
+			course.AllowedLegalSexes = append(course.AllowedLegalSexes, restriction.LegalSex)
+			if course.AllowedLegalSexesMap == nil {
+				course.AllowedLegalSexesMap = make(map[db.LegalSex]bool)
+			}
+			course.AllowedLegalSexesMap[restriction.LegalSex] = true
+		}
+	}
+
+	for _, restriction := range gradeRestrictions {
+		if course, ok := courseByID[restriction.CourseID]; ok {
+			course.AllowedGrades = append(course.AllowedGrades, restriction.Grade)
+			if course.AllowedGradesMap == nil {
+				course.AllowedGradesMap = make(map[string]bool)
+			}
+			course.AllowedGradesMap[restriction.Grade] = true
+		}
+	}
+
+	for i := range courseViews {
+		if len(courseViews[i].AllowedLegalSexes) > 1 {
+			sort.Slice(courseViews[i].AllowedLegalSexes, func(a, b int) bool {
+				return courseViews[i].AllowedLegalSexes[a] < courseViews[i].AllowedLegalSexes[b]
+			})
+		}
+		if len(courseViews[i].AllowedGrades) > 1 {
+			sort.Strings(courseViews[i].AllowedGrades)
+		}
+	}
+
 	app.admRenderTemplate(w, "courses", struct {
-		Courses     []db.Course
+		Courses     []adminCourse
 		Categories  []string
 		Periods     []string
 		Grades      []db.Grade
 		Memberships []db.MembershipType
 		LegalSexes  []db.LegalSex
 	}{
-		Courses:     courses,
+		Courses:     courseViews,
 		Categories:  categories,
 		Periods:     periods,
 		Grades:      grades,
@@ -266,7 +327,50 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		return
 	}
 
-	err = app.queries.UpdateCourse(r.Context(), db.UpdateCourseParams{
+	legalSexValues := r.PostForm["legal_sexes"]
+	legalSexSeen := make(map[db.LegalSex]struct{})
+	var legalSexes []db.LegalSex
+	for _, value := range legalSexValues {
+		ls := db.LegalSex(strings.TrimSpace(value))
+		switch ls {
+		case db.LegalSexF, db.LegalSexM, db.LegalSexX:
+		default:
+			http.Error(w, "Bad Request\nUnknown legal sex value", http.StatusBadRequest)
+			return
+		}
+		if _, ok := legalSexSeen[ls]; ok {
+			continue
+		}
+		legalSexSeen[ls] = struct{}{}
+		legalSexes = append(legalSexes, ls)
+	}
+
+	gradeValues := r.PostForm["allowed_grades"]
+	gradeSeen := make(map[string]struct{})
+	var allowedGrades []string
+	for _, value := range gradeValues {
+		grade := strings.TrimSpace(value)
+		if grade == "" {
+			http.Error(w, "Bad Request\nUnknown grade value", http.StatusBadRequest)
+			return
+		}
+		if _, ok := gradeSeen[grade]; ok {
+			continue
+		}
+		gradeSeen[grade] = struct{}{}
+		allowedGrades = append(allowedGrades, grade)
+	}
+
+	tx, err := app.pool.Begin(r.Context())
+	if err != nil {
+		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	qtx := app.queries.WithTx(tx)
+
+	err = qtx.UpdateCourse(r.Context(), db.UpdateCourseParams{
 		ID:          id,
 		Name:        name,
 		Description: description,
@@ -277,6 +381,46 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		Location:    location,
 		CategoryID:  category,
 	})
+	if err != nil {
+		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = qtx.DeleteCourseAllowedLegalSexes(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	err = qtx.DeleteCourseAllowedGrades(r.Context(), id)
+	if err != nil {
+		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	for _, ls := range legalSexes {
+		err = qtx.AddCourseAllowedLegalSex(r.Context(), db.AddCourseAllowedLegalSexParams{
+			CourseID: id,
+			LegalSex: ls,
+		})
+		if err != nil {
+			http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	for _, grade := range allowedGrades {
+		err = qtx.AddCourseAllowedGrade(r.Context(), db.AddCourseAllowedGradeParams{
+			CourseID: id,
+			Grade:    grade,
+		})
+		if err != nil {
+			http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	err = tx.Commit(r.Context())
 	if err != nil {
 		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
 		return

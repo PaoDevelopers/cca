@@ -109,6 +109,24 @@ VALUES ($1, $2);
 INSERT INTO course_allowed_grades (course_id, grade)
 VALUES ($1, $2);
 
+-- name: GetCourseAllowedLegalSexes :many
+SELECT course_id, legal_sex
+FROM course_allowed_legal_sexes
+ORDER BY course_id, legal_sex;
+
+-- name: GetCourseAllowedGrades :many
+SELECT course_id, grade
+FROM course_allowed_grades
+ORDER BY course_id, grade;
+
+-- name: DeleteCourseAllowedLegalSexes :exec
+DELETE FROM course_allowed_legal_sexes
+WHERE course_id = $1;
+
+-- name: DeleteCourseAllowedGrades :exec
+DELETE FROM course_allowed_grades
+WHERE course_id = $1;
+
 ---- Grades
 
 -- name: GetGrades :many
