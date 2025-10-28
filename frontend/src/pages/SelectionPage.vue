@@ -13,7 +13,8 @@ const props = defineProps<{
     searchActive: boolean,
     userGrade?: string,
     grades: any[],
-    periods: string[]
+    periods: string[],
+    initialPeriod?: string
 }>()
 const emit = defineEmits<{ toggle: [id: string], periodChange: [period: string] }>()
 
@@ -29,7 +30,9 @@ const updateReqGroups = () => {
 }
 
 const initPeriod = () => {
-    if (props.periods.length > 0 && !selectedPeriod.value) {
+    if (props.initialPeriod) {
+        selectedPeriod.value = props.initialPeriod
+    } else if (props.periods.length > 0 && !selectedPeriod.value) {
         selectedPeriod.value = props.periods[0]
         emit('periodChange', props.periods[0])
     }
@@ -87,30 +90,32 @@ const requirementCounts = computed(() => {
         </aside>
 
         <main class="flex-1 p-8 bg-gray-50/30">
-            <div class="flex justify-end mb-6 gap-2">
-                <div
-                    class="flex gap-3 mr-auto text-xs font-semibold uppercase tracking-wide border border-gray-200 rounded px-4 py-2 bg-white">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex gap-3 text-sm border border-gray-200 rounded px-4 py-2 bg-white">
+                    <span class="text-gray-600">Requirements:</span>
                     <template v-for="(req, i) in requirementCounts" :key="i">
                         <span v-if="i > 0" class="text-gray-300">·</span>
-                        <span class="text-gray-900">{{ req.selected }}/{{ req.required }} {{
+                        <span :class="req.selected >= req.required ? 'text-green-600' : 'text-gray-900'">{{ req.selected }}/{{ req.required }} {{
                                 req.categories.join('/')
                             }}</span>
                     </template>
                 </div>
-                <button @click="viewMode = 'grid'" class="p-2 border rounded"
-                        :class="viewMode === 'grid' ? 'bg-[#5bae31] text-white border-[#5bae31]' : 'border-gray-300 text-gray-600'">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
-                    </svg>
-                </button>
-                <button @click="viewMode = 'table'" class="p-2 border rounded"
-                        :class="viewMode === 'table' ? 'bg-[#5bae31] text-white border-[#5bae31]' : 'border-gray-300 text-gray-600'">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                    </svg>
-                </button>
+                <div class="flex gap-2">
+                    <button @click="viewMode = 'grid'" class="p-2 border rounded"
+                            :class="viewMode === 'grid' ? 'bg-[#5bae31] text-white border-[#5bae31]' : 'border-gray-300 text-gray-600'">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                        </svg>
+                    </button>
+                    <button @click="viewMode = 'table'" class="p-2 border rounded"
+                            :class="viewMode === 'table' ? 'bg-[#5bae31] text-white border-[#5bae31]' : 'border-gray-300 text-gray-600'">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <CCAGrid v-if="viewMode === 'grid'" :ccas="filteredCCAs" @toggle="emit('toggle', $event)"/>

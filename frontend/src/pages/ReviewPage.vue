@@ -61,13 +61,13 @@ const selectionRows = computed(() => {
 <template>
     <div class="flex-1 p-8 bg-gray-50/30">
         <div class="max-w-4xl mx-auto">
-            <div class="flex items-center justify-between mb-8">
+            <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-light">Your Selections</h2>
-                <div
-                    class="flex gap-3 text-xs font-semibold uppercase tracking-wide border border-gray-200 rounded px-4 py-2 bg-white">
+                <div class="flex gap-3 text-sm border border-gray-200 rounded px-4 py-2 bg-white">
+                    <span class="text-gray-600">Requirements:</span>
                     <template v-for="(req, i) in requirementCounts" :key="i">
                         <span v-if="i > 0" class="text-gray-300">·</span>
-                        <span class="text-gray-900">{{ req.selected }}/{{ req.required }} {{
+                        <span :class="req.selected >= req.required ? 'text-green-600' : 'text-gray-900'">{{ req.selected }}/{{ req.required }} {{
                                 req.categories.join('/')
                             }}</span>
                     </template>

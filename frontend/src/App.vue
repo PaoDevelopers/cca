@@ -272,7 +272,7 @@ if (typeof window !== 'undefined') {
 
         <SelectionPage v-if="activeTab === 'Selection'" ref="selectionPageRef" :ccas="filteredCCAs"
                        :search-active="searchScope === 'global' && !!searchQuery" :user-grade="userInfo?.grade"
-                       :grades="grades" :periods="periods" @toggle="toggleCCA" @period-change="currentPeriod = $event"/>
+                       :grades="grades" :periods="periods" :initial-period="currentPeriod" @toggle="toggleCCA" @period-change="currentPeriod = $event"/>
         <ReviewPage v-else :ccas="ccas" :user-grade="userInfo?.grade" :grades="grades"/>
     </div>
 </template>

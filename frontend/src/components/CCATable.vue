@@ -38,12 +38,14 @@ const groupedCCAs = computed(() => {
                 <tr class="bg-gray-100">
                     <td colspan="7" class="p-3 font-medium text-sm">{{ category }}</td>
                 </tr>
-                <tr v-for="cca in ccas" :key="cca.id" class="border-b border-gray-200 hover:bg-gray-50">
+                <tr v-for="cca in ccas" :key="cca.id" class="border-b border-gray-200"
+                    :class="cca.current_students >= cca.max_students && !cca.selected ? 'opacity-50' : 'hover:bg-gray-50'">
                     <td class="p-4">
                         <button
                             @click="emit('toggle', cca.id)"
+                            :disabled="cca.current_students >= cca.max_students && !cca.selected"
                             class="w-8 h-8 flex items-center justify-center border rounded transition-colors"
-                            :class="cca.selected ? 'bg-[#5bae31] border-[#5bae31] text-white' : 'border-gray-300 text-gray-400 hover:border-[#5bae31] hover:text-[#5bae31]'"
+                            :class="cca.selected ? 'bg-[#5bae31] border-[#5bae31] text-white' : (cca.current_students >= cca.max_students ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-400 hover:border-[#5bae31] hover:text-[#5bae31]')"
                         >
                             <svg v-if="cca.selected" class="w-4 h-4" fill="none" stroke="currentColor"
                                  viewBox="0 0 24 24">
