@@ -1,5 +1,6 @@
 # YK Pao School Co-curricular Activities Selections System
 
+[Main repo](https://git.sr.ht/~runxiyu/cca)\
 [Issue tracker](https://todo.sr.ht/~runxiyu/cca)
 
 ## Build
