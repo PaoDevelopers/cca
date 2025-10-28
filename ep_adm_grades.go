@@ -61,6 +61,7 @@ func (app *App) handleAdmGradesBulkEnabledUpdate(w http.ResponseWriter, r *http.
 	for _, grade := range r.PostForm {
 		if len(grade) != 1 {
 			http.Error(w, "Bad Request\nDuplicate or zero-length value sets in your form...?", http.StatusBadRequest)
+			return
 		}
 		grades = append(grades, grade[0])
 	}
