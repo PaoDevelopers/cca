@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/csv"
 	"errors"
 	"io"
@@ -315,7 +316,15 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 	}
 	defer f.Close()
 
-	reader := csv.NewReader(f)
+	br := bufio.NewReader(f)
+	if b, _ := br.Peek(3); len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
+		if _, err := br.Discard(3); err != nil {
+			http.Error(w, "Bad Request\n"+err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	reader := csv.NewReader(br)
 	header, err := reader.Read()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
