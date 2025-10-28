@@ -275,5 +275,9 @@ if (typeof window !== 'undefined') {
                        :search-active="searchScope === 'global' && !!searchQuery" :user-grade="userInfo?.grade"
                        :grades="grades" :periods="periods" :initial-period="currentPeriod" :initial-view-mode="viewMode" @toggle="toggleCCA" @period-change="currentPeriod = $event" @view-mode-change="viewMode = $event"/>
         <ReviewPage v-else :ccas="ccas" :user-grade="userInfo?.grade" :grades="grades"/>
+
+        <footer class="border-t border-gray-200 bg-white py-4 text-center text-sm text-gray-600">
+            Written by Runxi Yu and Henry Yang
+        </footer>
     </div>
 </template>
