@@ -18,25 +18,32 @@ const reqGroups = ref<Array<{ id: number, min_count: number, category_ids: strin
 
 const grades = ref<any[]>([])
 
-onMounted(async () => {
-  const [periodsRes, gradesRes] = await Promise.all([
-    fetch('/student/api/periods', { credentials: 'include' }),
-    fetch('/student/api/grades', { credentials: 'include' })
-  ])
+const loadPeriods = async () => {
+  const periodsRes = await fetch('/student/api/periods', { credentials: 'include' })
   periods.value = await periodsRes.json()
-  if (periods.value.length > 0) {
+  if (periods.value.length > 0 && !selectedPeriod.value) {
     selectedPeriod.value = periods.value[0]
     emit('periodChange', periods.value[0])
   }
-  grades.value = await gradesRes.json()
-})
+}
 
-watch(() => props.userGrade, (userGrade) => {
-  if (userGrade && grades.value.length) {
-    const userGradeData = grades.value.find((g: any) => g.grade === userGrade)
+const updateReqGroups = () => {
+  if (props.userGrade && grades.value.length) {
+    const userGradeData = grades.value.find((g: any) => g.grade === props.userGrade)
     if (userGradeData) reqGroups.value = userGradeData.req_groups
   }
-}, { immediate: true })
+}
+
+onMounted(async () => {
+  const gradesRes = await fetch('/student/api/grades', { credentials: 'include' })
+  grades.value = await gradesRes.json()
+  updateReqGroups()
+  await loadPeriods()
+})
+
+defineExpose({ loadPeriods })
+
+watch(() => props.userGrade, updateReqGroups)
 
 const selectPeriod = (period: string) => {
   selectedPeriod.value = period
