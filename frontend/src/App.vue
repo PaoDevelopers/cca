@@ -2,11 +2,13 @@
 import { ref, onMounted, computed } from 'vue'
 import SelectionPage from './pages/SelectionPage.vue'
 import ReviewPage from './pages/ReviewPage.vue'
-import type { Course, Student } from './types'
+import type { Course, Student, Choice } from './types'
 
 interface CourseWithSelection extends Course {
   selected: boolean
 }
+
+type SelectionResponse = Pick<Choice, 'course_id' | 'period' | 'selection_type'>
 
 const activeTab = ref<'Selection' | 'Review'>('Selection')
 const ccas = ref<CourseWithSelection[]>([])
@@ -14,27 +16,130 @@ const userInfo = ref<Student | null>(null)
 const searchQuery = ref<string>('')
 const searchScope = ref<'global' | 'period'>('global')
 const currentPeriod = ref<string>('')
+const errorMessage = ref<string | null>(null)
+const isUpdatingSelection = ref(false)
+
+const extractErrorMessage = async (res: Response) => {
+  const text = await res.text()
+  if (!text) {
+    return `Request failed with status ${res.status}`
+  }
+  try {
+    const data = JSON.parse(text)
+    if (typeof data === 'string') return data
+    if (data && typeof data === 'object') {
+      if (typeof (data as { message?: unknown }).message === 'string') {
+        return (data as { message: string }).message
+      }
+      if (typeof (data as { error?: unknown }).error === 'string') {
+        return (data as { error: string }).error
+      }
+      const fallback = JSON.stringify(data)
+      return fallback === '{}' ? `Request failed with status ${res.status}` : fallback
+    }
+    return String(data)
+  } catch {
+    return text.trim() === 'null' ? `Request failed with status ${res.status}` : text
+  }
+}
+
+const fetchJson = async <T>(input: RequestInfo, init?: RequestInit) => {
+  const res = await fetch(input, init)
+  if (!res.ok) {
+    throw new Error(await extractErrorMessage(res))
+  }
+  return res.json() as Promise<T>
+}
+
+const extractCourseId = (value: unknown) => {
+  if (value && typeof value === 'object') {
+    const courseId = (value as SelectionResponse).course_id
+    if (typeof courseId === 'string') return courseId
+    const fallback = (value as { courseID?: unknown }).courseID
+    if (typeof fallback === 'string') return fallback
+  }
+  return typeof value === 'string' ? value : null
+}
+
+const applySelections = (selections: SelectionResponse[] | null | undefined) => {
+  const list = Array.isArray(selections) ? selections : []
+  const selectedIds = new Set<string>()
+  list.forEach(selection => {
+    const courseId = extractCourseId(selection)
+    if (courseId) {
+      selectedIds.add(courseId)
+    }
+  })
+  ccas.value = ccas.value.map(course => ({
+    ...course,
+    selected: selectedIds.has(course.id)
+  }))
+}
+
+const requestSelectionUpdate = async (method: 'PUT' | 'DELETE', courseId: string) => {
+  try {
+    const res = await fetch('/student/api/my_selections', {
+      method,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(courseId)
+    })
+    if (!res.ok) {
+      throw new Error(await extractErrorMessage(res))
+    }
+    const selections = await res.json() as SelectionResponse[] | null
+    applySelections(selections)
+    errorMessage.value = null
+    return true
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'Unable to update selections.'
+    return false
+  }
+}
 
 onMounted(async () => {
-  const [coursesRes, userRes] = await Promise.all([
-    fetch('/student/api/courses', { credentials: 'include' }),
-    fetch('/student/api/user_info', { credentials: 'include' })
-  ])
-  ccas.value = (await coursesRes.json()).map((c: any) => ({ ...c, current_students: 0, selected: false }))
-  userInfo.value = await userRes.json()
+  try {
+    const [coursesData, userData, selectionsData] = await Promise.all([
+      fetchJson<Course[]>('/student/api/courses', { credentials: 'include' }),
+      fetchJson<Student>('/student/api/user_info', { credentials: 'include' }),
+      fetchJson<SelectionResponse[] | null>('/student/api/my_selections', { credentials: 'include' })
+    ])
+    ccas.value = coursesData.map((course: Course) => ({
+      ...course,
+      current_students: course.current_students ?? 0,
+      selected: false
+    }))
+    userInfo.value = userData
+    applySelections(selectionsData)
+  } catch (err) {
+    errorMessage.value = err instanceof Error ? err.message : 'Failed to load data.'
+  }
 })
 
-const toggleCCA = (id: string) => {
-  const cca = ccas.value.find((c: CourseWithSelection) => c.id === id)
-  if (!cca) return
+const toggleCCA = async (id: string) => {
+  const course = ccas.value.find((c: CourseWithSelection) => c.id === id)
+  if (!course || isUpdatingSelection.value) return
 
-  if (cca.selected) {
-    cca.selected = false
-  } else {
-    ccas.value.forEach((c: CourseWithSelection) => {
-      if (c.period === cca.period) c.selected = false
-    })
-    cca.selected = true
+  isUpdatingSelection.value = true
+  errorMessage.value = null
+
+  try {
+    if (course.selected) {
+      await requestSelectionUpdate('DELETE', course.id)
+      return
+    }
+
+    const existingSelection = ccas.value.find(c => c.period === course.period && c.selected)
+    if (existingSelection) {
+      const removed = await requestSelectionUpdate('DELETE', existingSelection.id)
+      if (!removed) {
+        return
+      }
+    }
+
+    await requestSelectionUpdate('PUT', course.id)
+  } finally {
+    isUpdatingSelection.value = false
   }
 }
 
@@ -72,6 +177,13 @@ const filteredCCAs = computed(() => {
         </div>
       </div>
     </header>
+
+    <div v-if="errorMessage" class="px-8 mt-4">
+      <div class="border border-red-200 bg-red-50 text-red-700 rounded-lg px-4 py-3">
+        <p class="font-semibold">We hit a problem</p>
+        <p class="text-sm mt-1">{{ errorMessage }}</p>
+      </div>
+    </div>
 
     <div class="border-b border-gray-200 bg-white">
       <div class="flex justify-between items-center px-8 py-4">
