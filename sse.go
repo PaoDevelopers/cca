@@ -1,6 +1,9 @@
 package main
 
-import "sync"
+import (
+	"strings"
+	"sync"
+)
 
 type BrokerMsg struct {
 	event string
@@ -36,6 +39,9 @@ func (b *Broker) Unsubscribe(ch chan BrokerMsg) {
 }
 
 func (b *Broker) Broadcast(msg BrokerMsg) {
+	if strings.Contains(msg.event, "\n") || strings.Contains(msg.data, "\n") {
+		panic("newlines are not allowed in SSE messages")
+	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for ch := range b.clients {
