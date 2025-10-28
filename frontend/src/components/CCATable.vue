@@ -43,9 +43,9 @@ const groupedCCAs = computed(() => {
                     <td class="p-4">
                         <button
                             @click="emit('toggle', cca.id)"
-                            :disabled="cca.current_students >= cca.max_students && !cca.selected"
+                            :disabled="(cca.current_students >= cca.max_students || cca.membership === 'invite_only') && !cca.selected"
                             class="w-8 h-8 flex items-center justify-center border rounded transition-colors"
-                            :class="cca.selected ? 'bg-[#5bae31] border-[#5bae31] text-white' : (cca.current_students >= cca.max_students ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-400 hover:border-[#5bae31] hover:text-[#5bae31]')"
+                            :class="cca.selected ? 'bg-[#5bae31] border-[#5bae31] text-white' : ((cca.current_students >= cca.max_students || cca.membership === 'invite_only') && !cca.selected ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-400 hover:border-[#5bae31] hover:text-[#5bae31]')"
                         >
                             <svg v-if="cca.selected" class="w-4 h-4" fill="none" stroke="currentColor"
                                  viewBox="0 0 24 24">

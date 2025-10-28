@@ -10,6 +10,7 @@ const props = defineProps<{ cca: CourseWithSelection }>()
 const emit = defineEmits<{ toggle: [id: string] }>()
 
 const isOutOfCapacity = computed(() => props.cca.current_students >= props.cca.max_students && !props.cca.selected)
+const isDisabled = computed(() => isOutOfCapacity.value || (props.cca.membership === 'invite_only' && !props.cca.selected))
 </script>
 
 <template>
@@ -20,9 +21,9 @@ const isOutOfCapacity = computed(() => props.cca.current_students >= props.cca.m
             <h3 class="text-lg font-semibold pr-12">{{ cca.name }}</h3>
             <button
                 @click="emit('toggle', cca.id)"
-                :disabled="isOutOfCapacity"
+                :disabled="isDisabled"
                 class="w-8 h-8 flex items-center justify-center border rounded transition-colors flex-shrink-0"
-                :class="cca.selected ? 'bg-[#5bae31] border-[#5bae31] text-white' : isOutOfCapacity ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-400 text-gray-600 hover:border-[#5bae31] hover:text-[#5bae31]'"
+                :class="cca.selected ? 'bg-[#5bae31] border-[#5bae31] text-white' : isDisabled ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-400 text-gray-600 hover:border-[#5bae31] hover:text-[#5bae31]'"
             >
                 <svg v-if="cca.selected" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
