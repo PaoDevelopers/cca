@@ -6,10 +6,21 @@ import (
 )
 
 func (app *App) handleStuAPIMySelections(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent) {
-	if r.Method != http.MethodGet {
-		apiError(w, http.StatusMethodNotAllowed, nil)
-		return
+	get := func() {
+		selections, err := app.queries.GetSelectionsByStudent(r.Context(), sui.ID)
+		if err != nil {
+			apiError(w, http.StatusInternalServerError, err.Error())
+		}
+		json.NewEncoder(w).Encode(selections)
 	}
 
-	json.NewEncoder(w).Encode(sui)
+	switch r.Method {
+	case http.MethodGet:
+		get()
+	case http.MethodDelete:
+		get()
+	case http.MethodPut:
+		get()
+	default:
+	}
 }

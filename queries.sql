@@ -235,3 +235,10 @@ WHERE
 -- name: DeleteSelection :exec
 DELETE FROM choices
 WHERE student_id = $1 AND period = $2;
+
+----
+
+-- name: GetSelectionsByStudent :many
+SELECT course_id, period, selection_type
+FROM choices
+WHERE student_id = $1;
