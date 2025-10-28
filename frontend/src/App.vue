@@ -18,6 +18,8 @@ const searchScope = ref<'global' | 'period'>('global')
 const currentPeriod = ref<string>('')
 const errorMessage = ref<string | null>(null)
 const isUpdatingSelection = ref(false)
+const selectionPageRef = ref<{ loadPeriods: () => Promise<void> } | null>(null)
+let eventSource: EventSource | null = null
 
 const extractErrorMessage = async (res: Response) => {
   const text = await res.text()
@@ -97,20 +99,37 @@ const requestSelectionUpdate = async (method: 'PUT' | 'DELETE', courseId: string
   }
 }
 
+const loadCourses = async () => {
+  const [coursesData, selectionsData] = await Promise.all([
+    fetchJson<Course[]>('/student/api/courses', { credentials: 'include' }),
+    fetchJson<SelectionResponse[] | null>('/student/api/my_selections', { credentials: 'include' })
+  ])
+  ccas.value = coursesData.map((course: Course) => ({
+    ...course,
+    current_students: course.current_students ?? 0,
+    selected: false
+  }))
+  applySelections(selectionsData)
+}
+
 onMounted(async () => {
   try {
-    const [coursesData, userData, selectionsData] = await Promise.all([
-      fetchJson<Course[]>('/student/api/courses', { credentials: 'include' }),
-      fetchJson<Student>('/student/api/user_info', { credentials: 'include' }),
-      fetchJson<SelectionResponse[] | null>('/student/api/my_selections', { credentials: 'include' })
-    ])
-    ccas.value = coursesData.map((course: Course) => ({
-      ...course,
-      current_students: course.current_students ?? 0,
-      selected: false
-    }))
+    const userData = await fetchJson<Student>('/student/api/user_info', { credentials: 'include' })
     userInfo.value = userData
-    applySelections(selectionsData)
+    await loadCourses()
+
+    eventSource = new EventSource('/student/api/events')
+    eventSource.addEventListener('invalidate_periods', async () => {
+      await loadCourses()
+      await selectionPageRef.value?.loadPeriods()
+    })
+    eventSource.addEventListener('invalidate_courses', async () => {
+      await loadCourses()
+    })
+    eventSource.onerror = () => {
+      eventSource?.close()
+      eventSource = null
+    }
   } catch (err) {
     errorMessage.value = err instanceof Error ? err.message : 'Failed to load data.'
   }
@@ -161,6 +180,17 @@ const filteredCCAs = computed(() => {
     c.location.toLowerCase().includes(query)
   )
 })
+
+const cleanup = () => {
+  if (eventSource) {
+    eventSource.close()
+    eventSource = null
+  }
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', cleanup)
+}
 </script>
 
 <template>
@@ -212,7 +242,7 @@ const filteredCCAs = computed(() => {
       </div>
     </div>
 
-    <SelectionPage v-if="activeTab === 'Selection'" :ccas="filteredCCAs" :search-active="searchScope === 'global' && !!searchQuery" :user-grade="userInfo?.grade" @toggle="toggleCCA" @period-change="currentPeriod = $event" />
+    <SelectionPage v-if="activeTab === 'Selection'" ref="selectionPageRef" :ccas="filteredCCAs" :search-active="searchScope === 'global' && !!searchQuery" :user-grade="userInfo?.grade" @toggle="toggleCCA" @period-change="currentPeriod = $event" />
     <ReviewPage v-else :ccas="ccas" />
   </div>
 </template>
