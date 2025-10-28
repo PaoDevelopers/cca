@@ -1,0 +1,23 @@
+{{ define "title" }}
+Notify
+{{ end }}
+
+{{ define "content" }}
+<section class="intro">
+<p>
+This page allows you to notify all actively connected students via server-sent events.
+</p>
+</section>
+<section class="new">
+<h2>New notification</h2>
+<form method="POST" action="/admin/notify" class="stack-form">
+<div class="form-field">
+<label for="text">Text</label>
+<input type="text" id="text" name="text" required />
+</div>
+<div class="form-actions">
+<button type="submit">Broadcast</button>
+</div>
+</form>
+</section>
+{{ end }}

@@ -71,6 +71,7 @@ func main() {
 	mux.HandleFunc("/auth", app.handleAuth)
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(http.Dir("admin_static"))))
 	mux.HandleFunc("/admin", app.adminOnly(app.handleAdm))
+	mux.HandleFunc("/admin/notify", app.adminOnly(app.handleAdmNotify))
 	mux.HandleFunc("/admin/periods", app.adminOnly(app.handleAdmPeriods))
 	mux.HandleFunc("/admin/periods/new", app.adminOnly(app.handleAdmPeriodsNew))
 	mux.HandleFunc("/admin/periods/delete", app.adminOnly(app.handleAdmPeriodsDelete))
