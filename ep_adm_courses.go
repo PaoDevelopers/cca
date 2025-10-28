@@ -117,7 +117,7 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 		return
 	}
 
-	category := strings.TrimSpace(r.FormValue("category_id"))
+	category := strings.TrimSpace(r.FormValue("category"))
 	if category == "" {
 		http.Error(w, "Bad Request\nYou are trying to add a course without a category, which is not allowed", http.StatusBadRequest)
 		return
@@ -256,7 +256,7 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		return
 	}
 
-	category := strings.TrimSpace(r.FormValue("category_id"))
+	category := strings.TrimSpace(r.FormValue("category"))
 	if category == "" {
 		http.Error(w, "Bad Request\nYou are trying to edit a course without a category, which is not allowed", http.StatusBadRequest)
 		return
@@ -344,7 +344,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		"membership",
 		"teacher",
 		"location",
-		"category_id",
+		"category",
 		"allowed_legal_sexes",
 		"allowed_grades",
 	}
