@@ -114,17 +114,21 @@ section h2 {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--space-lg);
-	align-items: flex-start;
+	align-items: stretch;
 }
 
 .card {
 	flex: 0 1 450px;
 	border: 1px solid var(--color-border);
 	background: var(--color-surface);
-	display: grid;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: flex-start;
 	gap: var(--space-md);
 	padding: var(--space-md);
 }
+
 
 .card-header {
 	font-weight: 600;
