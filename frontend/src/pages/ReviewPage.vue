@@ -74,19 +74,26 @@ const selectionRows = computed(() => {
                 </div>
             </div>
 
-            <div class="bg-white border-2 border-gray-300 rounded-lg overflow-hidden">
+            <div role="alert" class="flex items-center gap-3 bg-[#5bae31]/10 border border-[#5bae31]/30 rounded-lg px-4 py-3 mb-4">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-5 w-5 shrink-0 stroke-[#5bae31]">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span class="text-[#5bae31]">If your chosen CCA is in the table, you have successfully chosen your CCA.</span>
+            </div>
+
+            <div class="bg-white border-1 border-gray-300 rounded-lg overflow-hidden">
                 <table class="w-full border-collapse">
-                    <thead class="border-b-2 border-gray-300 bg-gray-50">
+                    <thead class="border-b-1 border-gray-300 bg-gray-50">
                     <tr>
-                        <th class="text-left p-6 font-medium border-r-2 border-gray-300">Period</th>
-                        <th class="text-left p-6 font-medium">CCA</th>
+                        <th class="text-left p-3 font-medium border-r-1 border-gray-300 w-1/4">Period</th>
+                        <th class="text-left p-3 font-medium w-3/4">CCA</th>
                     </tr>
                     </thead>
                     <tbody>
                     <tr v-for="(row, index) in selectionRows" :key="index"
-                        :class="index < selectionRows.length - 1 ? 'border-b-2 border-gray-300' : ''">
-                        <td class="p-6 font-medium border-r-2 border-gray-300">{{ row.period }}</td>
-                        <td class="p-6">{{ row.cca }}</td>
+                        :class="index < selectionRows.length - 1 ? 'border-b-1 border-gray-300' : ''">
+                        <td class="p-3 font-medium border-r-1 border-gray-300 w-1/4">{{ row.period }}</td>
+                        <td class="p-3 w-3/4">{{ row.cca }}</td>
                     </tr>
                     </tbody>
                 </table>
