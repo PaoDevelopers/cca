@@ -97,6 +97,8 @@ func main() {
 	mux.HandleFunc("/student", app.studentOnly(app.handleStu))
 	mux.HandleFunc("/student/api/user_info", app.studentOnly(app.handleStuAPIInfo))
 	mux.HandleFunc("/student/api/courses", app.studentOnly(app.handleStuAPICourses))
+	mux.HandleFunc("/student/api/periods", app.studentOnly(app.handleStuAPIPeriods))
+	mux.HandleFunc("/student/api/categories", app.studentOnly(app.handleStuAPICategories))
 	mux.HandleFunc("/student/api/grades", app.studentOnly(app.handleStuAPIGrades))
 	mux.HandleFunc("/student/api/my_selections", app.studentOnly(app.handleStuAPIMySelections))
 
