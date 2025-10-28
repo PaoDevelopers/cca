@@ -411,15 +411,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		}
 
 		teacher := strings.TrimSpace(record[6])
-		if teacher == "" {
-			http.Error(w, "Bad Request\nRow has empty teacher", http.StatusBadRequest)
-			return
-		}
 		location := strings.TrimSpace(record[7])
-		if location == "" {
-			http.Error(w, "Bad Request\nRow has empty location", http.StatusBadRequest)
-			return
-		}
 
 		category := strings.TrimSpace(record[8])
 		if category == "" {
