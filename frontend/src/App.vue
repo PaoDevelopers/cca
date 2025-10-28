@@ -16,6 +16,7 @@ const userInfo = ref<Student | null>(null)
 const searchQuery = ref<string>('')
 const searchScope = ref<'global' | 'period'>('global')
 const currentPeriod = ref<string>('')
+const viewMode = ref<'grid' | 'table'>('grid')
 const errorMessage = ref<string | null>(null)
 let errorTimeout: number | null = null
 const isUpdatingSelection = ref(false)
@@ -272,7 +273,7 @@ if (typeof window !== 'undefined') {
 
         <SelectionPage v-if="activeTab === 'Selection'" ref="selectionPageRef" :ccas="filteredCCAs"
                        :search-active="searchScope === 'global' && !!searchQuery" :user-grade="userInfo?.grade"
-                       :grades="grades" :periods="periods" :initial-period="currentPeriod" @toggle="toggleCCA" @period-change="currentPeriod = $event"/>
+                       :grades="grades" :periods="periods" :initial-period="currentPeriod" :initial-view-mode="viewMode" @toggle="toggleCCA" @period-change="currentPeriod = $event" @view-mode-change="viewMode = $event"/>
         <ReviewPage v-else :ccas="ccas" :user-grade="userInfo?.grade" :grades="grades"/>
     </div>
 </template>

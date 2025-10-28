@@ -14,13 +14,18 @@ const props = defineProps<{
     userGrade?: string,
     grades: any[],
     periods: string[],
-    initialPeriod?: string
+    initialPeriod?: string,
+    initialViewMode?: 'grid' | 'table'
 }>()
-const emit = defineEmits<{ toggle: [id: string], periodChange: [period: string] }>()
+const emit = defineEmits<{ toggle: [id: string], periodChange: [period: string], viewModeChange: [mode: 'grid' | 'table'] }>()
 
 const selectedPeriod = ref<string>('')
-const viewMode = ref<'grid' | 'table'>('grid')
+const viewMode = ref<'grid' | 'table'>(props.initialViewMode || 'grid')
 const reqGroups = ref<Array<{ id: number, min_count: number, category_ids: string[] }>>([])
+
+watch(() => viewMode.value, (newMode) => {
+    emit('viewModeChange', newMode)
+})
 
 const updateReqGroups = () => {
     if (props.userGrade && props.grades.length) {
