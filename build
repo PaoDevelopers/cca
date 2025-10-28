@@ -1,0 +1,7 @@
+#!/bin/sh
+
+set -eux
+
+which sqlc >/dev/null && sqlc generate || go run -x -v github.com/sqlc-dev/sqlc/cmd/sqlc@latest generate
+
+go build -x -v -o cca
