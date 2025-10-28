@@ -68,7 +68,7 @@ const filteredCCAs = computed(() => {
           <span class="text-gray-400">·</span>
           <span class="text-gray-600">{{ userInfo.grade }}</span>
           <span class="text-gray-400">·</span>
-          <span class="text-gray-500 text-xs">ID: {{ userInfo.id }}</span>
+          <span class="text-gray-600">ID: {{ userInfo.id }}</span>
         </div>
       </div>
     </header>
@@ -101,7 +101,7 @@ const filteredCCAs = computed(() => {
       </div>
     </div>
 
-    <SelectionPage v-if="activeTab === 'Selection'" :ccas="filteredCCAs" :search-active="searchScope === 'global' && !!searchQuery" @toggle="toggleCCA" @period-change="currentPeriod = $event" />
+    <SelectionPage v-if="activeTab === 'Selection'" :ccas="filteredCCAs" :search-active="searchScope === 'global' && !!searchQuery" :user-grade="userInfo?.grade" @toggle="toggleCCA" @period-change="currentPeriod = $event" />
     <ReviewPage v-else :ccas="ccas" />
   </div>
 </template>
