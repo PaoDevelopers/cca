@@ -6,9 +6,15 @@ interface CourseWithSelection extends Course {
     selected: boolean
 }
 
+interface Selection {
+    course_id: string
+    period: string
+    selection_type: string
+}
+
 const props = defineProps<{ ccas: CourseWithSelection[], userGrade?: string, grades: any[] }>()
 
-const selectedCourses = computed(() => props.ccas.filter(c => c.selected))
+const selections = ref<Selection[]>([])
 const reqGroups = ref<Array<{ id: number, min_count: number, category_ids: string[] }>>([])
 
 const updateReqGroups = () => {
@@ -18,7 +24,15 @@ const updateReqGroups = () => {
     }
 }
 
-onMounted(updateReqGroups)
+const loadSelections = async () => {
+    const res = await fetch('/student/api/my_selections', {credentials: 'include'})
+    selections.value = await res.json()
+}
+
+onMounted(async () => {
+    updateReqGroups()
+    await loadSelections()
+})
 
 watch(() => [props.userGrade, props.grades], updateReqGroups)
 
@@ -30,68 +44,52 @@ const requirementCounts = computed(() => {
     })
 })
 
-const timetable = computed(() => {
-    const table: Record<string, Record<string, CourseWithSelection | null>> = {
-        '1': {Monday: null, Tuesday: null, Wednesday: null, Thursday: null},
-        '2': {Monday: null, Tuesday: null, Wednesday: null, Thursday: null},
-        '3': {Monday: null, Tuesday: null, Wednesday: null, Thursday: null}
-    }
-
-    selectedCourses.value.forEach(course => {
-        const match = course.period.match(/^(MW|TT)(\d)$/)
-        if (match) {
-            const [, days, slot] = match
-            if (days === 'MW') {
-                table[slot].Monday = course
-                table[slot].Wednesday = course
-            } else {
-                table[slot].Tuesday = course
-                table[slot].Thursday = course
-            }
+const selectionRows = computed(() => {
+    const periodSet = new Set(props.ccas.map(c => c.period))
+    const allPeriods = Array.from(periodSet).sort()
+    return allPeriods.map(period => {
+        const sel = selections.value.find(s => s.period === period)
+        const course = sel ? props.ccas.find(c => c.id === sel.course_id) : null
+        return {
+            period,
+            cca: course?.name || '-'
         }
     })
-
-    return table
 })
 </script>
 
 <template>
     <div class="flex-1 p-8 bg-gray-50/30">
         <div class="max-w-4xl mx-auto">
-            <h2 class="text-2xl font-light mb-8">Your Selections</h2>
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-2xl font-light">Your Selections</h2>
+                <div
+                    class="flex gap-3 text-xs font-semibold uppercase tracking-wide border border-gray-200 rounded px-4 py-2 bg-white">
+                    <template v-for="(req, i) in requirementCounts" :key="i">
+                        <span v-if="i > 0" class="text-gray-300">·</span>
+                        <span class="text-gray-900">{{ req.selected }}/{{ req.required }} {{
+                                req.categories.join('/')
+                            }}</span>
+                    </template>
+                </div>
+            </div>
 
             <div class="bg-white border-2 border-gray-300 rounded-lg overflow-hidden">
                 <table class="w-full border-collapse">
                     <thead class="border-b-2 border-gray-300 bg-gray-50">
                     <tr>
                         <th class="text-left p-6 font-medium border-r-2 border-gray-300">Period</th>
-                        <th class="text-left p-6 font-medium border-r-2 border-gray-300">Monday</th>
-                        <th class="text-left p-6 font-medium border-r-2 border-gray-300">Tuesday</th>
-                        <th class="text-left p-6 font-medium border-r-2 border-gray-300">Wednesday</th>
-                        <th class="text-left p-6 font-medium">Thursday</th>
+                        <th class="text-left p-6 font-medium">CCA</th>
                     </tr>
                     </thead>
                     <tbody>
-                    <tr v-for="(slot, index) in ['1', '2', '3']" :key="slot"
-                        :class="index < 2 ? 'border-b-2 border-gray-300' : ''">
-                        <td class="p-6 font-medium border-r-2 border-gray-300">CCA {{ slot }}</td>
-                        <td class="p-6 border-r-2 border-gray-300">{{ timetable[slot].Monday?.name || '-' }}</td>
-                        <td class="p-6 border-r-2 border-gray-300">{{ timetable[slot].Tuesday?.name || '-' }}</td>
-                        <td class="p-6 border-r-2 border-gray-300">{{ timetable[slot].Wednesday?.name || '-' }}</td>
-                        <td class="p-6">{{ timetable[slot].Thursday?.name || '-' }}</td>
+                    <tr v-for="(row, index) in selectionRows" :key="index"
+                        :class="index < selectionRows.length - 1 ? 'border-b-2 border-gray-300' : ''">
+                        <td class="p-6 font-medium border-r-2 border-gray-300">{{ row.period }}</td>
+                        <td class="p-6">{{ row.cca }}</td>
                     </tr>
                     </tbody>
                 </table>
-            </div>
-
-            <div
-                class="mt-8 flex gap-3 text-xs font-semibold uppercase tracking-wide border border-gray-200 rounded px-4 py-2 bg-white w-fit">
-                <template v-for="(req, i) in requirementCounts" :key="i">
-                    <span v-if="i > 0" class="text-gray-300">·</span>
-                    <span class="text-gray-900">{{ req.selected }}/{{ req.required }} {{
-                            req.categories.join('/')
-                        }}</span>
-                </template>
             </div>
         </div>
     </div>
