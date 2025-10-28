@@ -11,5 +11,11 @@ func (app *App) handleStuAPICourses(w http.ResponseWriter, r *http.Request, sui 
 		return
 	}
 
-	json.NewEncoder(w).Encode(sui)
+	courses, err := app.queries.GetCourses(r.Context())
+	if err != nil {
+		apiError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	json.NewEncoder(w).Encode(courses)
 }
