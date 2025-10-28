@@ -10,7 +10,7 @@ const emit = defineEmits<{ toggle: [id: string] }>()
 </script>
 
 <template>
-  <div class="bg-white border border-gray-200 rounded-lg p-6 hover:border-[#5bae31] transition-colors relative">
+  <div class="bg-white border border-gray-200 rounded-lg p-6 hover:border-[#5bae31] transition-colors relative flex flex-col">
     <div class="flex justify-between items-start mb-3">
       <h3 class="text-lg font-semibold pr-12">{{ cca.name }}</h3>
       <button
@@ -28,7 +28,7 @@ const emit = defineEmits<{ toggle: [id: string] }>()
     <p class="text-xs text-gray-500 mb-3">{{ cca.id }}</p>
     <p class="text-sm text-gray-700 mb-4 leading-relaxed">{{ cca.description }}</p>
 
-    <div class="space-y-1.5 text-sm">
+    <div class="space-y-1.5 text-sm mt-auto">
       <div class="flex justify-between">
         <span class="text-gray-500">Teacher</span>
         <span class="font-medium">{{ cca.teacher }}</span>
