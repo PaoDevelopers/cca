@@ -178,10 +178,9 @@ const filteredCCAs = computed(() => {
       </div>
     </header>
 
-    <div v-if="errorMessage" class="px-8 mt-4">
-      <div class="border border-red-200 bg-red-50 text-red-700 rounded-lg px-4 py-3">
-        <p class="font-semibold">We hit a problem</p>
-        <p class="text-sm mt-1">{{ errorMessage }}</p>
+    <div v-if="errorMessage" class="toast toast-top toast-center z-[60]">
+      <div class="alert alert-error">
+        <span>{{ errorMessage }}</span>
       </div>
     </div>
 
