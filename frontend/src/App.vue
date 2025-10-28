@@ -17,6 +17,7 @@ const searchQuery = ref<string>('')
 const searchScope = ref<'global' | 'period'>('global')
 const currentPeriod = ref<string>('')
 const errorMessage = ref<string | null>(null)
+let errorTimeout: number | null = null
 const isUpdatingSelection = ref(false)
 const selectionPageRef = ref<{ loadPeriods: () => Promise<void> } | null>(null)
 const grades = ref<any[]>([])
@@ -92,6 +93,8 @@ const requestSelectionUpdate = async (method: 'PUT' | 'DELETE', courseId: string
             const errMsg = await extractErrorMessage(res)
             console.error('Selection update failed:', errMsg)
             errorMessage.value = errMsg
+            if (errorTimeout) clearTimeout(errorTimeout)
+            errorTimeout = setTimeout(() => errorMessage.value = null, 5000)
             return false
         }
         const selections = await res.json() as SelectionResponse[] | null
@@ -102,6 +105,8 @@ const requestSelectionUpdate = async (method: 'PUT' | 'DELETE', courseId: string
         const errMsg = err instanceof Error ? err.message : 'Unable to update selections.'
         console.error('Selection update error:', err)
         errorMessage.value = errMsg
+        if (errorTimeout) clearTimeout(errorTimeout)
+        errorTimeout = setTimeout(() => errorMessage.value = null, 5000)
         return false
     }
 }
@@ -228,11 +233,13 @@ if (typeof window !== 'undefined') {
             </div>
         </header>
 
-        <div v-if="errorMessage" class="toast toast-top toast-center z-[60]">
-            <div class="alert alert-error">
-                <span>{{ errorMessage }}</span>
+        <Transition name="fade">
+            <div v-if="errorMessage" class="toast toast-top toast-center z-[60]">
+                <div class="alert alert-error">
+                    <span>{{ errorMessage }}</span>
+                </div>
             </div>
-        </div>
+        </Transition>
 
         <div class="border-b border-gray-200 bg-white">
             <div class="flex justify-between items-center px-8 py-4">
