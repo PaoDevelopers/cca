@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import CCAGrid from '../components/CCAGrid.vue'
 import CCATable from '../components/CCATable.vue'
 import type { Course } from '@/types'
@@ -8,13 +8,37 @@ interface CourseWithSelection extends Course {
   selected: boolean
 }
 
-const props = defineProps<{ ccas: CourseWithSelection[] }>()
-const emit = defineEmits<{ toggle: [id: string] }>()
+const props = defineProps<{ ccas: CourseWithSelection[], searchActive: boolean }>()
+const emit = defineEmits<{ toggle: [id: string], periodChange: [period: string] }>()
 
-const selectedPeriod = ref<string>('Monday/Wednesday CCA 1')
+const periods = ref<string[]>([])
+const selectedPeriod = ref<string>('')
 const viewMode = ref<'grid' | 'table'>('grid')
 
-const filteredCCAs = computed(() => props.ccas.filter(c => c.period === selectedPeriod.value))
+onMounted(async () => {
+  const res = await fetch('/student/api/periods', { credentials: 'include' })
+  periods.value = await res.json()
+  if (periods.value.length > 0) {
+    selectedPeriod.value = periods.value[0]
+    emit('periodChange', periods.value[0])
+  }
+})
+
+const selectPeriod = (period: string) => {
+  selectedPeriod.value = period
+  emit('periodChange', period)
+}
+
+const filteredCCAs = computed(() => props.searchActive ? props.ccas : props.ccas.filter(c => c.period === selectedPeriod.value))
+
+const ccasByPeriod = computed(() => {
+  const grouped: Record<string, CourseWithSelection[]> = {}
+  props.ccas.forEach(c => {
+    if (!grouped[c.period]) grouped[c.period] = []
+    grouped[c.period].push(c)
+  })
+  return grouped
+})
 
 const selectedSports = computed(() => props.ccas.filter(c => c.selected && c.category_id === 'Sports').length)
 const selectedEnrichment = computed(() => props.ccas.filter(c => c.selected && (c.category_id === 'Arts' || c.category_id === 'Academic' || c.category_id === 'STEM')).length)
@@ -22,23 +46,12 @@ const selectedEnrichment = computed(() => props.ccas.filter(c => c.selected && (
 
 <template>
   <div class="flex flex-1">
-    <aside class="w-56 border-r border-gray-200 bg-white p-8 space-y-8">
-      <div>
-        <h3 class="text-sm font-medium mb-3 text-gray-900">Monday/Wednesday</h3>
-        <ul class="space-y-2 text-sm text-gray-600">
-          <li @click="selectedPeriod = 'Monday/Wednesday CCA 1'" class="cursor-pointer hover:text-gray-900" :class="selectedPeriod === 'Monday/Wednesday CCA 1' ? 'text-[#5bae31] font-medium' : ''">CCA 1</li>
-          <li @click="selectedPeriod = 'Monday/Wednesday CCA 2'" class="cursor-pointer hover:text-gray-900" :class="selectedPeriod === 'Monday/Wednesday CCA 2' ? 'text-[#5bae31] font-medium' : ''">CCA 2</li>
-          <li @click="selectedPeriod = 'Monday/Wednesday CCA 3'" class="cursor-pointer hover:text-gray-900" :class="selectedPeriod === 'Monday/Wednesday CCA 3' ? 'text-[#5bae31] font-medium' : ''">CCA 3</li>
-        </ul>
-      </div>
-      <div>
-        <h3 class="text-sm font-medium mb-3 text-gray-900">Tuesday/Thursday</h3>
-        <ul class="space-y-2 text-sm text-gray-600">
-          <li @click="selectedPeriod = 'Tuesday/Thursday CCA 1'" class="cursor-pointer hover:text-gray-900" :class="selectedPeriod === 'Tuesday/Thursday CCA 1' ? 'text-[#5bae31] font-medium' : ''">CCA 1</li>
-          <li @click="selectedPeriod = 'Tuesday/Thursday CCA 2'" class="cursor-pointer hover:text-gray-900" :class="selectedPeriod === 'Tuesday/Thursday CCA 2' ? 'text-[#5bae31] font-medium' : ''">CCA 2</li>
-          <li @click="selectedPeriod = 'Tuesday/Thursday CCA 3'" class="cursor-pointer hover:text-gray-900" :class="selectedPeriod === 'Tuesday/Thursday CCA 3' ? 'text-[#5bae31] font-medium' : ''">CCA 3</li>
-        </ul>
-      </div>
+    <aside class="w-56 border-r border-gray-200 bg-white p-8">
+      <ul class="space-y-2 text-sm text-gray-600">
+        <li v-for="period in periods" :key="period" @click="selectPeriod(period)" class="cursor-pointer hover:text-gray-900" :class="selectedPeriod === period ? 'text-[#5bae31] font-medium' : ''">
+          {{ period }}
+        </li>
+      </ul>
     </aside>
 
     <main class="flex-1 p-8 bg-gray-50/30">
@@ -60,8 +73,17 @@ const selectedEnrichment = computed(() => props.ccas.filter(c => c.selected && (
         </button>
       </div>
 
-      <CCAGrid v-if="viewMode === 'grid'" :ccas="filteredCCAs" @toggle="emit('toggle', $event)" />
-      <CCATable v-else :ccas="filteredCCAs" @toggle="emit('toggle', $event)" />
+      <template v-if="searchActive">
+        <div v-for="(ccas, period) in ccasByPeriod" :key="period" class="mb-8">
+          <h2 class="text-lg font-medium mb-4 text-gray-900">{{ period }}</h2>
+          <CCAGrid v-if="viewMode === 'grid'" :ccas="ccas" @toggle="emit('toggle', $event)" />
+          <CCATable v-else :ccas="ccas" @toggle="emit('toggle', $event)" />
+        </div>
+      </template>
+      <template v-else>
+        <CCAGrid v-if="viewMode === 'grid'" :ccas="filteredCCAs" @toggle="emit('toggle', $event)" />
+        <CCATable v-else :ccas="filteredCCAs" @toggle="emit('toggle', $event)" />
+      </template>
     </main>
   </div>
 </template>

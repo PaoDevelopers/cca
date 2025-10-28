@@ -1,2 +1,6 @@
 @import "tailwindcss";
 @plugin "daisyui";
+
+html, body {
+	font-family: system-ui, sans-serif;
+}
