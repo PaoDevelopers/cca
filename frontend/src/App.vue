@@ -303,7 +303,7 @@ if (typeof window !== 'undefined') {
         <ReviewPage v-else :ccas="ccas" :user-grade="userInfo?.grade" :grades="grades" :periods="periods"/>
 
         <footer class="border-t border-gray-200 bg-white py-4 text-center text-sm text-gray-600">
-            Written by Runxi Yu and Henry Yang
+            Copyright © 2025 <a href="https://runxiyu.org" style="color: #5bae31;">Runxi Yu</a> and Henry Yang. This program is Free Software: you can redistribute it and/or modify it under the terms of the <a href="https://www.gnu.org/licenses/agpl-3.0.en.html" style="color: #5bae31;">GNU Affero General Public License as published by the Free Software Foundation, version 3</a> only. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more details. The source code is available <a style="color: #5bae31;" href="https://sr.ht/~runxiyu/cca/">on SourceHut</a>.
         </footer>
     </div>
 </template>
