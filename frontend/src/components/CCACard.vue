@@ -22,7 +22,7 @@ const isDisabled = computed(() => props.disableClientRestriction ? false : isOut
             <button
                 @click="emit('toggle', cca.id)"
                 :disabled="isDisabled"
-                class="w-8 h-8 flex items-center justify-center border rounded transition-colors flex-shrink-0"
+                class="w-8 h-8 flex items-center justify-center border rounded flex-shrink-0"
                 :class="cca.selected ? 'bg-[#5bae31] border-[#5bae31] text-white' : isDisabled ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-400 text-gray-600 hover:border-[#5bae31] hover:text-[#5bae31]'"
             >
                 <svg v-if="cca.selected" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
