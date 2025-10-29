@@ -350,14 +350,14 @@ onBeforeUnmount(() => {
                     <div class="flex gap-12">
                         <button
                             @click="activeTab = 'Selection'"
-                            class="text-sm pb-2 transition-colors"
+                            class="text-sm pb-2"
                             :class="activeTab === 'Selection' ? 'border-b-2 border-[#5bae31] text-[#5bae31]' : 'text-gray-500 hover:text-gray-900'"
                         >
                             Selection
                         </button>
                         <button
                             @click="activeTab = 'Review'"
-                            class="text-sm pb-2 transition-colors"
+                            class="text-sm pb-2"
                             :class="activeTab === 'Review' ? 'border-b-2 border-[#5bae31] text-[#5bae31]' : 'text-gray-500 hover:text-gray-900'"
                         >
                             Review
@@ -379,27 +379,23 @@ onBeforeUnmount(() => {
             </div>
         </header>
 
-        <Transition name="fade">
-            <div v-if="errorMessage" class="toast toast-top toast-center z-[60]">
-                <div role="alert" class="alert alert-error !bg-red-100 !text-red-900">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{{ errorMessage }}</span>
-                </div>
+        <div v-if="errorMessage" class="toast toast-top toast-center z-[60]">
+            <div role="alert" class="alert alert-error !bg-red-100 !text-red-900">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{{ errorMessage }}</span>
             </div>
-        </Transition>
+        </div>
 
-        <Transition name="fade">
-            <div v-if="infoMessage" class="toast toast-top toast-center z-[60]">
-                <div role="alert" class="alert alert-info !bg-blue-100 !text-blue-900 !border-blue-100">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span>{{ infoMessage }}</span>
-                </div>
+        <div v-if="infoMessage" class="toast toast-top toast-center z-[60]">
+            <div role="alert" class="alert alert-info !bg-blue-100 !text-blue-900 !border-blue-100">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>{{ infoMessage }}</span>
             </div>
-        </Transition>
+        </div>
 
 
         <SelectionPage v-if="activeTab === 'Selection'" ref="selectionPageRef" :ccas="filteredCCAs"

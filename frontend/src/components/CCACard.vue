@@ -17,7 +17,7 @@ const isDisabled = computed(() => props.updatingCcaId !== null || (props.disable
 
 <template>
     <div
-        class="bg-white border border-gray-200 rounded-lg p-6 transition-colors relative flex flex-col"
+        class="bg-white border border-gray-200 rounded-lg p-6 relative flex flex-col"
         :class="((isOutOfCapacity || isInviteOnly) && !disableClientRestriction) ? 'opacity-50' : 'hover:border-[#5bae31]'">
         <div class="flex justify-between items-start mb-3">
             <div class="pr-12">
