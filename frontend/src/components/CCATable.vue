@@ -6,7 +6,7 @@ interface CourseWithSelection extends Course {
     selected: boolean
 }
 
-const props = defineProps<{ ccas: CourseWithSelection[], disableClientRestriction: boolean, updatingCcaId: string | null }>()
+const props = defineProps<{ ccas: CourseWithSelection[], disableClientRestriction: boolean, updatingCcaId: string | null, showPeriod: boolean }>()
 const emit = defineEmits<{ toggle: [id: string] }>()
 
 const groupedCCAs = computed(() => {
@@ -56,7 +56,12 @@ const groupedCCAs = computed(() => {
                             <span v-else class="text-lg">+</span>
                         </button>
                     </td>
-                    <td class="p-4 font-medium">{{ cca.name }}</td>
+                    <td class="p-4 font-medium">
+                        <div class="flex flex-col">
+                            <span>{{ cca.name }}</span>
+                            <span v-if="showPeriod" class="text-xs font-medium uppercase tracking-wide text-[#5bae31] mt-1">{{ cca.period }}</span>
+                        </div>
+                    </td>
                     <td class="p-4 text-gray-600">{{ cca.current_students }}/{{ cca.max_students }} <span v-if="cca.current_students >= cca.max_students" class="text-red-500">(Full!)</span></td>
                     <td class="p-4 text-gray-600">{{ cca.id }}</td>
                     <td class="p-4 text-gray-600">

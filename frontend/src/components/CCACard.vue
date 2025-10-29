@@ -6,7 +6,7 @@ interface CourseWithSelection extends Course {
     selected: boolean
 }
 
-const props = defineProps<{ cca: CourseWithSelection, disableClientRestriction: boolean, updatingCcaId: string | null }>()
+const props = defineProps<{ cca: CourseWithSelection, disableClientRestriction: boolean, updatingCcaId: string | null, showPeriod: boolean }>()
 const emit = defineEmits<{ toggle: [id: string] }>()
 
 const isOutOfCapacity = computed(() => props.cca.current_students >= props.cca.max_students && !props.cca.selected)
@@ -20,7 +20,10 @@ const isDisabled = computed(() => props.updatingCcaId !== null || (props.disable
         class="bg-white border border-gray-200 rounded-lg p-6 transition-colors relative flex flex-col"
         :class="((isOutOfCapacity || isInviteOnly) && !disableClientRestriction) ? 'opacity-50' : 'hover:border-[#5bae31]'">
         <div class="flex justify-between items-start mb-3">
-            <h3 class="text-lg font-semibold pr-12">{{ cca.name }}</h3>
+            <div class="pr-12">
+                <p v-if="showPeriod" class="text-xs font-medium uppercase tracking-wide text-[#5bae31] mb-1">{{ cca.period }}</p>
+                <h3 class="text-lg font-semibold">{{ cca.name }}</h3>
+            </div>
             <button
                 @click="emit('toggle', cca.id)"
                 :disabled="isDisabled"
