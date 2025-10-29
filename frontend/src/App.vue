@@ -23,7 +23,7 @@ const isUpdatingSelection = ref(false)
 const selectionPageRef = ref<{ loadPeriods: () => Promise<void> } | null>(null)
 const grades = ref<any[]>([])
 const periods = ref<string[]>([])
-const disableClientRestriction = ref(true)
+const disableClientRestriction = ref(false)
 let eventSource: EventSource | null = null
 
 const extractErrorMessage = async (res: Response) => {
