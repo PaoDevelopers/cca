@@ -1,3 +1,4 @@
+// YK Pao School Co-curricular Activities Selection System Backend
 package main
 
 import (
@@ -9,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"git.sr.ht/~runxiyu/cca/db"
 	"github.com/MicahParks/keyfunc/v3"
@@ -171,6 +173,7 @@ func main() {
 	}
 	slog.Info("Serving")
 	log.Fatal((&http.Server{
-		Handler: mux,
+		Handler:           mux,
+		ReadHeaderTimeout: time.Second * time.Duration(10),
 	}).Serve(l))
 }

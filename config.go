@@ -40,7 +40,7 @@ type Config struct {
 }
 
 func loadConfig(path string) (Config, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //#nosec G304
 	if err != nil {
 		return Config{}, fmt.Errorf("open config: %w", err)
 	}

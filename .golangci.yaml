@@ -1,0 +1,21 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - staticcheck
+    - govet
+    - errcheck
+    - gosec
+    - revive
+    - ineffassign
+
+linters-settings:
+  revive:
+    rules:
+      - name: error-strings
+        disabled: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
