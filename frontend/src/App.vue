@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import SelectionPage from './pages/SelectionPage.vue'
 import ReviewPage from './pages/ReviewPage.vue'
 import type {Choice, Course, Student} from './types'
@@ -142,32 +142,74 @@ const loadPeriods = async () => {
     periods.value = await periodsRes.json()
 }
 
+const showInfoToast = (message: string) => {
+    infoMessage.value = message
+    if (infoTimeout) clearTimeout(infoTimeout)
+    infoTimeout = window.setTimeout(() => {
+        infoMessage.value = null
+        infoTimeout = null
+    }, 5000)
+}
+
+const closeEventSource = () => {
+    if (eventSource) {
+        eventSource.close()
+        eventSource = null
+    }
+}
+
+const startEventStream = () => {
+    closeEventSource()
+    const source = new EventSource('/student/api/events')
+    eventSource = source
+
+    source.addEventListener('invalidate_periods', async () => {
+        try {
+            await Promise.all([loadCourses(), loadPeriods()])
+        } catch (err) {
+            console.error('Failed to refresh periods:', err)
+        }
+    })
+    source.addEventListener('invalidate_courses', async () => {
+        try {
+            await loadCourses()
+        } catch (err) {
+            console.error('Failed to refresh courses:', err)
+        }
+    })
+    source.addEventListener('invalidate_categories', async () => {
+        try {
+            await loadCourses()
+        } catch (err) {
+            console.error('Failed to refresh categories:', err)
+        }
+    })
+    source.addEventListener('invalidate_grades', async () => {
+        try {
+            await loadGrades()
+        } catch (err) {
+            console.error('Failed to refresh grades:', err)
+        }
+    })
+    source.addEventListener('notify', (event) => {
+        const data = (event as MessageEvent<string>).data
+        if (data) {
+            showInfoToast(data)
+        }
+    })
+    source.onerror = () => {
+        source.close()
+        if (eventSource === source) {
+            eventSource = null
+        }
+    }
+}
+
 onMounted(async () => {
     try {
         userInfo.value = await fetchJson<Student>('/student/api/user_info', {credentials: 'include'})
         await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
-
-        eventSource = new EventSource('/student/api/events')
-        eventSource.addEventListener('invalidate_periods', async () => {
-            await loadCourses()
-            await loadPeriods()
-        })
-        eventSource.addEventListener('invalidate_courses', async () => {
-            await loadCourses()
-        })
-        eventSource.addEventListener('invalidate_categories', async () => {
-            await loadCourses()
-        })
-        eventSource.addEventListener('invalidate_grades', loadGrades)
-        eventSource.addEventListener('notify', (e) => {
-            infoMessage.value = e.data
-            if (infoTimeout) clearTimeout(infoTimeout)
-            infoTimeout = setTimeout(() => infoMessage.value = null, 5000)
-        })
-        eventSource.onerror = () => {
-            eventSource?.close()
-            eventSource = null
-        }
+        startEventStream()
     } catch (err) {
         errorMessage.value = err instanceof Error ? err.message : 'Failed to load data.'
     }
@@ -251,15 +293,29 @@ const filteredCCAs = computed(() => {
 })
 
 const cleanup = () => {
-    if (eventSource) {
-        eventSource.close()
-        eventSource = null
+    closeEventSource()
+    if (infoTimeout) {
+        clearTimeout(infoTimeout)
+        infoTimeout = null
+    }
+    if (errorTimeout) {
+        clearTimeout(errorTimeout)
+        errorTimeout = null
     }
 }
 
+const handleBeforeUnload = () => cleanup()
+
 if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', cleanup)
+    window.addEventListener('beforeunload', handleBeforeUnload)
 }
+
+onBeforeUnmount(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+    cleanup()
+})
 </script>
 
 <style scoped>
