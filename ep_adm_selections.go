@@ -305,7 +305,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	expected := []string{"course_id", "student_id", "invitation_type"}
+	expected := []string{"course_id", "student_id", "selection_type"}
 	if len(header) != len(expected) {
 		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nCSV header does not match expected column count", nil, slog.String("admin_username", aui.Username))
 		return
@@ -366,7 +366,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		case string(db.SelectionTypeForce):
 			selectionType = db.SelectionTypeForce
 		default:
-			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown invitation type", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("invitation_type", selectionTypeStr))
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown invitation type", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("selection_type", selectionTypeStr))
 			return
 		}
 

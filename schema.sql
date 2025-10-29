@@ -43,7 +43,7 @@ CREATE TABLE grades (
 	enabled BOOLEAN NOT NULL DEFAULT FALSE,
 
 	-- A student should not be allowed to make more choices if the number
-	-- of choices with invitation_type="no" that they have exceeds the
+	-- of choices with selection_type="no" that they have exceeds the
 	-- max_own_choices for their grade.
 	-- max_own_choices for each grade should be settable by the admin, next
 	-- to where they could set grade enabled status.
