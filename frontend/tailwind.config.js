@@ -13,13 +13,7 @@ export default {
   },
   plugins: [require('daisyui')],
   daisyui: {
-    themes: [
-      {
-        light: {
-          "primary": "#5bae31",
-          "base-100": "#ffffff",
-        },
-      },
-    ],
+    themes: ["light"],
+    darkTheme: false,
   },
 }
