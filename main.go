@@ -35,9 +35,35 @@ func main() {
 
 	// Database
 	slog.Info("Connecting to the database")
-	app.pool, err = pgxpool.New(ctx, app.config.Database)
+	dbCfg := app.config.Database
+	poolConfig, err := pgxpool.ParseConfig(dbCfg.URL)
 	if err != nil {
-		log.Fatalln(err)
+		log.Fatalf("parse database config: %v", err)
+	}
+	if dbCfg.MaxConns > 0 {
+		poolConfig.MaxConns = dbCfg.MaxConns
+	}
+	if dbCfg.MinConns > 0 {
+		poolConfig.MinConns = dbCfg.MinConns
+	}
+	if dbCfg.MaxConnLifetime > 0 {
+		poolConfig.MaxConnLifetime = dbCfg.MaxConnLifetime
+	}
+	if dbCfg.MaxConnIdleTime > 0 {
+		poolConfig.MaxConnIdleTime = dbCfg.MaxConnIdleTime
+	}
+	if dbCfg.HealthCheckPeriod > 0 {
+		poolConfig.HealthCheckPeriod = dbCfg.HealthCheckPeriod
+	}
+	if dbCfg.ConnectTimeout > 0 {
+		poolConfig.ConnConfig.ConnectTimeout = dbCfg.ConnectTimeout
+	}
+	app.pool, err = pgxpool.NewWithConfig(ctx, poolConfig)
+	if err != nil {
+		log.Fatalf("open database: %v", err)
+	}
+	if err := app.pool.Ping(ctx); err != nil {
+		log.Fatalf("ping database: %v", err)
 	}
 	app.queries = db.New(app.pool)
 	version, err := app.queries.GetSchemaVersion(ctx)
