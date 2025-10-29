@@ -4,14 +4,23 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/PaoDevelopers/go-scfgs"
 )
 
 type Config struct {
 	URL      string `scfgs:"url"`
-	Database string `scfgs:"database"`
-	Listen   struct {
+	Database struct {
+		URL               string        `scfgs:"url"`
+		MaxConns          int32         `scfgs:"max_conns"`
+		MinConns          int32         `scfgs:"min_conns"`
+		MaxConnLifetime   time.Duration `scfgs:"max_conn_lifetime"`
+		MaxConnIdleTime   time.Duration `scfgs:"max_conn_idle_time"`
+		HealthCheckPeriod time.Duration `scfgs:"health_check_period"`
+		ConnectTimeout    time.Duration `scfgs:"connect_timeout"`
+	} `scfgs:"database"`
+	Listen struct {
 		Protocol  string `scfgs:"protocol"`
 		Network   string `scfgs:"network"`
 		Address   string `scfgs:"address"`

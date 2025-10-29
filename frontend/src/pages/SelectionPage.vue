@@ -8,6 +8,8 @@ interface CourseWithSelection extends Course {
     selected: boolean
 }
 
+const ALL_PERIODS = '__ALL_PERIODS__'
+
 const props = defineProps<{
     ccas: CourseWithSelection[],
     searchActive: boolean,
@@ -27,6 +29,7 @@ const selectedPeriod = ref<string>('')
 const hasNoResults = computed(() => !isLoading.value && filteredCCAs.value.length === 0)
 const viewMode = ref<'grid' | 'table'>(props.initialViewMode || 'grid')
 const reqGroups = ref<Array<{ id: number, min_count: number, category_ids: string[] }>>([])
+const isAllPeriods = computed(() => selectedPeriod.value === ALL_PERIODS)
 
 watch(() => viewMode.value, (newMode) => {
     emit('viewModeChange', newMode)
@@ -42,6 +45,8 @@ const updateReqGroups = () => {
 const initPeriod = () => {
     if (props.initialPeriod) {
         selectedPeriod.value = props.initialPeriod
+    } else if (selectedPeriod.value === ALL_PERIODS) {
+        return
     } else if (props.periods.length > 0 && !selectedPeriod.value) {
         selectedPeriod.value = props.periods[0]
         emit('periodChange', props.periods[0])
@@ -57,11 +62,21 @@ watch(() => [props.userGrade, props.grades], updateReqGroups)
 watch(() => props.periods, initPeriod, {immediate: true})
 
 const selectPeriod = (period: string) => {
-    selectedPeriod.value = period
-    emit('periodChange', period)
+    if (period === ALL_PERIODS) {
+        selectedPeriod.value = ALL_PERIODS
+        emit('periodChange', '')
+    } else {
+        selectedPeriod.value = period
+        emit('periodChange', period)
+    }
 }
 
-const filteredCCAs = computed(() => props.ccas.filter(c => c.period === selectedPeriod.value))
+const filteredCCAs = computed(() => {
+    if (selectedPeriod.value === ALL_PERIODS) {
+        return props.ccas
+    }
+    return props.ccas.filter(c => c.period === selectedPeriod.value)
+})
 
 const ccasByPeriod = computed(() => {
     const grouped: Record<string, CourseWithSelection[]> = {}
@@ -69,7 +84,7 @@ const ccasByPeriod = computed(() => {
         if (!grouped[c.period]) grouped[c.period] = []
         grouped[c.period].push(c)
     })
-    if (props.searchActive && Object.keys(grouped).length > 0) {
+    if (props.searchActive && Object.keys(grouped).length > 0 && selectedPeriod.value !== ALL_PERIODS) {
         const firstPeriodWithResults = props.periods.find(p => grouped[p]?.length > 0)
         if (firstPeriodWithResults && selectedPeriod.value !== firstPeriodWithResults && !grouped[selectedPeriod.value]?.length) {
             selectedPeriod.value = firstPeriodWithResults
@@ -94,6 +109,10 @@ const requirementCounts = computed(() => {
     <div class="flex flex-1">
         <aside class="w-56 border-r border-gray-200 bg-white p-8 sticky top-[137px] self-start max-h-[calc(100vh-137px)] overflow-y-auto">
             <ul v-if="!isLoading" class="space-y-2 text-sm text-gray-600">
+                <li @click="selectPeriod(ALL_PERIODS)" class="cursor-pointer"
+                    :class="[isAllPeriods ? 'text-[#5bae31] font-medium' : 'hover:text-gray-900']">
+                    All periods
+                </li>
                 <li v-for="period in props.periods" :key="period" @click="selectPeriod(period)" class="cursor-pointer"
                     :class="[selectedPeriod === period ? 'text-[#5bae31] font-medium' : '', searchActive && !ccasByPeriod[period]?.length ? 'text-gray-300' : 'hover:text-gray-900']">
                     {{ period }}
@@ -145,8 +164,8 @@ const requirementCounts = computed(() => {
             <div v-else-if="hasNoResults" class="flex items-center justify-center h-64 text-gray-500">
                 No search result
             </div>
-            <CCAGrid v-else-if="viewMode === 'grid'" :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="emit('toggle', $event)"/>
-            <CCATable v-else :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="emit('toggle', $event)"/>
+            <CCAGrid v-else-if="viewMode === 'grid'" :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" :show-period="isAllPeriods" @toggle="emit('toggle', $event)"/>
+            <CCATable v-else :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" :show-period="isAllPeriods" @toggle="emit('toggle', $event)"/>
         </main>
     </div>
 </template>

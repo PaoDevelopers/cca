@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strconv"
@@ -14,7 +15,7 @@ import (
 )
 
 type adminCourse struct {
-	Course               db.Course
+	Course               db.GetCoursesRow
 	AllowedLegalSexes    []db.LegalSex
 	AllowedLegalSexesMap map[db.LegalSex]bool
 	AllowedGrades        []string
@@ -22,44 +23,45 @@ type adminCourse struct {
 }
 
 func (app *App) handleAdmCourses(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmCourses", slog.String("admin_username", aui.Username))
 	if r.Method != http.MethodGet {
-		apiError(w, http.StatusMethodNotAllowed, nil)
+		app.apiError(r, w, http.StatusMethodNotAllowed, nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	courses, err := app.queries.GetCourses(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	categories, err := app.queries.GetCategories(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	periods, err := app.queries.GetPeriods(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	grades, err := app.queries.GetGrades(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	legalSexRestrictions, err := app.queries.GetCourseAllowedLegalSexes(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	gradeRestrictions, err := app.queries.GetCourseAllowedGrades(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
@@ -103,7 +105,7 @@ func (app *App) handleAdmCourses(w http.ResponseWriter, r *http.Request, aui *Us
 		}
 	}
 
-	app.admRenderTemplate(w, "courses", struct {
+	if err := app.admRenderTemplate(w, r, "courses", struct {
 		Courses     []adminCourse
 		Categories  []string
 		Periods     []string
@@ -117,25 +119,28 @@ func (app *App) handleAdmCourses(w http.ResponseWriter, r *http.Request, aui *Us
 		Grades:      grades,
 		Memberships: []db.MembershipType{db.MembershipTypeFree, db.MembershipTypeInviteOnly},
 		LegalSexes:  []db.LegalSex{db.LegalSexF, db.LegalSexM, db.LegalSexX},
-	})
+	}, slog.String("admin_username", aui.Username)); err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\nfailed rendering template", err, slog.String("admin_username", aui.Username))
+	}
 }
 
 func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmCoursesNew", slog.String("admin_username", aui.Username))
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, "Bad Request\n"+err.Error(), http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	id := strings.TrimSpace(r.FormValue("id"))
 	if id == "" {
-		http.Error(w, "Bad Request\nYou are trying to add a course with an empty ID, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add a course with an empty ID, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
-		http.Error(w, "Bad Request\nYou are trying to add a course with an empty name, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add a course with an empty name, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
@@ -143,18 +148,18 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 
 	period := strings.TrimSpace(r.FormValue("period"))
 	if period == "" {
-		http.Error(w, "Bad Request\nYou are trying to add a course without a period, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add a course without a period, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	maxStudentsStr := strings.TrimSpace(r.FormValue("max_students"))
 	maxStudents, err := strconv.ParseInt(maxStudentsStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Bad Request\nMax students must be a number", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nMax students must be a number", err, slog.String("admin_username", aui.Username))
 		return
 	}
 	if maxStudents < 0 {
-		http.Error(w, "Bad Request\nMax students cannot be negative", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nMax students cannot be negative", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
@@ -162,25 +167,25 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 	switch membership {
 	case db.MembershipTypeFree, db.MembershipTypeInviteOnly:
 	default:
-		http.Error(w, "Bad Request\nUnknown membership type", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown membership type", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	teacher := strings.TrimSpace(r.FormValue("teacher"))
 	if teacher == "" {
-		http.Error(w, "Bad Request\nYou are trying to add a course without a teacher, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add a course without a teacher, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	location := strings.TrimSpace(r.FormValue("location"))
 	if location == "" {
-		http.Error(w, "Bad Request\nYou are trying to add a course without a location, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add a course without a location, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	category := strings.TrimSpace(r.FormValue("category"))
 	if category == "" {
-		http.Error(w, "Bad Request\nYou are trying to add a course without a category, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add a course without a category, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
@@ -192,7 +197,7 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 		switch ls {
 		case db.LegalSexF, db.LegalSexM, db.LegalSexX:
 		default:
-			http.Error(w, "Bad Request\nUnknown legal sex value", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown legal sex value", nil, slog.String("admin_username", aui.Username))
 			return
 		}
 		if _, ok := legalSexSeen[ls]; ok {
@@ -208,7 +213,7 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 	for _, value := range gradeValues {
 		grade := strings.TrimSpace(value)
 		if grade == "" {
-			http.Error(w, "Bad Request\nUnknown grade value", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown grade value", nil, slog.String("admin_username", aui.Username))
 			return
 		}
 		if _, ok := gradeSeen[grade]; ok {
@@ -232,7 +237,7 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 		CategoryID:  category,
 	})
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
@@ -242,7 +247,7 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 			LegalSex: ls,
 		})
 		if err != nil {
-			http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 			return
 		}
 	}
@@ -253,32 +258,35 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 			Grade:    grade,
 		})
 		if err != nil {
-			http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 			return
 		}
 	}
 
+	app.logInfo(r, "created course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
 
+	app.logInfo(r, "redirecting after new course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
 
 func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmCoursesEdit", slog.String("admin_username", aui.Username))
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, "Bad Request\n"+err.Error(), http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	id := strings.TrimSpace(r.FormValue("id"))
 	if id == "" {
-		http.Error(w, "Bad Request\nYou are trying to edit a course with an empty ID, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to edit a course with an empty ID, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
-		http.Error(w, "Bad Request\nYou are trying to edit a course with an empty name, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to edit a course with an empty name, which is not allowed", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
@@ -286,18 +294,18 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 
 	period := strings.TrimSpace(r.FormValue("period"))
 	if period == "" {
-		http.Error(w, "Bad Request\nYou are trying to edit a course without a period, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to edit a course without a period, which is not allowed", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
 	maxStudentsStr := strings.TrimSpace(r.FormValue("max_students"))
 	maxStudents, err := strconv.ParseInt(maxStudentsStr, 10, 64)
 	if err != nil {
-		http.Error(w, "Bad Request\nMax students must be a number", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nMax students must be a number", err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 	if maxStudents < 0 {
-		http.Error(w, "Bad Request\nMax students cannot be negative", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nMax students cannot be negative", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
@@ -305,25 +313,25 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 	switch membership {
 	case db.MembershipTypeFree, db.MembershipTypeInviteOnly:
 	default:
-		http.Error(w, "Bad Request\nUnknown membership type", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown membership type", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
 	teacher := strings.TrimSpace(r.FormValue("teacher"))
 	if teacher == "" {
-		http.Error(w, "Bad Request\nYou are trying to edit a course without a teacher, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to edit a course without a teacher, which is not allowed", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
 	location := strings.TrimSpace(r.FormValue("location"))
 	if location == "" {
-		http.Error(w, "Bad Request\nYou are trying to edit a course without a location, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to edit a course without a location, which is not allowed", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
 	category := strings.TrimSpace(r.FormValue("category"))
 	if category == "" {
-		http.Error(w, "Bad Request\nYou are trying to edit a course without a category, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to edit a course without a category, which is not allowed", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
@@ -335,7 +343,7 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		switch ls {
 		case db.LegalSexF, db.LegalSexM, db.LegalSexX:
 		default:
-			http.Error(w, "Bad Request\nUnknown legal sex value", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown legal sex value", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 			return
 		}
 		if _, ok := legalSexSeen[ls]; ok {
@@ -351,7 +359,7 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 	for _, value := range gradeValues {
 		grade := strings.TrimSpace(value)
 		if grade == "" {
-			http.Error(w, "Bad Request\nUnknown grade value", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown grade value", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 			return
 		}
 		if _, ok := gradeSeen[grade]; ok {
@@ -363,7 +371,7 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 
 	tx, err := app.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 	defer tx.Rollback(r.Context())
@@ -382,19 +390,19 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		CategoryID:  category,
 	})
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
 	err = qtx.DeleteCourseAllowedLegalSexes(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
 	err = qtx.DeleteCourseAllowedGrades(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
@@ -404,7 +412,7 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 			LegalSex: ls,
 		})
 		if err != nil {
-			http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 			return
 		}
 	}
@@ -415,55 +423,60 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 			Grade:    grade,
 		})
 		if err != nil {
-			http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 			return
 		}
 	}
 
 	err = tx.Commit(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
+	app.logInfo(r, "updated course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
 
+	app.logInfo(r, "redirecting after edit course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
 
 func (app *App) handleAdmCoursesDelete(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmCoursesDelete", slog.String("admin_username", aui.Username))
 	id := strings.TrimSpace(r.FormValue("id"))
 	if id == "" {
-		http.Error(w, "Bad Request\nYou are trying to delete a course with an empty ID, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to delete a course with an empty ID, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	err := app.queries.DeleteCourse(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
+	app.logInfo(r, "deleted course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
 
+	app.logInfo(r, "redirecting after delete course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
 
 func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmCoursesImport", slog.String("admin_username", aui.Username))
 	if r.Method != http.MethodPost {
-		apiError(w, http.StatusMethodNotAllowed, nil)
+		app.apiError(r, w, http.StatusMethodNotAllowed, nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
-	err := r.ParseMultipartForm(8 << 20)
-	if err != nil {
-		http.Error(w, "Bad Request\n"+err.Error(), http.StatusBadRequest)
+	if err := r.ParseMultipartForm(8 << 20); err != nil {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	f, _, err := r.FormFile("csv")
 	if err != nil {
-		http.Error(w, "Bad Request\nCSV file required", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nCSV file required", err, slog.String("admin_username", aui.Username))
 		return
 	}
 	defer f.Close()
@@ -471,7 +484,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 	br := bufio.NewReader(f)
 	if b, _ := br.Peek(3); len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
 		if _, err := br.Discard(3); err != nil {
-			http.Error(w, "Bad Request\n"+err.Error(), http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 			return
 		}
 	}
@@ -480,10 +493,10 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 	header, err := reader.Read()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			http.Error(w, "Bad Request\nEmpty CSV", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nEmpty CSV", err, slog.String("admin_username", aui.Username))
 			return
 		}
-		http.Error(w, "Bad Request\n"+err.Error(), http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
@@ -501,65 +514,66 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		"allowed_grades",
 	}
 	if len(header) != len(expected) {
-		http.Error(w, "Bad Request\nCSV header does not match expected column count", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nCSV header does not match expected column count", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 	for i, col := range header {
 		if strings.TrimSpace(col) != expected[i] {
-			http.Error(w, "Bad Request\nUnexpected header column: "+col, http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnexpected header column: "+col, nil, slog.String("admin_username", aui.Username))
 			return
 		}
 	}
 
 	tx, err := app.pool.Begin(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 	defer tx.Rollback(r.Context())
 
 	qtx := app.queries.WithTx(tx)
 
+	row := 2 // header is row 1
 	for {
 		record, err := reader.Read()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			http.Error(w, "Bad Request\n"+err.Error(), http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row))
 			return
 		}
 		if len(record) != len(expected) {
-			http.Error(w, "Bad Request\nUnexpected column count in CSV row", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnexpected column count in CSV row", nil, slog.String("admin_username", aui.Username), slog.Int("row", row))
 			return
 		}
 
 		id := strings.TrimSpace(record[0])
 		if id == "" {
-			http.Error(w, "Bad Request\nRow has empty course ID", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nRow has empty course ID", nil, slog.String("admin_username", aui.Username), slog.Int("row", row))
 			return
 		}
 
 		name := strings.TrimSpace(record[1])
 		if name == "" {
-			http.Error(w, "Bad Request\nRow has empty course name", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nRow has empty course name", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 			return
 		}
 
 		description := strings.TrimSpace(record[2])
 		period := strings.TrimSpace(record[3])
 		if period == "" {
-			http.Error(w, "Bad Request\nRow has empty period", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nRow has empty period", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 			return
 		}
 
 		maxStudents, err := strconv.ParseInt(strings.TrimSpace(record[4]), 10, 64)
 		if err != nil {
-			http.Error(w, "Bad Request\nInvalid max_students value", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nInvalid max_students value", err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 			return
 		}
 		if maxStudents < 0 {
-			http.Error(w, "Bad Request\nNegative max_students value", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nNegative max_students value", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 			return
 		}
 
@@ -567,7 +581,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		switch membership {
 		case db.MembershipTypeFree, db.MembershipTypeInviteOnly:
 		default:
-			http.Error(w, "Bad Request\nUnknown membership type "+record[5], http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown membership type "+record[5], nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 			return
 		}
 
@@ -576,7 +590,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 
 		category := strings.TrimSpace(record[8])
 		if category == "" {
-			http.Error(w, "Bad Request\nRow has empty category", http.StatusBadRequest)
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nRow has empty category", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 			return
 		}
 
@@ -588,7 +602,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 				switch ls {
 				case db.LegalSexF, db.LegalSexM, db.LegalSexX:
 				default:
-					http.Error(w, "Bad Request\nUnknown legal sex "+part, http.StatusBadRequest)
+					app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown legal sex "+part, nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 					return
 				}
 				legalSexes = append(legalSexes, ls)
@@ -601,14 +615,14 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 			for _, part := range strings.Split(gradeField, ",") {
 				grade := strings.TrimSpace(part)
 				if grade == "" {
-					http.Error(w, "Bad Request\nInvalid blank grade entry", http.StatusBadRequest)
+					app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nInvalid blank grade entry", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 					return
 				}
 				allowedGrades = append(allowedGrades, grade)
 			}
 		}
 
-		err = qtx.NewCourse(r.Context(), db.NewCourseParams{
+		if err = qtx.NewCourse(r.Context(), db.NewCourseParams{
 			ID:          id,
 			Name:        name,
 			Description: description,
@@ -618,9 +632,8 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 			Teacher:     teacher,
 			Location:    location,
 			CategoryID:  category,
-		})
-		if err != nil {
-			http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		}); err != nil {
+			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 			return
 		}
 
@@ -630,12 +643,11 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 				continue
 			}
 			seenLegalSex[ls] = struct{}{}
-			err = qtx.AddCourseAllowedLegalSex(r.Context(), db.AddCourseAllowedLegalSexParams{
+			if err = qtx.AddCourseAllowedLegalSex(r.Context(), db.AddCourseAllowedLegalSexParams{
 				CourseID: id,
 				LegalSex: ls,
-			})
-			if err != nil {
-				http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+			}); err != nil {
+				app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 				return
 			}
 		}
@@ -646,24 +658,26 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 				continue
 			}
 			seenGrades[grade] = struct{}{}
-			err = qtx.AddCourseAllowedGrade(r.Context(), db.AddCourseAllowedGradeParams{
+			if err = qtx.AddCourseAllowedGrade(r.Context(), db.AddCourseAllowedGradeParams{
 				CourseID: id,
 				Grade:    grade,
-			})
-			if err != nil {
-				http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+			}); err != nil {
+				app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 				return
 			}
 		}
+
+		row++
 	}
 
-	err = tx.Commit(r.Context())
-	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+	if err = tx.Commit(r.Context()); err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
+	app.logInfo(r, "imported courses", slog.String("admin_username", aui.Username))
 	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
 
+	app.logInfo(r, "redirecting after course import", slog.String("admin_username", aui.Username))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }

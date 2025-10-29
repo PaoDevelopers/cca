@@ -1,21 +1,22 @@
 package main
 
 import (
-	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
 func (app *App) handleStuAPIGrades(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent) {
+	app.logRequestStart(r, "handleStuAPIGrades", slog.Int64("student_id", sui.ID))
 	if r.Method != http.MethodGet {
-		apiError(w, http.StatusMethodNotAllowed, nil)
+		app.apiError(r, w, http.StatusMethodNotAllowed, nil)
 		return
 	}
 
 	agrs, err := app.AbsGrades(r.Context())
 	if err != nil {
-		apiError(w, http.StatusInternalServerError, err.Error())
+		app.apiError(r, w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	json.NewEncoder(w).Encode(agrs)
+	app.writeJSON(r, w, http.StatusOK, agrs, slog.Int64("student_id", sui.ID))
 }

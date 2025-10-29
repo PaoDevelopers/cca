@@ -66,7 +66,8 @@ SELECT
 	membership,
 	teacher,
 	location,
-	category_id
+	category_id,
+	(SELECT COUNT(*) FROM choices ch WHERE ch.course_id = courses.id) AS current_students
 FROM courses
 ORDER BY id;
 
@@ -127,32 +128,41 @@ WHERE course_id = $1;
 DELETE FROM course_allowed_grades
 WHERE course_id = $1;
 
+-- name: GetCourseCountsByIDs :many
+WITH requested AS (
+	SELECT unnest($1::text[]) AS id
+)
+SELECT
+	req.id::text AS id,
+	COALESCE(COUNT(ch.course_id), 0)::bigint AS current_students
+FROM requested req
+LEFT JOIN choices ch ON ch.course_id = req.id
+GROUP BY req.id;
+
 ---- Grades
 
 -- name: GetGrades :many
-SELECT grade, enabled
+SELECT grade, enabled, max_own_choices
 FROM grades;
 
 -- name: NewGrade :exec
-INSERT INTO grades (grade, enabled)
-VALUES ($1, false);
+INSERT INTO grades (grade, enabled, max_own_choices)
+VALUES ($1, false, $2);
 
 -- name: DeleteGrade :exec
 DELETE FROM grades
 WHERE grade = $1;
 
+-- name: UpdateGradeSettings :exec
+UPDATE grades
+SET enabled = $1,
+	max_own_choices = $2
+WHERE grade = $3;
+
 -- name: SetGradeEnabled :exec
 UPDATE grades
 SET enabled = $1
 WHERE grade = $2;
-
--- name: SetGradesBulkEnabledUpdate :exec
-UPDATE grades
-SET enabled = 
-	CASE
-		WHEN COALESCE(array_length($1::text[], 1), 0) = 0 THEN FALSE
-		ELSE grade = ANY($1::text[])
-	END;
 
 -- name: GetRequirementGroupsByGrade :many
 SELECT
@@ -238,6 +248,33 @@ SELECT
 FROM courses c
 WHERE c.id = $2;
 
+-- name: NewSelectionsBulk :exec
+WITH student_ids AS (
+	SELECT DISTINCT unnest($1::bigint[]) AS student_id
+),
+course_ids AS (
+	SELECT DISTINCT c.id, c.period
+	FROM courses c
+	WHERE c.id = ANY($2::text[])
+),
+to_insert AS (
+	SELECT s.student_id, c.id AS course_id, c.period
+	FROM student_ids s
+	CROSS JOIN course_ids c
+)
+INSERT INTO choices (
+	student_id,
+	course_id,
+	period,
+	selection_type
+)
+SELECT
+	ti.student_id,
+	ti.course_id,
+	ti.period,
+	$3
+FROM to_insert ti;
+
 -- name: UpdateSelection :exec
 UPDATE choices AS ch
 SET
@@ -260,6 +297,12 @@ WHERE student_id = $1 AND period = $2;
 SELECT course_id, period, selection_type
 FROM choices
 WHERE student_id = $1;
+
+
+-- name: GetSelectionCourseByStudentAndPeriod :one
+SELECT course_id
+FROM choices
+WHERE student_id = $1 AND period = $2;
 
 
 -- name: DeleteChoiceByStudentAndCourse :exec

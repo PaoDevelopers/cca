@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, onMounted, ref} from 'vue'
+import {computed, onBeforeUnmount, onMounted, ref} from 'vue'
 import SelectionPage from './pages/SelectionPage.vue'
 import ReviewPage from './pages/ReviewPage.vue'
 import type {Choice, Course, Student} from './types'
@@ -142,32 +142,96 @@ const loadPeriods = async () => {
     periods.value = await periodsRes.json()
 }
 
+const showInfoToast = (message: string) => {
+    infoMessage.value = message
+    if (infoTimeout) clearTimeout(infoTimeout)
+    infoTimeout = window.setTimeout(() => {
+        infoMessage.value = null
+        infoTimeout = null
+    }, 5000)
+}
+
+const closeEventSource = () => {
+    if (eventSource) {
+        eventSource.close()
+        eventSource = null
+    }
+}
+
+const startEventStream = () => {
+    closeEventSource()
+    const source = new EventSource('/student/api/events')
+    eventSource = source
+
+    source.addEventListener('invalidate_periods', async () => {
+        try {
+            await Promise.all([loadCourses(), loadPeriods()])
+        } catch (err) {
+            console.error('Failed to refresh periods:', err)
+        }
+    })
+    source.addEventListener('invalidate_courses', async () => {
+        try {
+            await loadCourses()
+        } catch (err) {
+            console.error('Failed to refresh courses:', err)
+        }
+    })
+    source.addEventListener('invalidate_categories', async () => {
+        try {
+            await loadCourses()
+        } catch (err) {
+            console.error('Failed to refresh categories:', err)
+        }
+    })
+    source.addEventListener('invalidate_grades', async () => {
+        try {
+            await loadGrades()
+        } catch (err) {
+            console.error('Failed to refresh grades:', err)
+        }
+    })
+    source.addEventListener('invalidate_selections', async () => {
+        try {
+            await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
+        } catch (err) {
+            console.error('Failed to refresh selections:', err)
+        }
+    })
+    source.addEventListener('course_count_update', (event) => {
+        try {
+            const data = JSON.parse((event as MessageEvent<string>).data)
+            if (!data || typeof data.c !== 'string') {
+                return
+            }
+            const count = typeof data.n === 'number' ? data.n : Number.parseInt(data.n, 10)
+            const target = ccas.value.find((course: CourseWithSelection) => course.id === data.c)
+            if (target) {
+                target.current_students = Number.isNaN(count) ? 0 : count
+            }
+        } catch (err) {
+            console.error('Failed to process course_count_update event:', err)
+        }
+    })
+    source.addEventListener('notify', (event) => {
+        const data = (event as MessageEvent<string>).data
+        if (data) {
+            showInfoToast(data)
+        }
+    })
+    source.onerror = () => {
+        source.close()
+        if (eventSource === source) {
+            eventSource = null
+        }
+    }
+}
+
 onMounted(async () => {
     try {
         userInfo.value = await fetchJson<Student>('/student/api/user_info', {credentials: 'include'})
         await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
-
-        eventSource = new EventSource('/student/api/events')
-        eventSource.addEventListener('invalidate_periods', async () => {
-            await loadCourses()
-            await loadPeriods()
-        })
-        eventSource.addEventListener('invalidate_courses', async () => {
-            await loadCourses()
-        })
-        eventSource.addEventListener('invalidate_categories', async () => {
-            await loadCourses()
-        })
-        eventSource.addEventListener('invalidate_grades', loadGrades)
-        eventSource.addEventListener('notify', (e) => {
-            infoMessage.value = e.data
-            if (infoTimeout) clearTimeout(infoTimeout)
-            infoTimeout = setTimeout(() => infoMessage.value = null, 5000)
-        })
-        eventSource.onerror = () => {
-            eventSource?.close()
-            eventSource = null
-        }
+        startEventStream()
     } catch (err) {
         errorMessage.value = err instanceof Error ? err.message : 'Failed to load data.'
     }
@@ -251,15 +315,29 @@ const filteredCCAs = computed(() => {
 })
 
 const cleanup = () => {
-    if (eventSource) {
-        eventSource.close()
-        eventSource = null
+    closeEventSource()
+    if (infoTimeout) {
+        clearTimeout(infoTimeout)
+        infoTimeout = null
+    }
+    if (errorTimeout) {
+        clearTimeout(errorTimeout)
+        errorTimeout = null
     }
 }
 
+const handleBeforeUnload = () => cleanup()
+
 if (typeof window !== 'undefined') {
-    window.addEventListener('beforeunload', cleanup)
+    window.addEventListener('beforeunload', handleBeforeUnload)
 }
+
+onBeforeUnmount(() => {
+    if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+    cleanup()
+})
 </script>
 
 <style scoped>
@@ -287,14 +365,14 @@ if (typeof window !== 'undefined') {
                     <div class="flex gap-12">
                         <button
                             @click="activeTab = 'Selection'"
-                            class="text-sm pb-2 transition-colors"
+                            class="text-sm pb-2"
                             :class="activeTab === 'Selection' ? 'border-b-2 border-[#5bae31] text-[#5bae31]' : 'text-gray-500 hover:text-gray-900'"
                         >
                             Selection
                         </button>
                         <button
                             @click="activeTab = 'Review'"
-                            class="text-sm pb-2 transition-colors"
+                            class="text-sm pb-2"
                             :class="activeTab === 'Review' ? 'border-b-2 border-[#5bae31] text-[#5bae31]' : 'text-gray-500 hover:text-gray-900'"
                         >
                             Review
@@ -316,27 +394,23 @@ if (typeof window !== 'undefined') {
             </div>
         </header>
 
-        <Transition name="fade">
-            <div v-if="errorMessage" class="toast toast-top toast-center z-[60]">
-                <div role="alert" class="alert alert-error !bg-red-100 !text-red-900">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>{{ errorMessage }}</span>
-                </div>
+        <div v-if="errorMessage" class="toast toast-top toast-center z-[60]">
+            <div role="alert" class="alert alert-error !bg-red-100 !text-red-900">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{{ errorMessage }}</span>
             </div>
-        </Transition>
+        </div>
 
-        <Transition name="fade">
-            <div v-if="infoMessage" class="toast toast-top toast-center z-[60]">
-                <div role="alert" class="alert alert-info !bg-blue-100 !text-blue-900 !border-blue-100">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
-                    <span>{{ infoMessage }}</span>
-                </div>
+        <div v-if="infoMessage" class="toast toast-top toast-center z-[60]">
+            <div role="alert" class="alert alert-info !bg-blue-100 !text-blue-900 !border-blue-100">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>{{ infoMessage }}</span>
             </div>
-        </Transition>
+        </div>
 
 
         <SelectionPage v-if="activeTab === 'Selection'" ref="selectionPageRef" :ccas="filteredCCAs"

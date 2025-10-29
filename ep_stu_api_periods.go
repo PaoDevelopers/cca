@@ -1,21 +1,22 @@
 package main
 
 import (
-	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
 func (app *App) handleStuAPIPeriods(w http.ResponseWriter, r *http.Request, _ *UserInfoStudent) {
+	app.logRequestStart(r, "handleStuAPIPeriods")
 	if r.Method != http.MethodGet {
-		apiError(w, http.StatusMethodNotAllowed, nil)
+		app.apiError(r, w, http.StatusMethodNotAllowed, nil)
 		return
 	}
 
 	periods, err := app.queries.GetPeriods(r.Context())
 	if err != nil {
-		apiError(w, http.StatusInternalServerError, err.Error())
+		app.apiError(r, w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	json.NewEncoder(w).Encode(periods)
+	app.writeJSON(r, w, http.StatusOK, periods, slog.String("resource", "periods"))
 }

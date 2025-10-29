@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,32 +22,41 @@ type Claims struct {
 }
 
 func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
+	app.logRequestStart(r, "handleAuth")
 	if r.Method != http.MethodPost {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		app.respondHTTPError(r, w, http.StatusMethodNotAllowed, "Method Not Allowed", nil)
 		return
 	}
 
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, "Bad Request\nMalformed form", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nMalformed form", err)
 		return
 	}
 
 	if e := r.PostFormValue("error"); e != "" {
 		ed := r.PostFormValue("error_description")
-		http.Error(w, "Bad Request\nExternal error\n"+e+"\n"+ed, http.StatusBadRequest)
+		app.respondHTTPError(
+			r,
+			w,
+			http.StatusBadRequest,
+			"Bad Request\nExternal error\n"+e+"\n"+ed,
+			errors.New("external auth error"),
+			slog.String("external_error", e),
+			slog.String("external_description", ed),
+		)
 		return
 	}
 
 	idts := r.PostFormValue("id_token")
 	if idts == "" {
-		http.Error(w, "Bad Request\nID token expected but not found", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nID token expected but not found", nil)
 		return
 	}
 
 	idt, err := jwt.ParseWithClaims(idts, &Claims{}, app.kf.Keyfunc)
 	if err != nil {
-		http.Error(w, "Bad Request\nUnparsable JWT", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnparsable JWT", err)
 		return
 	}
 
@@ -54,35 +64,43 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case !ok:
-		http.Error(w, "Bad Request\nInvalid JWT claims", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nInvalid JWT claims", nil)
 		return
 	case idt.Valid:
 		break
 	case errors.Is(err, jwt.ErrTokenMalformed):
-		http.Error(w, "Bad Request\nMalformed JWT", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nMalformed JWT", err)
 		return
 	case errors.Is(err, jwt.ErrTokenSignatureInvalid):
-		http.Error(w, "Bad Request\nInvalid JWT signature", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nInvalid JWT signature", err)
 		return
 	case errors.Is(err, jwt.ErrTokenExpired):
-		http.Error(w, "Bad Request\nJWT expired", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nJWT expired", err)
 		return
 	case errors.Is(err, jwt.ErrTokenNotValidYet):
-		http.Error(w, "Bad Request\nJWT not valid yet", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nJWT not valid yet", err)
 		return
 	default:
-		http.Error(w, "Bad Request\nInvalid JWT", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nInvalid JWT", err)
 		return
 	}
 
 	claims.Email = strings.ToLower(claims.Email)
 	lp, dp, ok := strings.Cut(claims.Email, "@")
 	if !ok {
-		http.Error(w, "Bad Request\nInvalid email address", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nInvalid email address", nil)
 		return
 	}
 	if dp != "ykpaoschool.cn" && dp != "stu.ykpaoschool.cn" {
-		http.Error(w, "Unauthorized\nInvalid email address domain-part", http.StatusUnauthorized)
+		app.respondHTTPError(
+			r,
+			w,
+			http.StatusUnauthorized,
+			"Unauthorized\nInvalid email address domain-part",
+			nil,
+			slog.String("domain", dp),
+			slog.String("email", claims.Email),
+		)
 		return
 	}
 
@@ -115,15 +133,30 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			},
 		)
 		if err != nil {
-			http.Error(w, "Internal Server Error\nCannot set admin session token", http.StatusInternalServerError)
+			app.respondHTTPError(
+				r,
+				w,
+				http.StatusInternalServerError,
+				"Internal Server Error\nCannot set admin session token",
+				err,
+				slog.String("admin_username", lp),
+			)
 			return
 		}
 
+		app.logInfo(r, "admin authentication successful", slog.String("admin_username", lp))
 		http.Redirect(w, r, "/admin/", http.StatusSeeOther)
 	} else {
 		sid, err := strconv.ParseInt(strings.TrimLeft(lp, "sS"), 10, 64)
 		if err != nil {
-			http.Error(w, "Unauthorized\nInvalid student ID", http.StatusUnauthorized)
+			app.respondHTTPError(
+				r,
+				w,
+				http.StatusUnauthorized,
+				"Unauthorized\nInvalid student ID",
+				err,
+				slog.String("label", lp),
+			)
 			return
 		}
 		_, err = app.queries.SetStudentSession(
@@ -135,13 +168,28 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 		)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
-				http.Error(w, "Unauthorized\nStudent ID not found in database", http.StatusUnauthorized)
+				app.respondHTTPError(
+					r,
+					w,
+					http.StatusUnauthorized,
+					"Unauthorized\nStudent ID not found in database",
+					err,
+					slog.Int64("student_id", sid),
+				)
 				return
 			}
-			http.Error(w, "Internal Server Error\nCannot set student session token", http.StatusInternalServerError)
+			app.respondHTTPError(
+				r,
+				w,
+				http.StatusInternalServerError,
+				"Internal Server Error\nCannot set student session token",
+				err,
+				slog.Int64("student_id", sid),
+			)
 			return
 		}
 
+		app.logInfo(r, "student authentication successful", slog.Int64("student_id", sid))
 		http.Redirect(w, r, "/student/", http.StatusSeeOther)
 	}
 }

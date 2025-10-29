@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 )
 
-func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, _ *UserInfoStudent) {
+func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent) {
+	app.logRequestStart(r, "handleStuAPIEvents", slog.Int64("student_id", sui.ID))
 	if r.Method != http.MethodGet {
-		apiError(w, http.StatusMethodNotAllowed, nil)
+		app.apiError(r, w, http.StatusMethodNotAllowed, nil)
 		return
 	}
 
@@ -17,29 +19,46 @@ func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, _ *Us
 
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "Internal Server Error\nConnection does not seem to support streaming for some reason?", http.StatusInternalServerError)
+		app.respondHTTPError(
+			r,
+			w,
+			http.StatusInternalServerError,
+			"Internal Server Error\nConnection does not seem to support streaming for some reason?",
+			fmt.Errorf("response writer does not implement http.Flusher"),
+		)
 		return
 	}
 
-	ch := app.broker.Subscribe()
-	defer app.broker.Unsubscribe(ch)
+	ch := app.broker.SubscribeStudent(sui.ID)
+	app.logInfo(r, "subscribed to sse broker", slog.Int64("student_id", sui.ID))
+	defer app.broker.UnsubscribeStudent(sui.ID, ch)
 
 	for {
 		select {
 		case <-r.Context().Done():
+			app.logInfo(r, "sse request context canceled")
 			return
 		case msg := <-ch:
 			switch {
 			case msg.event == "" && msg.data == "":
 				panic("programmer error: unsupported message with both event and data empty")
 			case msg.event == "" && msg.data != "":
-				fmt.Fprintf(w, "data: %s\n\n", msg.data)
+				if _, err := fmt.Fprintf(w, "data: %s\n\n", msg.data); err != nil {
+					app.logError(r, "failed writing sse data", slog.Any("error", err))
+					return
+				}
 				flusher.Flush()
 			case msg.event != "" && msg.data == "":
-				fmt.Fprintf(w, "event: %s\ndata:\n\n", msg.event)
+				if _, err := fmt.Fprintf(w, "event: %s\ndata:\n\n", msg.event); err != nil {
+					app.logError(r, "failed writing sse event", slog.Any("error", err))
+					return
+				}
 				flusher.Flush()
 			case msg.event != "" && msg.data != "":
-				fmt.Fprintf(w, "event: %s\ndata: %s\n\n", msg.event, msg.data)
+				if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", msg.event, msg.data); err != nil {
+					app.logError(r, "failed writing sse event and data", slog.Any("error", err))
+					return
+				}
 				flusher.Flush()
 			}
 		}

@@ -4,6 +4,7 @@ Selections
 
 {{ define "head" }}
 <script defer src="/admin/static/search.js"></script>
+<script defer src="/admin/static/multiselect-filter.js"></script>
 {{ end }}
 
 {{ define "content" }}
@@ -77,20 +78,24 @@ assignments, or to move students between courses.
 <h2>New selection</h2>
 <form method="POST" action="/admin/selections/new" class="stack-form">
 <div class="form-field">
-<label for="new-selection-student">Student</label>
-<select id="new-selection-student" name="student_id" required>
+<label for="new-selection-students">Students</label>
+<input type="text" id="new-selection-students-filter" class="multiselect-filter" data-filter-target="new-selection-students" placeholder="Search students...">
+<select id="new-selection-students" name="student_ids" multiple size="10" required>
 {{ range $data.Students }}
 <option value="{{ .ID }}">{{ .ID }} &mdash; {{ .Name }} ({{ .Grade }})</option>
 {{ end }}
 </select>
+<p class="form-note">Use Ctrl/Command or Shift to select multiple students.</p>
 </div>
 <div class="form-field">
-<label for="new-selection-course">Course</label>
-<select id="new-selection-course" name="course_id" required>
+<label for="new-selection-courses">Courses</label>
+<input type="text" id="new-selection-courses-filter" class="multiselect-filter" data-filter-target="new-selection-courses" placeholder="Search courses...">
+<select id="new-selection-courses" name="course_ids" multiple size="10" required>
 {{ range $data.Courses }}
 <option value="{{ .ID }}">{{ .ID }} &mdash; {{ .Name }} (Period {{ .Period }})</option>
 {{ end }}
 </select>
+<p class="form-note">Use Ctrl/Command or Shift to select multiple courses.</p>
 </div>
 <div class="form-field">
 <label for="new-selection-type">Type</label>
@@ -102,6 +107,28 @@ assignments, or to move students between courses.
 </div>
 <div class="form-actions">
 <button type="submit">Add</button>
+</div>
+</form>
+</section>
+<section class="import">
+<h2>Import CSV</h2>
+<p>
+Upload a CSV to bulk-create selections. Fields must appear in the following order:
+<code>course_id</code>,
+<code>student_id</code>,
+<code>invitation_type</code>.
+Invitation type must be one of <code>no</code>, <code>invite</code>, or <code>force</code>.
+</p>
+<p>
+Download an example file: <a href="/admin/static/selections_example.csv">selections_example.csv</a>
+</p>
+<form method="POST" action="/admin/selections/import" enctype="multipart/form-data" class="stack-form">
+<div class="form-field">
+<label for="selections-import-csv">CSV file</label>
+<input type="file" id="selections-import-csv" name="csv" accept=".csv" required />
+</div>
+<div class="form-actions">
+<button type="submit">Import</button>
 </div>
 </form>
 </section>

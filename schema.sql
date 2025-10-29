@@ -40,7 +40,14 @@ CREATE TABLE grades (
 	grade TEXT PRIMARY KEY,
 	-- TODO: Switch 'enabled' to a 'new selections cap', which would not
 	-- allow new selections to be made if the cap is reached.
-	enabled BOOLEAN NOT NULL DEFAULT FALSE
+	enabled BOOLEAN NOT NULL DEFAULT FALSE,
+
+	-- A student should not be allowed to make more choices if the number
+	-- of choices with invitation_type="no" that they have exceeds the
+	-- max_own_choices for their grade.
+	-- max_own_choices for each grade should be settable by the admin, next
+	-- to where they could set grade enabled status.
+	max_own_choices BIGINT NOT NULL DEFAULT 65535 CHECK (max_own_choices >= 0)
 );
 
 -- Course categories such as 'Sport', 'Enrichment', 'Art', and 'Culture'
@@ -158,6 +165,8 @@ DECLARE
 	v_has_legal_sex_list boolean;
 	v_legal_sex_allowed boolean;
 	v_grade_enabled boolean;
+	v_max_own_choices bigint;
+	v_student_no_count bigint;
 BEGIN
 	-- Gate: only act when the resulting row is a normal selection
 	IF NOT (
@@ -227,8 +236,8 @@ BEGIN
 	END IF;
 
 	-- Selection window
-	SELECT enabled
-	INTO v_grade_enabled
+	SELECT enabled, max_own_choices
+	INTO v_grade_enabled, v_max_own_choices
 	FROM grades
 	WHERE grade = v_student_grade;
 
@@ -240,6 +249,23 @@ BEGIN
 	IF NOT v_grade_enabled THEN
 		RAISE EXCEPTION 'Selections are closed for grade %', v_student_grade
 			USING ERRCODE = 'check_violation';
+	END IF;
+
+	-- Own selections cap (count only selections with selection_type = 'no')
+	SELECT COUNT(*)::bigint
+	INTO v_student_no_count
+	FROM choices
+	WHERE student_id = NEW.student_id
+		AND selection_type = 'no';
+
+	IF TG_OP = 'INSERT' OR OLD.selection_type IS DISTINCT FROM 'no' THEN
+		v_student_no_count := v_student_no_count + 1;
+
+		IF v_student_no_count > v_max_own_choices THEN
+			RAISE EXCEPTION 'Student % cannot exceed % own selections for grade %',
+				NEW.student_id, v_max_own_choices, v_student_grade
+				USING ERRCODE = 'check_violation';
+		END IF;
 	END IF;
 
 	-- Capacity (after locking the course row)
@@ -275,6 +301,8 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
 	v_selection_type selection_type;
+	v_grade TEXT;
+	v_grade_enabled BOOLEAN;
 BEGIN
 	SELECT selection_type
 	INTO v_selection_type
@@ -286,6 +314,23 @@ BEGIN
 		RAISE EXCEPTION 'No selection found for student % and course %',
 			p_student_id, p_course_id
 			USING ERRCODE = 'no_data_found';
+	END IF;
+
+	SELECT s.grade, g.enabled
+	INTO v_grade, v_grade_enabled
+	FROM students s
+	JOIN grades g ON g.grade = s.grade
+	WHERE s.id = p_student_id;
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Student % not found', p_student_id
+			USING ERRCODE = 'foreign_key_violation';
+	END IF;
+
+	IF v_grade_enabled IS DISTINCT FROM TRUE THEN
+		RAISE EXCEPTION 'Cannot delete selection for student % from disabled grade %',
+			p_student_id, v_grade
+			USING ERRCODE = 'check_violation';
 	END IF;
 
 	IF v_selection_type = 'force' THEN
@@ -322,4 +367,24 @@ ORDER BY s.id, c.period, c.id;
 
 -- Indxes
 
--- TODO for after I write the queries
+CREATE INDEX IF NOT EXISTS idx_choices_course_period
+	ON choices (course_id, period);
+CREATE INDEX IF NOT EXISTS idx_choices_student_no_only
+	ON choices (student_id)
+	WHERE selection_type = 'no';
+CREATE INDEX IF NOT EXISTS idx_students_grade
+	ON students (grade);
+CREATE INDEX IF NOT EXISTS idx_courses_category_id
+	ON courses (category_id);
+CREATE INDEX IF NOT EXISTS idx_courses_period
+	ON courses (period);
+CREATE INDEX IF NOT EXISTS idx_course_allowed_grades_grade
+	ON course_allowed_grades (grade);
+CREATE INDEX IF NOT EXISTS idx_grade_requirement_groups_grade
+	ON grade_requirement_groups (grade);
+CREATE INDEX IF NOT EXISTS idx_gr_req_group_categories_category
+	ON grade_requirement_group_categories (category_id);
+CREATE INDEX IF NOT EXISTS idx_students_session_token 
+	ON students (session_token);
+CREATE INDEX IF NOT EXISTS idx_admins_session_token 
+	ON admins (session_token);
