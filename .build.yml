@@ -1,0 +1,12 @@
+image: alpine/edge
+packages:
+  - golangci-lint
+  - go
+  - npm
+tasks:
+  - prepare: |
+      ./prepare
+  - build: |
+      ./build
+  - lint: |
+      golangci-lint run .
