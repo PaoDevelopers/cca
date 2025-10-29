@@ -59,21 +59,56 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 
-	studentIDStr := strings.TrimSpace(r.FormValue("student_id"))
-	if studentIDStr == "" {
-		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add a selection without a student ID, which is not allowed", nil, slog.String("admin_username", aui.Username))
+	rawStudentIDs := r.PostForm["student_ids"]
+	if len(rawStudentIDs) == 0 {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nSelect at least one student", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
-	studentID, err := strconv.ParseInt(studentIDStr, 10, 64)
-	if err != nil {
-		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nStudent ID must be a number", err, slog.String("admin_username", aui.Username))
+	var studentIDs []int64
+	studentSeen := make(map[int64]struct{}, len(rawStudentIDs))
+	for _, raw := range rawStudentIDs {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		id, parseErr := strconv.ParseInt(raw, 10, 64)
+		if parseErr != nil {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nStudent ID must be a number", parseErr, slog.String("admin_username", aui.Username))
+			return
+		}
+		if _, ok := studentSeen[id]; ok {
+			continue
+		}
+		studentSeen[id] = struct{}{}
+		studentIDs = append(studentIDs, id)
+	}
+	if len(studentIDs) == 0 {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nNo valid student IDs provided", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
-	courseID := strings.TrimSpace(r.FormValue("course_id"))
-	if courseID == "" {
-		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add a selection without a course ID, which is not allowed", nil, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID))
+	rawCourseIDs := r.PostForm["course_ids"]
+	if len(rawCourseIDs) == 0 {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nSelect at least one course", nil, slog.String("admin_username", aui.Username))
+		return
+	}
+
+	var courseIDs []string
+	courseSeen := make(map[string]struct{}, len(rawCourseIDs))
+	for _, raw := range rawCourseIDs {
+		id := strings.TrimSpace(raw)
+		if id == "" {
+			continue
+		}
+		if _, ok := courseSeen[id]; ok {
+			continue
+		}
+		courseSeen[id] = struct{}{}
+		courseIDs = append(courseIDs, id)
+	}
+	if len(courseIDs) == 0 {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nNo valid course IDs provided", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
@@ -81,20 +116,36 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 	switch selectionType {
 	case db.SelectionTypeNo, db.SelectionTypeInvite, db.SelectionTypeForce:
 	default:
-		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown selection type", nil, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID))
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown selection type", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
-	if err = app.queries.NewSelection(r.Context(), db.NewSelectionParams{
-		StudentID:     studentID,
-		CourseID:      courseID,
+	if err = app.queries.NewSelectionsBulk(r.Context(), db.NewSelectionsBulkParams{
+		Column1:       studentIDs,
+		Column2:       courseIDs,
 		SelectionType: selectionType,
 	}); err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID))
+		app.respondHTTPError(
+			r,
+			w,
+			http.StatusInternalServerError,
+			"Internal Server Error\n"+err.Error(),
+			err,
+			slog.String("admin_username", aui.Username),
+			slog.Any("student_ids", studentIDs),
+			slog.Any("course_ids", courseIDs),
+		)
 		return
 	}
 
-	app.logInfo(r, "created selection", slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID), slog.String("selection_type", string(selectionType)))
+	app.logInfo(
+		r,
+		"created selections",
+		slog.String("admin_username", aui.Username),
+		slog.Any("student_ids", studentIDs),
+		slog.Any("course_ids", courseIDs),
+		slog.String("selection_type", string(selectionType)),
+	)
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 

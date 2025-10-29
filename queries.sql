@@ -238,6 +238,33 @@ SELECT
 FROM courses c
 WHERE c.id = $2;
 
+-- name: NewSelectionsBulk :exec
+WITH student_ids AS (
+	SELECT DISTINCT unnest($1::bigint[]) AS student_id
+),
+course_ids AS (
+	SELECT DISTINCT c.id, c.period
+	FROM courses c
+	WHERE c.id = ANY($2::text[])
+),
+to_insert AS (
+	SELECT s.student_id, c.id AS course_id, c.period
+	FROM student_ids s
+	CROSS JOIN course_ids c
+)
+INSERT INTO choices (
+	student_id,
+	course_id,
+	period,
+	selection_type
+)
+SELECT
+	ti.student_id,
+	ti.course_id,
+	ti.period,
+	$3
+FROM to_insert ti;
+
 -- name: UpdateSelection :exec
 UPDATE choices AS ch
 SET

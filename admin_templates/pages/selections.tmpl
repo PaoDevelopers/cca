@@ -4,6 +4,7 @@ Selections
 
 {{ define "head" }}
 <script defer src="/admin/static/search.js"></script>
+<script defer src="/admin/static/multiselect-filter.js"></script>
 {{ end }}
 
 {{ define "content" }}
@@ -77,20 +78,24 @@ assignments, or to move students between courses.
 <h2>New selection</h2>
 <form method="POST" action="/admin/selections/new" class="stack-form">
 <div class="form-field">
-<label for="new-selection-student">Student</label>
-<select id="new-selection-student" name="student_id" required>
+<label for="new-selection-students">Students</label>
+<input type="text" id="new-selection-students-filter" class="multiselect-filter" data-filter-target="new-selection-students" placeholder="Search students...">
+<select id="new-selection-students" name="student_ids" multiple size="10" required>
 {{ range $data.Students }}
 <option value="{{ .ID }}">{{ .ID }} &mdash; {{ .Name }} ({{ .Grade }})</option>
 {{ end }}
 </select>
+<p class="form-note">Use Ctrl/Command or Shift to select multiple students.</p>
 </div>
 <div class="form-field">
-<label for="new-selection-course">Course</label>
-<select id="new-selection-course" name="course_id" required>
+<label for="new-selection-courses">Courses</label>
+<input type="text" id="new-selection-courses-filter" class="multiselect-filter" data-filter-target="new-selection-courses" placeholder="Search courses...">
+<select id="new-selection-courses" name="course_ids" multiple size="10" required>
 {{ range $data.Courses }}
 <option value="{{ .ID }}">{{ .ID }} &mdash; {{ .Name }} (Period {{ .Period }})</option>
 {{ end }}
 </select>
+<p class="form-note">Use Ctrl/Command or Shift to select multiple courses.</p>
 </div>
 <div class="form-field">
 <label for="new-selection-type">Type</label>
