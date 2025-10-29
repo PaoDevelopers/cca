@@ -101,6 +101,7 @@ func main() {
 	mux.HandleFunc("/admin/selections/new", app.adminOnly("handleAdmSelectionsNew", app.handleAdmSelectionsNew))
 	mux.HandleFunc("/admin/selections/edit", app.adminOnly("handleAdmSelectionsEdit", app.handleAdmSelectionsEdit))
 	mux.HandleFunc("/admin/selections/delete", app.adminOnly("handleAdmSelectionsDelete", app.handleAdmSelectionsDelete))
+	mux.HandleFunc("/admin/selections/import", app.adminOnly("handleAdmSelectionsImport", app.handleAdmSelectionsImport))
 	mux.HandleFunc("/student", app.studentOnly("handleStu", app.handleStu))
 	mux.Handle("/student/assets/", http.StripPrefix("/student/assets/", http.FileServer(http.Dir("frontend/dist/assets/"))))
 	mux.HandleFunc("/student/", func(w http.ResponseWriter, r *http.Request) {

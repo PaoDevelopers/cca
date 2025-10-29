@@ -1,6 +1,10 @@
 package main
 
 import (
+	"bufio"
+	"encoding/csv"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -232,5 +236,127 @@ func (app *App) handleAdmSelectionsDelete(w http.ResponseWriter, r *http.Request
 	}
 
 	app.logInfo(r, "deleted selection", slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
+	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
+}
+
+func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmSelectionsImport", slog.String("admin_username", aui.Username))
+	if r.Method != http.MethodPost {
+		app.apiError(r, w, http.StatusMethodNotAllowed, nil, slog.String("admin_username", aui.Username))
+		return
+	}
+
+	if err := r.ParseMultipartForm(8 << 20); err != nil {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+		return
+	}
+
+	f, _, err := r.FormFile("csv")
+	if err != nil {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nCSV file required", err, slog.String("admin_username", aui.Username))
+		return
+	}
+	defer f.Close()
+
+	br := bufio.NewReader(f)
+	if b, _ := br.Peek(3); len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
+		if _, err := br.Discard(3); err != nil {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+			return
+		}
+	}
+
+	reader := csv.NewReader(br)
+	header, err := reader.Read()
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nEmpty CSV", err, slog.String("admin_username", aui.Username))
+			return
+		}
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+		return
+	}
+
+	expected := []string{"course_id", "student_id", "invitation_type"}
+	if len(header) != len(expected) {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nCSV header does not match expected column count", nil, slog.String("admin_username", aui.Username))
+		return
+	}
+	for i, col := range header {
+		if strings.TrimSpace(col) != expected[i] {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnexpected header column: "+col, nil, slog.String("admin_username", aui.Username))
+			return
+		}
+	}
+
+	tx, err := app.pool.Begin(r.Context())
+	if err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	qtx := app.queries.WithTx(tx)
+
+	row := 2
+	for {
+		record, err := reader.Read()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row))
+			return
+		}
+		if len(record) != len(expected) {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnexpected column count in CSV row", nil, slog.String("admin_username", aui.Username), slog.Int("row", row))
+			return
+		}
+
+		courseID := strings.TrimSpace(record[0])
+		if courseID == "" {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nRow has empty course ID", nil, slog.String("admin_username", aui.Username), slog.Int("row", row))
+			return
+		}
+
+		studentIDStr := strings.TrimSpace(record[1])
+		studentID, parseErr := strconv.ParseInt(studentIDStr, 10, 64)
+		if parseErr != nil {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nInvalid student ID "+studentIDStr, parseErr, slog.String("admin_username", aui.Username), slog.Int("row", row))
+			return
+		}
+
+		selectionTypeStr := strings.ToLower(strings.TrimSpace(record[2]))
+		var selectionType db.SelectionType
+		switch selectionTypeStr {
+		case string(db.SelectionTypeNo):
+			selectionType = db.SelectionTypeNo
+		case string(db.SelectionTypeInvite):
+			selectionType = db.SelectionTypeInvite
+		case string(db.SelectionTypeForce):
+			selectionType = db.SelectionTypeForce
+		default:
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown invitation type", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("invitation_type", selectionTypeStr))
+			return
+		}
+
+		if err = qtx.NewSelection(r.Context(), db.NewSelectionParams{
+			StudentID:     studentID,
+			CourseID:      courseID,
+			SelectionType: selectionType,
+		}); err != nil {
+			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", courseID), slog.Int64("student_id", studentID))
+			return
+		}
+
+		row++
+	}
+
+	if err := tx.Commit(r.Context()); err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+		return
+	}
+
+	app.logInfo(r, "imported selections", slog.String("admin_username", aui.Username), slog.Int("rows", row-2))
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
