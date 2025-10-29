@@ -367,4 +367,24 @@ ORDER BY s.id, c.period, c.id;
 
 -- Indxes
 
--- TODO for after I write the queries
+CREATE INDEX IF NOT EXISTS idx_choices_course_period
+	ON choices (course_id, period);
+CREATE INDEX IF NOT EXISTS idx_choices_student_no_only
+	ON choices (student_id)
+	WHERE selection_type = 'no';
+CREATE INDEX IF NOT EXISTS idx_students_grade
+	ON students (grade);
+CREATE INDEX IF NOT EXISTS idx_courses_category_id
+	ON courses (category_id);
+CREATE INDEX IF NOT EXISTS idx_courses_period
+	ON courses (period);
+CREATE INDEX IF NOT EXISTS idx_course_allowed_grades_grade
+	ON course_allowed_grades (grade);
+CREATE INDEX IF NOT EXISTS idx_grade_requirement_groups_grade
+	ON grade_requirement_groups (grade);
+CREATE INDEX IF NOT EXISTS idx_gr_req_group_categories_category
+	ON grade_requirement_group_categories (category_id);
+CREATE INDEX IF NOT EXISTS idx_students_session_token 
+	ON students (session_token);
+CREATE INDEX IF NOT EXISTS idx_admins_session_token 
+	ON admins (session_token);
