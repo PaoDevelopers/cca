@@ -66,7 +66,8 @@ SELECT
 	membership,
 	teacher,
 	location,
-	category_id
+	category_id,
+	(SELECT COUNT(*) FROM choices ch WHERE ch.course_id = courses.id) AS current_students
 FROM courses
 ORDER BY id;
 
@@ -126,6 +127,17 @@ WHERE course_id = $1;
 -- name: DeleteCourseAllowedGrades :exec
 DELETE FROM course_allowed_grades
 WHERE course_id = $1;
+
+-- name: GetCourseCountsByIDs :many
+WITH requested AS (
+	SELECT unnest($1::text[]) AS id
+)
+SELECT
+	req.id::text AS id,
+	COALESCE(COUNT(ch.course_id), 0)::bigint AS current_students
+FROM requested req
+LEFT JOIN choices ch ON ch.course_id = req.id
+GROUP BY req.id;
 
 ---- Grades
 
@@ -285,6 +297,12 @@ WHERE student_id = $1 AND period = $2;
 SELECT course_id, period, selection_type
 FROM choices
 WHERE student_id = $1;
+
+
+-- name: GetSelectionCourseByStudentAndPeriod :one
+SELECT course_id
+FROM choices
+WHERE student_id = $1 AND period = $2;
 
 
 -- name: DeleteChoiceByStudentAndCourse :exec

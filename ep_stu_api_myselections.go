@@ -43,6 +43,7 @@ func (app *App) handleStuAPIMySelections(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		app.logInfo(r, "deleted selection", slog.Int64("student_id", sui.ID), slog.String("course_id", s))
+		app.broadcastCourseCounts(r, []string{s})
 		if get() {
 			return
 		}
@@ -63,6 +64,7 @@ func (app *App) handleStuAPIMySelections(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		app.logInfo(r, "created selection", slog.Int64("student_id", sui.ID), slog.String("course_id", s))
+		app.broadcastCourseCounts(r, []string{s})
 		if get() {
 			return
 		}

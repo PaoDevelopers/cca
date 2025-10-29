@@ -198,6 +198,21 @@ const startEventStream = () => {
             console.error('Failed to refresh selections:', err)
         }
     })
+    source.addEventListener('course_count_update', (event) => {
+        try {
+            const data = JSON.parse((event as MessageEvent<string>).data)
+            if (!data || typeof data.c !== 'string') {
+                return
+            }
+            const count = typeof data.n === 'number' ? data.n : Number.parseInt(data.n, 10)
+            const target = ccas.value.find((course: CourseWithSelection) => course.id === data.c)
+            if (target) {
+                target.current_students = Number.isNaN(count) ? 0 : count
+            }
+        } catch (err) {
+            console.error('Failed to process course_count_update event:', err)
+        }
+    })
     source.addEventListener('notify', (event) => {
         const data = (event as MessageEvent<string>).data
         if (data) {

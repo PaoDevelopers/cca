@@ -43,7 +43,7 @@ func (app *App) handleAdmSelections(w http.ResponseWriter, r *http.Request, aui 
 	if err := app.admRenderTemplate(w, r, "selections", struct {
 		Selections     []db.GetSelectionsRow
 		Students       []db.Student
-		Courses        []db.Course
+		Courses        []db.GetCoursesRow
 		SelectionTypes []db.SelectionType
 	}{
 		Selections:     selections,
@@ -151,6 +151,7 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 		slog.String("selection_type", string(selectionType)),
 	)
 	app.broker.BroadcastToStudents(studentIDs, BrokerMsg{event: "invalidate_selections"})
+	app.broadcastCourseCounts(r, courseIDs)
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 
@@ -186,6 +187,15 @@ func (app *App) handleAdmSelectionsEdit(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
+	currentCourse, err := app.queries.GetSelectionCourseByStudentAndPeriod(r.Context(), db.GetSelectionCourseByStudentAndPeriodParams{
+		StudentID: studentID,
+		Period:    period,
+	})
+	if err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
+		return
+	}
+
 	selectionType := db.SelectionType(strings.TrimSpace(r.FormValue("selection_type")))
 	switch selectionType {
 	case db.SelectionTypeNo, db.SelectionTypeInvite, db.SelectionTypeForce:
@@ -206,6 +216,11 @@ func (app *App) handleAdmSelectionsEdit(w http.ResponseWriter, r *http.Request, 
 
 	app.logInfo(r, "updated selection", slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID), slog.String("period", period), slog.String("selection_type", string(selectionType)))
 	app.broker.BroadcastToStudents([]int64{studentID}, BrokerMsg{event: "invalidate_selections"})
+	courseSet := []string{courseID}
+	if currentCourse != courseID {
+		courseSet = append(courseSet, currentCourse)
+	}
+	app.broadcastCourseCounts(r, courseSet)
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 
@@ -229,6 +244,15 @@ func (app *App) handleAdmSelectionsDelete(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	existingCourse, err := app.queries.GetSelectionCourseByStudentAndPeriod(r.Context(), db.GetSelectionCourseByStudentAndPeriodParams{
+		StudentID: studentID,
+		Period:    period,
+	})
+	if err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
+		return
+	}
+
 	if err = app.queries.DeleteSelection(r.Context(), db.DeleteSelectionParams{
 		StudentID: studentID,
 		Period:    period,
@@ -239,6 +263,7 @@ func (app *App) handleAdmSelectionsDelete(w http.ResponseWriter, r *http.Request
 
 	app.logInfo(r, "deleted selection", slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
 	app.broker.BroadcastToStudents([]int64{studentID}, BrokerMsg{event: "invalidate_selections"})
+	app.broadcastCourseCounts(r, []string{existingCourse})
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 
@@ -301,6 +326,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 
 	qtx := app.queries.WithTx(tx)
 	studentSet := make(map[int64]struct{})
+	courseSet := make(map[string]struct{})
 
 	row := 2
 	for {
@@ -354,6 +380,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		}
 
 		studentSet[studentID] = struct{}{}
+		courseSet[courseID] = struct{}{}
 
 		row++
 	}
@@ -367,9 +394,14 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 	for id := range studentSet {
 		students = append(students, id)
 	}
-	app.logInfo(r, "imported selections", slog.String("admin_username", aui.Username), slog.Int("rows", row-2), slog.Int("students_impacted", len(students)))
+	courses := make([]string, 0, len(courseSet))
+	for id := range courseSet {
+		courses = append(courses, id)
+	}
+	app.logInfo(r, "imported selections", slog.String("admin_username", aui.Username), slog.Int("rows", row-2), slog.Int("students_impacted", len(students)), slog.Int("courses_impacted", len(courses)))
 	if len(students) > 0 {
 		app.broker.BroadcastToStudents(students, BrokerMsg{event: "invalidate_selections"})
 	}
+	app.broadcastCourseCounts(r, courses)
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }

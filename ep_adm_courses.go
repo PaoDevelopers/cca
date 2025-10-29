@@ -15,7 +15,7 @@ import (
 )
 
 type adminCourse struct {
-	Course               db.Course
+	Course               db.GetCoursesRow
 	AllowedLegalSexes    []db.LegalSex
 	AllowedLegalSexesMap map[db.LegalSex]bool
 	AllowedGrades        []string
