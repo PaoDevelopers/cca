@@ -4,3 +4,18 @@
 html, body {
 	font-family: system-ui, sans-serif;
 }
+
+button:not(:disabled),
+input[type="button"]:not(:disabled),
+input[type="submit"]:not(:disabled),
+input[type="reset"]:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
+a[href],
+summary,
+details > summary,
+input[type="checkbox"],
+input[type="radio"],
+.label,
+select {
+	cursor: pointer;
+}
