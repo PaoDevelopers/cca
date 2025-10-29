@@ -20,10 +20,11 @@ const props = defineProps<{
     updatingCcaId: string | null
 }>()
 
-const isLoading = computed(() => !props.periods.length || !props.ccas.length)
+const isLoading = computed(() => !props.periods.length)
 const emit = defineEmits<{ toggle: [id: string], periodChange: [period: string], viewModeChange: [mode: 'grid' | 'table'] }>()
 
 const selectedPeriod = ref<string>('')
+const hasNoResults = computed(() => !isLoading.value && filteredCCAs.value.length === 0)
 const viewMode = ref<'grid' | 'table'>(props.initialViewMode || 'grid')
 const reqGroups = ref<Array<{ id: number, min_count: number, category_ids: string[] }>>([])
 
@@ -140,6 +141,9 @@ const requirementCounts = computed(() => {
                 <div class="skeleton h-64 w-full"></div>
                 <div class="skeleton h-64 w-full"></div>
                 <div class="skeleton h-64 w-full"></div>
+            </div>
+            <div v-else-if="hasNoResults" class="flex items-center justify-center h-64 text-gray-500">
+                No search result
             </div>
             <CCAGrid v-else-if="viewMode === 'grid'" :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="emit('toggle', $event)"/>
             <CCATable v-else :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="emit('toggle', $event)"/>

@@ -265,7 +265,7 @@ if (typeof window !== 'undefined') {
         </Transition>
 
         <div class="border-b border-gray-200 bg-white">
-            <div class="flex justify-between items-center px-8 py-4">
+            <div class="flex flex-wrap justify-between items-center px-8 py-4 gap-4">
                 <div class="flex gap-12">
                     <button
                         @click="activeTab = 'Selection'"
@@ -292,7 +292,7 @@ if (typeof window !== 'undefined') {
                         <option value="period" v-if="currentPeriod">Search in {{ currentPeriod }}</option>
                     </select>
                     <input v-model="searchQuery" type="text" placeholder="Search CCAs..."
-                           class="text-sm border border-gray-300 rounded px-3 py-1.5 w-64"/>
+                           class="text-sm border border-gray-300 rounded px-3 py-1.5 w-20 sm:w-40"/>
                 </div>
             </div>
         </div>
