@@ -39,7 +39,7 @@ const groupedCCAs = computed(() => {
                     <td colspan="7" class="p-3 font-medium text-sm">{{ category }}</td>
                 </tr>
                 <tr v-for="cca in ccas" :key="cca.id" class="border-b border-gray-200"
-                    :class="(cca.current_students >= cca.max_students && !cca.selected && !disableClientRestriction) ? 'opacity-50' : 'hover:bg-gray-50'">
+                    :class="((cca.current_students >= cca.max_students || cca.membership === 'invite_only') && !cca.selected && !disableClientRestriction) ? 'opacity-50' : 'hover:bg-gray-50'">
                     <td class="p-4">
                         <button
                             @click="emit('toggle', cca.id)"
@@ -59,7 +59,10 @@ const groupedCCAs = computed(() => {
                     <td class="p-4 font-medium">{{ cca.name }}</td>
                     <td class="p-4 text-gray-600">{{ cca.current_students }}/{{ cca.max_students }} <span v-if="cca.current_students >= cca.max_students" class="text-red-500">(Full!)</span></td>
                     <td class="p-4 text-gray-600">{{ cca.id }}</td>
-                    <td class="p-4 text-gray-600">{{ cca.membership }}</td>
+                    <td class="p-4 text-gray-600">
+                        <span v-if="cca.membership === 'invite_only'" class="text-xs font-medium text-amber-600 uppercase">Invite Only</span>
+                        <span v-else>{{ cca.membership }}</span>
+                    </td>
                     <td class="p-4 text-gray-600">{{ cca.teacher }}</td>
                     <td class="p-4 text-gray-600">{{ cca.location }}</td>
                 </tr>
