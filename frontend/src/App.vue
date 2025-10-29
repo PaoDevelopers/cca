@@ -19,6 +19,8 @@ const currentPeriod = ref<string>('')
 const viewMode = ref<'grid' | 'table'>('grid')
 const errorMessage = ref<string | null>(null)
 let errorTimeout: number | null = null
+const infoMessage = ref<string | null>(null)
+let infoTimeout: number | null = null
 const updatingCcaId = ref<string | null>(null)
 const selectionPageRef = ref<{ loadPeriods: () => Promise<void> } | null>(null)
 const grades = ref<any[]>([])
@@ -153,6 +155,11 @@ onMounted(async () => {
             await loadCourses()
         })
         eventSource.addEventListener('invalidate_grades', loadGrades)
+        eventSource.addEventListener('notify', (e) => {
+            infoMessage.value = e.data
+            if (infoTimeout) clearTimeout(infoTimeout)
+            infoTimeout = setTimeout(() => infoMessage.value = null, 5000)
+        })
         eventSource.onerror = () => {
             eventSource?.close()
             eventSource = null
@@ -237,11 +244,22 @@ if (typeof window !== 'undefined') {
 
         <Transition name="fade">
             <div v-if="errorMessage" class="toast toast-top toast-center z-[60]">
-                <div role="alert" class="alert alert-error">
+                <div role="alert" class="alert alert-error !bg-red-100 !text-red-900">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span>{{ errorMessage }}</span>
+                </div>
+            </div>
+        </Transition>
+
+        <Transition name="fade">
+            <div v-if="infoMessage" class="toast toast-top toast-center z-[60]">
+                <div role="alert" class="alert alert-info !bg-blue-100 !text-blue-900 !border-blue-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="h-6 w-6 shrink-0 stroke-current">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span>{{ infoMessage }}</span>
                 </div>
             </div>
         </Transition>
