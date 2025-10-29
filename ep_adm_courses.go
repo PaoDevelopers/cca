@@ -374,7 +374,9 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
-	defer tx.Rollback(r.Context())
+	defer func() {
+		_ = tx.Rollback(r.Context())
+	}()
 
 	qtx := app.queries.WithTx(tx)
 
@@ -479,7 +481,9 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nCSV file required", err, slog.String("admin_username", aui.Username))
 		return
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	br := bufio.NewReader(f)
 	if b, _ := br.Peek(3); len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
@@ -529,7 +533,9 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
-	defer tx.Rollback(r.Context())
+	defer func() {
+		_ = tx.Rollback(r.Context())
+	}()
 
 	qtx := app.queries.WithTx(tx)
 

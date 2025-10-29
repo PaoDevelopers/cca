@@ -11,7 +11,7 @@ import (
 func (app *App) admLoadTemplates() error {
 	pages, err := filepath.Glob("admin_templates/pages/*.tmpl")
 	if err != nil {
-		return fmt.Errorf("Cannot load admin admin_templates: %w", err)
+		return fmt.Errorf("load admin admin_templates: %w", err)
 	}
 
 	app.admTmpl = make(map[string]*template.Template)
@@ -21,11 +21,11 @@ func (app *App) admLoadTemplates() error {
 		base := "admin_templates/base.tmpl"
 		t, err := template.New("").ParseFiles(base, page)
 		if err != nil {
-			return fmt.Errorf("Cannot parse admin_templates %#v and %#v: %w", base, page, err)
+			return fmt.Errorf("parse admin_templates %#v and %#v: %w", base, page, err)
 		}
 		_, err = t.ParseGlob("admin_templates/partials/*.tmpl")
 		if err != nil {
-			return fmt.Errorf("Cannot parse partials while loading %#v: %w", page, err)
+			return fmt.Errorf("parse partials while loading %#v: %w", page, err)
 		}
 		app.admTmpl[name] = t
 		// fmt.Printf("base=%s, page=%s, name=%s\n", base, page, name)

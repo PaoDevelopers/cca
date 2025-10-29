@@ -27,12 +27,12 @@ func (u *UserInfoAdmin) isUserInfo() {}
 func (app *App) authenticateRequest(r *http.Request) (UserInfo, error) {
 	cookie, err := r.Cookie("session")
 	if err != nil {
-		return nil, fmt.Errorf("Failed fetching cookie: %w", err)
+		return nil, fmt.Errorf("fetch cookie: %w", err)
 	}
 
 	ty, st, ok := strings.Cut(cookie.Value, ":")
 	if !ok {
-		return nil, fmt.Errorf("Malformed session cookie contains no separator")
+		return nil, fmt.Errorf("malformed session cookie contains no separator")
 	}
 
 	switch ty {
@@ -48,7 +48,7 @@ func (app *App) authenticateRequest(r *http.Request) (UserInfo, error) {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Failed fetching student by session: %w", err)
+			return nil, fmt.Errorf("fetch student by session: %w", err)
 		}
 		uu := UserInfoStudent(u)
 		return &uu, nil
@@ -64,12 +64,12 @@ func (app *App) authenticateRequest(r *http.Request) (UserInfo, error) {
 			if errors.Is(err, pgx.ErrNoRows) {
 				return nil, nil
 			}
-			return nil, fmt.Errorf("Failed fetching admin by session: %w", err)
+			return nil, fmt.Errorf("fetch fetching admin by session: %w", err)
 		}
 		uu := UserInfoAdmin(u)
 		return &uu, nil
 	default:
-		return nil, fmt.Errorf("Malformed session cookie contains unknown session type")
+		return nil, fmt.Errorf("malformed session cookie contains unknown session type")
 	}
 }
 

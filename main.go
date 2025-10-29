@@ -170,7 +170,7 @@ func main() {
 		}
 	}
 	slog.Info("Serving")
-	(&http.Server{
+	log.Fatal((&http.Server{
 		Handler: mux,
-	}).Serve(l)
+	}).Serve(l))
 }

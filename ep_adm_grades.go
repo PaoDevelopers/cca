@@ -98,7 +98,9 @@ func (app *App) handleAdmGradesBulkEnabledUpdate(w http.ResponseWriter, r *http.
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
-	defer tx.Rollback(r.Context())
+	defer func() {
+		_ = tx.Rollback(r.Context())
+	}()
 
 	qtx := app.queries.WithTx(tx)
 

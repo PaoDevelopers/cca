@@ -20,13 +20,13 @@ func (app *App) AbsGrades(ctx context.Context) ([]AbsGradesRow, error) {
 
 	grades, err := app.queries.GetGrades(ctx)
 	if err != nil {
-		return grades2, fmt.Errorf("Cannot fetch grades: %w", err)
+		return grades2, fmt.Errorf("fetch grades: %w", err)
 	}
 
 	for _, grade := range grades {
 		reqGroups, err := app.queries.GetRequirementGroupsByGrade(ctx, grade.Grade)
 		if err != nil {
-			return grades2, fmt.Errorf("Cannot fetch grade requirements: %w", err)
+			return grades2, fmt.Errorf("fetch grade requirements: %w", err)
 		}
 		grades2 = append(grades2, AbsGradesRow{
 			Grade:         grade.Grade,

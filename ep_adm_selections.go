@@ -284,7 +284,9 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nCSV file required", err, slog.String("admin_username", aui.Username))
 		return
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	br := bufio.NewReader(f)
 	if b, _ := br.Peek(3); len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
@@ -322,7 +324,9 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
-	defer tx.Rollback(r.Context())
+	defer func() {
+		_ = tx.Rollback(r.Context())
+	}()
 
 	qtx := app.queries.WithTx(tx)
 	studentSet := make(map[int64]struct{})
