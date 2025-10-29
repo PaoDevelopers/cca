@@ -27,6 +27,10 @@ const grades = ref<any[]>([])
 const periods = ref<string[]>([])
 const disableClientRestriction = ref(false)
 let eventSource: EventSource | null = null
+const confirmModal = ref<HTMLDialogElement | null>(null)
+const pendingAction = ref<{ type: 'unselect' | 'replace', course: CourseWithSelection, existing?: CourseWithSelection } | null>(null)
+const confirmInput = ref('')
+const showInputError = ref(false)
 
 const extractErrorMessage = async (res: Response) => {
     const text = await res.text()
@@ -173,26 +177,57 @@ const toggleCCA = async (id: string) => {
     const course = ccas.value.find((c: CourseWithSelection) => c.id === id)
     if (!course || updatingCcaId.value) return
 
+    if (course.selected) {
+        pendingAction.value = { type: 'unselect', course }
+        confirmModal.value?.showModal()
+        return
+    }
+
+    const existingSelection = ccas.value.find(c => c.period === course.period && c.selected)
+    if (existingSelection) {
+        pendingAction.value = { type: 'replace', course, existing: existingSelection }
+        confirmModal.value?.showModal()
+        return
+    }
+
     updatingCcaId.value = id
     errorMessage.value = null
-
     try {
-        if (course.selected) {
-            await requestSelectionUpdate('DELETE', course.id)
-            return
-        }
-
-        const existingSelection = ccas.value.find(c => c.period === course.period && c.selected)
-        if (existingSelection) {
-            const removed = await requestSelectionUpdate('DELETE', existingSelection.id)
-            if (!removed) {
-                return
-            }
-        }
-
         await requestSelectionUpdate('PUT', course.id)
     } finally {
         updatingCcaId.value = null
+    }
+}
+
+const confirmAction = async () => {
+    if (!pendingAction.value) return
+
+    const needsConfirmation = (pendingAction.value.type === 'unselect' && pendingAction.value.course.membership === 'invite_only') ||
+        (pendingAction.value.type === 'replace' && pendingAction.value.existing?.membership === 'invite_only')
+    if (needsConfirmation && confirmInput.value !== 'I am really sure') {
+        showInputError.value = true
+        setTimeout(() => showInputError.value = false, 1500)
+        return
+    }
+
+    confirmModal.value?.close()
+    updatingCcaId.value = pendingAction.value.course.id
+    errorMessage.value = null
+
+    try {
+        if (pendingAction.value.type === 'unselect') {
+            await requestSelectionUpdate('DELETE', pendingAction.value.course.id)
+        } else {
+            const removed = await requestSelectionUpdate('DELETE', pendingAction.value.existing!.id)
+            if (removed) {
+                await requestSelectionUpdate('PUT', pendingAction.value.course.id)
+            }
+        }
+    } finally {
+        updatingCcaId.value = null
+        pendingAction.value = null
+        confirmInput.value = ''
+        showInputError.value = false
     }
 }
 
@@ -226,6 +261,13 @@ if (typeof window !== 'undefined') {
     window.addEventListener('beforeunload', cleanup)
 }
 </script>
+
+<style scoped>
+@keyframes flash {
+    0%, 100% { color: inherit; }
+    50% { color: #dc2626; }
+}
+</style>
 
 <template>
     <div class="min-h-screen bg-white flex flex-col">
@@ -305,5 +347,33 @@ if (typeof window !== 'undefined') {
         <footer class="border-t border-gray-200 bg-white py-4 text-center text-sm text-gray-600">
             Written by Runxi Yu and Henry Yang
         </footer>
+
+        <dialog ref="confirmModal" class="modal">
+            <div class="modal-box">
+                <h3 class="font-bold text-lg">Confirm Action</h3>
+                <p class="py-4" v-if="pendingAction?.type === 'unselect'">
+                    Do you really want to unselect <strong>{{ pendingAction.course.name }}</strong>?
+                </p>
+                <p class="text-sm text-red-600 mb-4" v-if="pendingAction?.type === 'unselect' && pendingAction.course.membership === 'invite_only'">
+                    This is an invite-only CCA. You cannot select it back after unselecting.
+                </p>
+                <p class="py-4" v-else-if="pendingAction?.type === 'replace'">
+                    Do you really want to unselect <strong>{{ pendingAction.existing?.name }}</strong> and select <strong>{{ pendingAction.course.name }}</strong>?
+                </p>
+                <p class="text-sm text-red-600 mb-4" v-if="pendingAction?.type === 'replace' && pendingAction.existing?.membership === 'invite_only'">
+                    This is an invite-only CCA. You cannot select it back after unselecting.
+                </p>
+                <div v-if="(pendingAction?.type === 'unselect' && pendingAction.course.membership === 'invite_only') || (pendingAction?.type === 'replace' && pendingAction.existing?.membership === 'invite_only')" class="mb-4">
+                    <label class="block text-sm mb-2" :class="{ 'text-red-600': showInputError }" :style="showInputError ? 'animation: flash 0.2s 7' : ''">Type "I am really sure" to confirm:</label>
+                    <input v-model="confirmInput" type="text" class="input input-bordered w-full" :class="{ 'input-error': showInputError }" />
+                </div>
+                <div class="modal-action">
+                    <form method="dialog">
+                        <button class="btn" @click="pendingAction = null; confirmInput = ''; showInputError = false">Cancel</button>
+                        <button class="btn ml-2" @click.prevent="confirmAction">Confirm</button>
+                    </form>
+                </div>
+            </div>
+        </dialog>
     </div>
 </template>
