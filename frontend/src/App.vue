@@ -19,7 +19,7 @@ const currentPeriod = ref<string>('')
 const viewMode = ref<'grid' | 'table'>('grid')
 const errorMessage = ref<string | null>(null)
 let errorTimeout: number | null = null
-const isUpdatingSelection = ref(false)
+const updatingCcaId = ref<string | null>(null)
 const selectionPageRef = ref<{ loadPeriods: () => Promise<void> } | null>(null)
 const grades = ref<any[]>([])
 const periods = ref<string[]>([])
@@ -164,9 +164,9 @@ onMounted(async () => {
 
 const toggleCCA = async (id: string) => {
     const course = ccas.value.find((c: CourseWithSelection) => c.id === id)
-    if (!course || isUpdatingSelection.value) return
+    if (!course || updatingCcaId.value) return
 
-    isUpdatingSelection.value = true
+    updatingCcaId.value = id
     errorMessage.value = null
 
     try {
@@ -185,7 +185,7 @@ const toggleCCA = async (id: string) => {
 
         await requestSelectionUpdate('PUT', course.id)
     } finally {
-        isUpdatingSelection.value = false
+        updatingCcaId.value = null
     }
 }
 
@@ -281,7 +281,7 @@ if (typeof window !== 'undefined') {
 
         <SelectionPage v-if="activeTab === 'Selection'" ref="selectionPageRef" :ccas="filteredCCAs"
                        :search-active="searchScope === 'global' && !!searchQuery" :user-grade="userInfo?.grade"
-                       :grades="grades" :periods="periods" :initial-period="currentPeriod" :initial-view-mode="viewMode" :disable-client-restriction="disableClientRestriction" @toggle="toggleCCA" @period-change="currentPeriod = $event" @view-mode-change="viewMode = $event"/>
+                       :grades="grades" :periods="periods" :initial-period="currentPeriod" :initial-view-mode="viewMode" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="toggleCCA" @period-change="currentPeriod = $event" @view-mode-change="viewMode = $event"/>
         <ReviewPage v-else :ccas="ccas" :user-grade="userInfo?.grade" :grades="grades"/>
 
         <footer class="border-t border-gray-200 bg-white py-4 text-center text-sm text-gray-600">

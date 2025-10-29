@@ -37,6 +37,7 @@ onMounted(async () => {
 watch(() => [props.userGrade, props.grades], updateReqGroups)
 
 const requirementCounts = computed(() => {
+    if (!reqGroups.value) return []
     if (!reqGroups.value.length) return []
     return reqGroups.value.map((group: { id: number, min_count: number, category_ids: string[] }) => {
         const selected = props.ccas.filter(c => c.selected && group.category_ids.indexOf(c.category_id) !== -1).length
@@ -48,7 +49,12 @@ const selectionRows = computed(() => {
     const periodSet = new Set(props.ccas.map(c => c.period))
     const allPeriods = Array.from(periodSet).sort()
     return allPeriods.map(period => {
-        const sel = selections.value.find(s => s.period === period)
+        let sel = null;
+        if (selections.value) {
+            sel = selections.value.find(s => s.period === period)
+        } else {
+            sel = null
+        }
         const course = sel ? props.ccas.find(c => c.id === sel.course_id) : null
         return {
             period,

@@ -6,7 +6,7 @@ interface CourseWithSelection extends Course {
     selected: boolean
 }
 
-const props = defineProps<{ ccas: CourseWithSelection[], disableClientRestriction: boolean }>()
+const props = defineProps<{ ccas: CourseWithSelection[], disableClientRestriction: boolean, updatingCcaId: string | null }>()
 const emit = defineEmits<{ toggle: [id: string] }>()
 
 const groupedCCAs = computed(() => {
@@ -43,11 +43,12 @@ const groupedCCAs = computed(() => {
                     <td class="p-4">
                         <button
                             @click="emit('toggle', cca.id)"
-                            :disabled="disableClientRestriction ? false : ((cca.current_students >= cca.max_students || cca.membership === 'invite_only') && !cca.selected)"
-                            class="w-8 h-8 flex items-center justify-center border rounded transition-colors"
+                            :disabled="updatingCcaId !== null || (disableClientRestriction ? false : ((cca.current_students >= cca.max_students || cca.membership === 'invite_only') && !cca.selected))"
+                            class="w-8 h-8 flex items-center justify-center border rounded"
                             :class="cca.selected ? 'bg-[#5bae31] border-[#5bae31] text-white' : ((disableClientRestriction ? false : (cca.current_students >= cca.max_students || cca.membership === 'invite_only')) && !cca.selected ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-400 hover:border-[#5bae31] hover:text-[#5bae31]')"
                         >
-                            <svg v-if="cca.selected" class="w-4 h-4" fill="none" stroke="currentColor"
+                            <span v-if="updatingCcaId === cca.id" class="loading loading-spinner loading-sm"></span>
+                            <svg v-else-if="cca.selected" class="w-4 h-4" fill="none" stroke="currentColor"
                                  viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                       d="M5 13l4 4L19 7"/>

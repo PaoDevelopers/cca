@@ -7,7 +7,7 @@ interface CourseWithSelection extends Course {
     selected: boolean
 }
 
-const props = defineProps<{ ccas: CourseWithSelection[], disableClientRestriction: boolean }>()
+const props = defineProps<{ ccas: CourseWithSelection[], disableClientRestriction: boolean, updatingCcaId: string | null }>()
 const emit = defineEmits<{ toggle: [id: string] }>()
 
 const groupedCCAs = computed(() => {
@@ -25,7 +25,7 @@ const groupedCCAs = computed(() => {
         <div v-for="(ccas, category) in groupedCCAs" :key="category">
             <h3 class="text-xl font-medium mb-4">{{ category }}</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl">
-                <CCACard v-for="cca in ccas" :key="cca.id" :cca="cca" :disable-client-restriction="disableClientRestriction" @toggle="emit('toggle', $event)"/>
+                <CCACard v-for="cca in ccas" :key="cca.id" :cca="cca" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="emit('toggle', $event)"/>
             </div>
         </div>
     </div>

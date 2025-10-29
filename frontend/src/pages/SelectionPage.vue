@@ -16,7 +16,8 @@ const props = defineProps<{
     periods: string[],
     initialPeriod?: string,
     initialViewMode?: 'grid' | 'table',
-    disableClientRestriction: boolean
+    disableClientRestriction: boolean,
+    updatingCcaId: string | null
 }>()
 const emit = defineEmits<{ toggle: [id: string], periodChange: [period: string], viewModeChange: [mode: 'grid' | 'table'] }>()
 
@@ -126,8 +127,8 @@ const requirementCounts = computed(() => {
                 </div>
             </div>
 
-            <CCAGrid v-if="viewMode === 'grid'" :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" @toggle="emit('toggle', $event)"/>
-            <CCATable v-else :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" @toggle="emit('toggle', $event)"/>
+            <CCAGrid v-if="viewMode === 'grid'" :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="emit('toggle', $event)"/>
+            <CCATable v-else :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="emit('toggle', $event)"/>
         </main>
     </div>
 </template>

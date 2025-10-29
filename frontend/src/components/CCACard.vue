@@ -6,11 +6,12 @@ interface CourseWithSelection extends Course {
     selected: boolean
 }
 
-const props = defineProps<{ cca: CourseWithSelection, disableClientRestriction: boolean }>()
+const props = defineProps<{ cca: CourseWithSelection, disableClientRestriction: boolean, updatingCcaId: string | null }>()
 const emit = defineEmits<{ toggle: [id: string] }>()
 
 const isOutOfCapacity = computed(() => props.cca.current_students >= props.cca.max_students && !props.cca.selected)
-const isDisabled = computed(() => props.disableClientRestriction ? false : isOutOfCapacity.value)
+const isUpdating = computed(() => props.updatingCcaId === props.cca.id)
+const isDisabled = computed(() => props.updatingCcaId !== null || (props.disableClientRestriction ? false : isOutOfCapacity.value))
 </script>
 
 <template>
@@ -25,7 +26,8 @@ const isDisabled = computed(() => props.disableClientRestriction ? false : isOut
                 class="w-8 h-8 flex items-center justify-center border rounded flex-shrink-0"
                 :class="cca.selected ? 'bg-[#5bae31] border-[#5bae31] text-white' : isDisabled ? 'border-gray-300 text-gray-400 cursor-not-allowed' : 'border-gray-400 text-gray-600 hover:border-[#5bae31] hover:text-[#5bae31]'"
             >
-                <svg v-if="cca.selected" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <span v-if="isUpdating" class="loading loading-spinner loading-sm"></span>
+                <svg v-else-if="cca.selected" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                 </svg>
                 <span v-else class="text-lg">+</span>
