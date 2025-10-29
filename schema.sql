@@ -275,6 +275,8 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
 	v_selection_type selection_type;
+	v_grade TEXT;
+	v_grade_enabled BOOLEAN;
 BEGIN
 	SELECT selection_type
 	INTO v_selection_type
@@ -286,6 +288,23 @@ BEGIN
 		RAISE EXCEPTION 'No selection found for student % and course %',
 			p_student_id, p_course_id
 			USING ERRCODE = 'no_data_found';
+	END IF;
+
+	SELECT s.grade, g.enabled
+	INTO v_grade, v_grade_enabled
+	FROM students s
+	JOIN grades g ON g.grade = s.grade
+	WHERE s.id = p_student_id;
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Student % not found', p_student_id
+			USING ERRCODE = 'foreign_key_violation';
+	END IF;
+
+	IF v_grade_enabled IS DISTINCT FROM TRUE THEN
+		RAISE EXCEPTION 'Cannot delete selection for student % from disabled grade %',
+			p_student_id, v_grade
+			USING ERRCODE = 'check_violation';
 	END IF;
 
 	IF v_selection_type = 'force' THEN
