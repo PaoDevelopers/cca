@@ -281,7 +281,7 @@ if (typeof window !== 'undefined') {
 
         <SelectionPage v-if="activeTab === 'Selection'" ref="selectionPageRef" :ccas="filteredCCAs"
                        :search-active="searchScope === 'global' && !!searchQuery" :user-grade="userInfo?.grade"
-                       :grades="grades" :periods="periods" :initial-period="currentPeriod" :initial-view-mode="viewMode" @toggle="toggleCCA" @period-change="currentPeriod = $event" @view-mode-change="viewMode = $event"/>
+                       :grades="grades" :periods="periods" :initial-period="currentPeriod" :initial-view-mode="viewMode" :disable-client-restriction="disableClientRestriction" @toggle="toggleCCA" @period-change="currentPeriod = $event" @view-mode-change="viewMode = $event"/>
         <ReviewPage v-else :ccas="ccas" :user-grade="userInfo?.grade" :grades="grades"/>
 
         <footer class="border-t border-gray-200 bg-white py-4 text-center text-sm text-gray-600">

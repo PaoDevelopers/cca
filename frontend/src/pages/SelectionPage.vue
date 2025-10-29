@@ -15,7 +15,8 @@ const props = defineProps<{
     grades: any[],
     periods: string[],
     initialPeriod?: string,
-    initialViewMode?: 'grid' | 'table'
+    initialViewMode?: 'grid' | 'table',
+    disableClientRestriction: boolean
 }>()
 const emit = defineEmits<{ toggle: [id: string], periodChange: [period: string], viewModeChange: [mode: 'grid' | 'table'] }>()
 
@@ -75,6 +76,8 @@ const ccasByPeriod = computed(() => {
 })
 
 const requirementCounts = computed(() => {
+    // reqGroups.value can be null
+    if (!reqGroups.value) return []
     if (!reqGroups.value.length) return []
     return reqGroups.value.map((group: { id: number, min_count: number, category_ids: string[] }) => {
         const selected = props.ccas.filter(c => c.selected && group.category_ids.indexOf(c.category_id) !== -1).length
@@ -123,8 +126,8 @@ const requirementCounts = computed(() => {
                 </div>
             </div>
 
-            <CCAGrid v-if="viewMode === 'grid'" :ccas="filteredCCAs" @toggle="emit('toggle', $event)"/>
-            <CCATable v-else :ccas="filteredCCAs" @toggle="emit('toggle', $event)"/>
+            <CCAGrid v-if="viewMode === 'grid'" :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" @toggle="emit('toggle', $event)"/>
+            <CCATable v-else :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" @toggle="emit('toggle', $event)"/>
         </main>
     </div>
 </template>
