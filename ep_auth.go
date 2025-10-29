@@ -119,7 +119,7 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.Redirect(w, r, "/admin", http.StatusSeeOther)
+		http.Redirect(w, r, "/admin/", http.StatusSeeOther)
 	} else {
 		sid, err := strconv.ParseInt(strings.TrimLeft(lp, "sS"), 10, 64)
 		if err != nil {
@@ -142,6 +142,6 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		http.Redirect(w, r, "/student", http.StatusSeeOther)
+		http.Redirect(w, r, "/student/", http.StatusSeeOther)
 	}
 }

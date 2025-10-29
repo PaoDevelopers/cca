@@ -7,6 +7,7 @@ import tailwindcss from '@tailwindcss/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: "/student/",
   plugins: [
     vue(),
     vueDevTools(),
@@ -19,7 +20,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/student': {
+      '/student/api': {
         target: 'https://paospace.ykpaoschool.cn:8192',
         changeOrigin: true,
         secure: false

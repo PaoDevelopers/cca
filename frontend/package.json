@@ -1,11 +1,11 @@
 {
-  "name": "frontend",
-  "version": "1.0.0",
-  "license": "ISC",
+  "name": "cca",
+  "version": "0.0.0",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {

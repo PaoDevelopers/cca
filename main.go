@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 
 	"git.sr.ht/~runxiyu/cca/db"
 	"github.com/MicahParks/keyfunc/v3"
@@ -70,7 +71,7 @@ func main() {
 	mux.HandleFunc("/{$}", app.handleIndex)
 	mux.HandleFunc("/auth", app.handleAuth)
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(http.Dir("admin_static"))))
-	mux.HandleFunc("/admin", app.adminOnly(app.handleAdm))
+	mux.HandleFunc("/admin/{$}", app.adminOnly(app.handleAdm))
 	mux.HandleFunc("/admin/notify", app.adminOnly(app.handleAdmNotify))
 	mux.HandleFunc("/admin/periods", app.adminOnly(app.handleAdmPeriods))
 	mux.HandleFunc("/admin/periods/new", app.adminOnly(app.handleAdmPeriodsNew))
@@ -100,6 +101,13 @@ func main() {
 	mux.HandleFunc("/admin/selections/edit", app.adminOnly(app.handleAdmSelectionsEdit))
 	mux.HandleFunc("/admin/selections/delete", app.adminOnly(app.handleAdmSelectionsDelete))
 	mux.HandleFunc("/student", app.studentOnly(app.handleStu))
+	mux.Handle("/student/assets/", http.StripPrefix("/student/assets/", http.FileServer(http.Dir("frontend/dist/assets/"))))
+	mux.HandleFunc("/student/", func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/student/assets/") {
+			http.ServeFile(w, r, "./frontend/dist/index.html")
+			return
+		}
+	})
 	mux.HandleFunc("/student/api/events", app.studentOnly(app.handleStuAPIEvents))
 	mux.HandleFunc("/student/api/user_info", app.studentOnly(app.handleStuAPIInfo))
 	mux.HandleFunc("/student/api/courses", app.studentOnly(app.handleStuAPICourses))
