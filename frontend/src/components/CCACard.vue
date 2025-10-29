@@ -11,13 +11,14 @@ const emit = defineEmits<{ toggle: [id: string] }>()
 
 const isOutOfCapacity = computed(() => props.cca.current_students >= props.cca.max_students && !props.cca.selected)
 const isUpdating = computed(() => props.updatingCcaId === props.cca.id)
-const isDisabled = computed(() => props.updatingCcaId !== null || (props.disableClientRestriction ? false : isOutOfCapacity.value))
+const isInviteOnly = computed(() => props.cca.membership === 'invite_only' && !props.cca.selected)
+const isDisabled = computed(() => props.updatingCcaId !== null || (props.disableClientRestriction ? false : (isOutOfCapacity.value || isInviteOnly.value)))
 </script>
 
 <template>
     <div
         class="bg-white border border-gray-200 rounded-lg p-6 transition-colors relative flex flex-col"
-        :class="(isOutOfCapacity && !disableClientRestriction) ? 'opacity-50' : 'hover:border-[#5bae31]'">
+        :class="((isOutOfCapacity || isInviteOnly) && !disableClientRestriction) ? 'opacity-50' : 'hover:border-[#5bae31]'">
         <div class="flex justify-between items-start mb-3">
             <h3 class="text-lg font-semibold pr-12">{{ cca.name }}</h3>
             <button
@@ -35,7 +36,7 @@ const isDisabled = computed(() => props.updatingCcaId !== null || (props.disable
         </div>
 
         <p class="text-xs text-gray-500 mb-3">{{ cca.id }}</p>
-        <p class="text-sm mb-4 leading-relaxed" :class="(isOutOfCapacity && !disableClientRestriction) ? 'text-gray-500' : 'text-gray-700'">{{ cca.description }}</p>
+        <p class="text-sm mb-4 leading-relaxed" :class="((isOutOfCapacity || isInviteOnly) && !disableClientRestriction) ? 'text-gray-500' : 'text-gray-700'">{{ cca.description }}</p>
 
         <div class="space-y-1.5 text-sm mt-auto">
             <div class="flex justify-between">
