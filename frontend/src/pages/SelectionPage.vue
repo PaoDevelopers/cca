@@ -19,6 +19,8 @@ const props = defineProps<{
     disableClientRestriction: boolean,
     updatingCcaId: string | null
 }>()
+
+const isLoading = computed(() => !props.periods.length || !props.ccas.length)
 const emit = defineEmits<{ toggle: [id: string], periodChange: [period: string], viewModeChange: [mode: 'grid' | 'table'] }>()
 
 const selectedPeriod = ref<string>('')
@@ -90,17 +92,23 @@ const requirementCounts = computed(() => {
 <template>
     <div class="flex flex-1">
         <aside class="w-56 border-r border-gray-200 bg-white p-8">
-            <ul class="space-y-2 text-sm text-gray-600">
+            <ul v-if="!isLoading" class="space-y-2 text-sm text-gray-600">
                 <li v-for="period in props.periods" :key="period" @click="selectPeriod(period)" class="cursor-pointer"
                     :class="[selectedPeriod === period ? 'text-[#5bae31] font-medium' : '', searchActive && !ccasByPeriod[period]?.length ? 'text-gray-300' : 'hover:text-gray-900']">
                     {{ period }}
                 </li>
             </ul>
+            <div v-else class="space-y-2">
+                <div class="skeleton h-6 w-full"></div>
+                <div class="skeleton h-6 w-full"></div>
+                <div class="skeleton h-6 w-full"></div>
+                <div class="skeleton h-6 w-full"></div>
+            </div>
         </aside>
 
         <main class="flex-1 p-8 bg-gray-50/30">
             <div class="flex justify-between items-center mb-6">
-                <div class="flex gap-3 text-sm border border-gray-200 rounded px-4 py-2 bg-white">
+                <div v-if="!isLoading" class="flex gap-3 text-sm border border-gray-200 rounded px-4 py-2 bg-white">
                     <span class="text-gray-600">Requirements:</span>
                     <template v-for="(req, i) in requirementCounts" :key="i">
                         <span v-if="i > 0" class="text-gray-300">·</span>
@@ -109,6 +117,7 @@ const requirementCounts = computed(() => {
                             }}</span>
                     </template>
                 </div>
+                <div v-else class="skeleton h-10 w-64"></div>
                 <div class="flex gap-2">
                     <button @click="viewMode = 'grid'" class="p-2 border rounded"
                             :class="viewMode === 'grid' ? 'bg-[#5bae31] text-white border-[#5bae31]' : 'border-gray-300 text-gray-600'">
@@ -127,7 +136,12 @@ const requirementCounts = computed(() => {
                 </div>
             </div>
 
-            <CCAGrid v-if="viewMode === 'grid'" :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="emit('toggle', $event)"/>
+            <div v-if="isLoading" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="skeleton h-64 w-full"></div>
+                <div class="skeleton h-64 w-full"></div>
+                <div class="skeleton h-64 w-full"></div>
+            </div>
+            <CCAGrid v-else-if="viewMode === 'grid'" :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="emit('toggle', $event)"/>
             <CCATable v-else :ccas="filteredCCAs" :disable-client-restriction="disableClientRestriction" :updating-cca-id="updatingCcaId" @toggle="emit('toggle', $event)"/>
         </main>
     </div>

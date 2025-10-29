@@ -16,6 +16,7 @@ const props = defineProps<{ ccas: CourseWithSelection[], userGrade?: string, gra
 
 const selections = ref<Selection[]>([])
 const reqGroups = ref<Array<{ id: number, min_count: number, category_ids: string[] }>>([])
+const isLoading = ref(true)
 
 const updateReqGroups = () => {
     if (props.userGrade && props.grades.length) {
@@ -25,8 +26,10 @@ const updateReqGroups = () => {
 }
 
 const loadSelections = async () => {
+    isLoading.value = true
     const res = await fetch('/student/api/my_selections', {credentials: 'include'})
     selections.value = await res.json()
+    isLoading.value = false
 }
 
 onMounted(async () => {
@@ -86,7 +89,10 @@ const selectionRows = computed(() => {
             </div>
 
             <div class="bg-white border-1 border-gray-300 rounded-lg overflow-hidden">
-                <table class="w-full border-collapse">
+                <div v-if="isLoading" class="flex justify-center items-center p-12">
+                    <span class="loading loading-spinner loading-xl"></span>
+                </div>
+                <table v-else class="w-full border-collapse">
                     <thead class="border-b-1 border-gray-300 bg-gray-50">
                     <tr>
                         <th class="text-left p-3 font-medium border-r-1 border-gray-300 w-1/4">Period</th>
