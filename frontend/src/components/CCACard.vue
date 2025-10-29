@@ -10,7 +10,7 @@ const props = defineProps<{ cca: CourseWithSelection }>()
 const emit = defineEmits<{ toggle: [id: string] }>()
 
 const isOutOfCapacity = computed(() => props.cca.current_students >= props.cca.max_students && !props.cca.selected)
-const isDisabled = computed(() => isOutOfCapacity.value || (props.cca.membership === 'invite_only' && !props.cca.selected))
+const isDisabled = computed(() => isOutOfCapacity.value)
 </script>
 
 <template>
