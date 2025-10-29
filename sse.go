@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log/slog"
 	"strings"
 	"sync"
 )
@@ -28,6 +29,7 @@ func (b *Broker) Subscribe() chan BrokerMsg {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.clients[ch] = struct{}{}
+	slog.Info("broker subscribe", slog.Int("client_count", len(b.clients)))
 	return ch
 }
 
@@ -36,6 +38,7 @@ func (b *Broker) Unsubscribe(ch chan BrokerMsg) {
 	defer b.mu.Unlock()
 	delete(b.clients, ch)
 	close(ch)
+	slog.Info("broker unsubscribe", slog.Int("client_count", len(b.clients)))
 }
 
 func (b *Broker) Broadcast(msg BrokerMsg) {
@@ -44,11 +47,12 @@ func (b *Broker) Broadcast(msg BrokerMsg) {
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	slog.Info("broker broadcast", slog.String("event", msg.event))
 	for ch := range b.clients {
 		select {
 		case ch <- msg:
 		default:
-			// TODO: Disconnect that client, or something...
+			slog.Warn("dropping sse message for slow client")
 		}
 	}
 }

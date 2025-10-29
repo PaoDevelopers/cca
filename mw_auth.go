@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -72,34 +73,66 @@ func (app *App) authenticateRequest(r *http.Request) (UserInfo, error) {
 	}
 }
 
-func (app *App) studentOnly(handler func(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent)) func(w http.ResponseWriter, r *http.Request) {
+func (app *App) studentOnly(handlerName string, handler func(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		app.logRequestStart(r, handlerName, slog.String("middleware", "studentOnly"))
 		ui, err := app.authenticateRequest(r)
 		if err != nil {
-			http.Error(w, "Unauthorized\nGo to the root URL (remove everything after the \"/\") to authenticate?\n"+err.Error(), http.StatusUnauthorized)
+			app.respondHTTPError(
+				r,
+				w,
+				http.StatusUnauthorized,
+				"Unauthorized\nGo to the root URL (remove everything after the \"/\") to authenticate?\n"+err.Error(),
+				err,
+				slog.String("middleware", "studentOnly"),
+			)
 			return
 		}
 		sui, ok := ui.(*UserInfoStudent)
 		if !ok {
-			http.Error(w, "Forbidden\nStudent-only endpoint\nGo to the root URL (remove everything after the \"/\") to authenticate?", http.StatusForbidden)
+			app.respondHTTPError(
+				r,
+				w,
+				http.StatusForbidden,
+				"Forbidden\nStudent-only endpoint\nGo to the root URL (remove everything after the \"/\") to authenticate?",
+				nil,
+				slog.String("middleware", "studentOnly"),
+			)
 			return
 		}
+		app.logInfo(r, "authenticated student request", slog.String("middleware", "studentOnly"), slog.Int64("student_id", sui.ID))
 		handler(w, r, sui)
 	}
 }
 
-func (app *App) adminOnly(handler func(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin)) func(w http.ResponseWriter, r *http.Request) {
+func (app *App) adminOnly(handlerName string, handler func(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		app.logRequestStart(r, handlerName, slog.String("middleware", "adminOnly"))
 		ui, err := app.authenticateRequest(r)
 		if err != nil {
-			http.Error(w, "Unauthorized\nGo to the root URL (remove everything after the \"/\") to authenticate?\n"+err.Error(), http.StatusUnauthorized)
+			app.respondHTTPError(
+				r,
+				w,
+				http.StatusUnauthorized,
+				"Unauthorized\nGo to the root URL (remove everything after the \"/\") to authenticate?\n"+err.Error(),
+				err,
+				slog.String("middleware", "adminOnly"),
+			)
 			return
 		}
 		aui, ok := ui.(*UserInfoAdmin)
 		if !ok {
-			http.Error(w, "Forbidden\nAdmin-only endpoint\nGo to the root URL (remove everything after the \"/\") to authenticate?", http.StatusForbidden)
+			app.respondHTTPError(
+				r,
+				w,
+				http.StatusForbidden,
+				"Forbidden\nAdmin-only endpoint\nGo to the root URL (remove everything after the \"/\") to authenticate?",
+				nil,
+				slog.String("middleware", "adminOnly"),
+			)
 			return
 		}
+		app.logInfo(r, "authenticated admin request", slog.String("middleware", "adminOnly"), slog.String("admin_username", aui.Username))
 		handler(w, r, aui)
 	}
 }

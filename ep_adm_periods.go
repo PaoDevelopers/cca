@@ -1,55 +1,65 @@
 package main
 
 import (
+	"log/slog"
 	"net/http"
 )
 
 func (app *App) handleAdmPeriods(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmPeriods", slog.String("admin_username", aui.Username))
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		app.respondHTTPError(r, w, http.StatusMethodNotAllowed, "Method Not Allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	periods, err := app.queries.GetPeriods(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
-	app.admRenderTemplate(w, "periods", periods)
+	if err := app.admRenderTemplate(w, r, "periods", periods, slog.String("admin_username", aui.Username)); err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\nfailed rendering template", err, slog.String("admin_username", aui.Username))
+	}
 }
 
 func (app *App) handleAdmPeriodsNew(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmPeriodsNew", slog.String("admin_username", aui.Username))
 	id := r.FormValue("id")
 	if id == "" {
-		http.Error(w, "Bad Request\nYou are trying to add an empty period ID, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add an empty period ID, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	err := app.queries.NewPeriod(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("period_id", id))
 		return
 	}
 
+	app.logInfo(r, "created period", slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	app.broker.Broadcast(BrokerMsg{event: "invalidate_periods"})
 
+	app.logInfo(r, "redirecting after new period", slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	http.Redirect(w, r, "/admin/periods", http.StatusSeeOther)
 }
 func (app *App) handleAdmPeriodsDelete(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmPeriodsDelete", slog.String("admin_username", aui.Username))
 	id := r.FormValue("id")
 	if id == "" {
-		http.Error(w, "Bad Request\nYou are trying to delete an empty period ID, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to delete an empty period ID, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	err := app.queries.DeletePeriod(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("period_id", id))
 		return
 	}
 
+	app.logInfo(r, "deleted period", slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	app.broker.Broadcast(BrokerMsg{event: "invalidate_periods"})
 
+	app.logInfo(r, "redirecting after delete period", slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	http.Redirect(w, r, "/admin/periods", http.StatusSeeOther)
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 )
@@ -33,17 +34,25 @@ func (app *App) admLoadTemplates() error {
 	return nil
 }
 
-func (app *App) admRenderTemplate(w http.ResponseWriter, name string, data any) {
+func (app *App) admRenderTemplate(w http.ResponseWriter, r *http.Request, name string, data any, extra ...slog.Attr) error {
 	t, ok := app.admTmpl[name+".tmpl"]
 	if !ok {
-		panic("unknown template " + name)
+		err := fmt.Errorf("unknown template %s", name)
+		app.logError(r, "unknown template", slog.String("template", name))
+		return err
 	}
 
-	t.ExecuteTemplate(w, "base", struct {
+	if err := t.ExecuteTemplate(w, "base", struct {
 		ActiveTab string
 		Data      any
 	}{
 		ActiveTab: name,
 		Data:      data,
-	})
+	}); err != nil {
+		app.logError(r, "failed rendering template", append(extra, slog.String("template", name), slog.Any("error", err))...)
+		return err
+	}
+
+	app.logInfo(r, "rendered template", append(extra, slog.String("template", name))...)
+	return nil
 }

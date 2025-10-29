@@ -1,55 +1,65 @@
 package main
 
 import (
+	"log/slog"
 	"net/http"
 )
 
 func (app *App) handleAdmCategories(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmCategories", slog.String("admin_username", aui.Username))
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		app.respondHTTPError(r, w, http.StatusMethodNotAllowed, "Method Not Allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	categories, err := app.queries.GetCategories(r.Context())
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 
-	app.admRenderTemplate(w, "categories", categories)
+	if err := app.admRenderTemplate(w, r, "categories", categories, slog.String("admin_username", aui.Username)); err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\nfailed rendering template", err, slog.String("admin_username", aui.Username))
+	}
 }
 
 func (app *App) handleAdmCategoriesNew(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmCategoriesNew", slog.String("admin_username", aui.Username))
 	id := r.FormValue("id")
 	if id == "" {
-		http.Error(w, "Bad Request\nYou are trying to add an empty category ID, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add an empty category ID, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	err := app.queries.NewCategory(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("category_id", id))
 		return
 	}
 
+	app.logInfo(r, "created category", slog.String("admin_username", aui.Username), slog.String("category_id", id))
 	app.broker.Broadcast(BrokerMsg{event: "invalidate_categories"})
 
+	app.logInfo(r, "redirecting after new category", slog.String("admin_username", aui.Username), slog.String("category_id", id))
 	http.Redirect(w, r, "/admin/categories", http.StatusSeeOther)
 }
 func (app *App) handleAdmCategoriesDelete(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmCategoriesDelete", slog.String("admin_username", aui.Username))
 	id := r.FormValue("id")
 	if id == "" {
-		http.Error(w, "Bad Request\nYou are trying to delete an empty category ID, which is not allowed", http.StatusBadRequest)
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to delete an empty category ID, which is not allowed", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
 	err := app.queries.DeleteCategory(r.Context(), id)
 	if err != nil {
-		http.Error(w, "Internal Server Error\n"+err.Error(), http.StatusInternalServerError)
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("category_id", id))
 		return
 	}
 
+	app.logInfo(r, "deleted category", slog.String("admin_username", aui.Username), slog.String("category_id", id))
 	app.broker.Broadcast(BrokerMsg{event: "invalidate_categories"})
 
+	app.logInfo(r, "redirecting after delete category", slog.String("admin_username", aui.Username), slog.String("category_id", id))
 	http.Redirect(w, r, "/admin/categories", http.StatusSeeOther)
 }
