@@ -150,6 +150,7 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 		slog.Any("course_ids", courseIDs),
 		slog.String("selection_type", string(selectionType)),
 	)
+	app.broker.BroadcastToStudents(studentIDs, BrokerMsg{event: "invalidate_selections"})
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 
@@ -204,6 +205,7 @@ func (app *App) handleAdmSelectionsEdit(w http.ResponseWriter, r *http.Request, 
 	}
 
 	app.logInfo(r, "updated selection", slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID), slog.String("period", period), slog.String("selection_type", string(selectionType)))
+	app.broker.BroadcastToStudents([]int64{studentID}, BrokerMsg{event: "invalidate_selections"})
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 
@@ -236,6 +238,7 @@ func (app *App) handleAdmSelectionsDelete(w http.ResponseWriter, r *http.Request
 	}
 
 	app.logInfo(r, "deleted selection", slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
+	app.broker.BroadcastToStudents([]int64{studentID}, BrokerMsg{event: "invalidate_selections"})
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 
@@ -297,6 +300,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 	defer tx.Rollback(r.Context())
 
 	qtx := app.queries.WithTx(tx)
+	studentSet := make(map[int64]struct{})
 
 	row := 2
 	for {
@@ -349,6 +353,8 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 			return
 		}
 
+		studentSet[studentID] = struct{}{}
+
 		row++
 	}
 
@@ -357,6 +363,13 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	app.logInfo(r, "imported selections", slog.String("admin_username", aui.Username), slog.Int("rows", row-2))
+	students := make([]int64, 0, len(studentSet))
+	for id := range studentSet {
+		students = append(students, id)
+	}
+	app.logInfo(r, "imported selections", slog.String("admin_username", aui.Username), slog.Int("rows", row-2), slog.Int("students_impacted", len(students)))
+	if len(students) > 0 {
+		app.broker.BroadcastToStudents(students, BrokerMsg{event: "invalidate_selections"})
+	}
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }

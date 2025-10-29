@@ -191,6 +191,13 @@ const startEventStream = () => {
             console.error('Failed to refresh grades:', err)
         }
     })
+    source.addEventListener('invalidate_selections', async () => {
+        try {
+            await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
+        } catch (err) {
+            console.error('Failed to refresh selections:', err)
+        }
+    })
     source.addEventListener('notify', (event) => {
         const data = (event as MessageEvent<string>).data
         if (data) {

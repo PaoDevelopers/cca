@@ -6,8 +6,8 @@ import (
 	"net/http"
 )
 
-func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, _ *UserInfoStudent) {
-	app.logRequestStart(r, "handleStuAPIEvents")
+func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent) {
+	app.logRequestStart(r, "handleStuAPIEvents", slog.Int64("student_id", sui.ID))
 	if r.Method != http.MethodGet {
 		app.apiError(r, w, http.StatusMethodNotAllowed, nil)
 		return
@@ -29,9 +29,9 @@ func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, _ *Us
 		return
 	}
 
-	ch := app.broker.Subscribe()
-	app.logInfo(r, "subscribed to sse broker")
-	defer app.broker.Unsubscribe(ch)
+	ch := app.broker.SubscribeStudent(sui.ID)
+	app.logInfo(r, "subscribed to sse broker", slog.Int64("student_id", sui.ID))
+	defer app.broker.UnsubscribeStudent(sui.ID, ch)
 
 	for {
 		select {
