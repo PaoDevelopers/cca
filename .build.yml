@@ -5,8 +5,11 @@ packages:
   - npm
 tasks:
   - prepare: |
+      cd cca
       ./prepare
   - build: |
+      cd cca
       ./build
   - lint: |
+      cd cca
       golangci-lint run .
