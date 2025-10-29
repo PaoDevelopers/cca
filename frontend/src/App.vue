@@ -229,8 +229,8 @@ if (typeof window !== 'undefined') {
 
 <template>
     <div class="min-h-screen bg-white flex flex-col">
-        <header class="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-            <div class="flex justify-between items-center px-8 py-5">
+        <header class="bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+            <div class="flex justify-between items-center px-8 py-5 border-b border-gray-200">
                 <h1 class="text-xl font-light tracking-wide">CCA Selection</h1>
                 <div v-if="userInfo" class="flex items-center gap-3 text-sm">
                     <span class="text-gray-900 font-medium">{{ userInfo.name }}</span>
@@ -238,6 +238,38 @@ if (typeof window !== 'undefined') {
                     <span class="text-gray-600">{{ userInfo.grade }}</span>
                     <span class="text-gray-400">·</span>
                     <span class="text-gray-600">ID: {{ userInfo.id }}</span>
+                </div>
+            </div>
+            <div class="border-b border-gray-200 bg-white">
+                <div class="flex flex-wrap justify-between items-center px-8 py-4 gap-4">
+                    <div class="flex gap-12">
+                        <button
+                            @click="activeTab = 'Selection'"
+                            class="text-sm pb-2 transition-colors"
+                            :class="activeTab === 'Selection' ? 'border-b-2 border-[#5bae31] text-[#5bae31]' : 'text-gray-500 hover:text-gray-900'"
+                        >
+                            Selection
+                        </button>
+                        <button
+                            @click="activeTab = 'Review'"
+                            class="text-sm pb-2 transition-colors"
+                            :class="activeTab === 'Review' ? 'border-b-2 border-[#5bae31] text-[#5bae31]' : 'text-gray-500 hover:text-gray-900'"
+                        >
+                            Review
+                        </button>
+                    </div>
+                    <div class="flex gap-4 items-center">
+                        <label class="label">
+                            <input v-model="disableClientRestriction" type="checkbox" class="toggle toggle-sm checked:border-[#5bae31]  checked:text-[#5bae31]"/>
+                            Disable Client Restriction
+                        </label>
+                        <select v-model="searchScope" class="text-xs border border-gray-300 rounded px-2 py-1.5">
+                            <option value="global">Search globally</option>
+                            <option value="period" v-if="currentPeriod">Search in {{ currentPeriod }}</option>
+                        </select>
+                        <input v-model="searchQuery" type="text" placeholder="Search CCAs..."
+                               class="text-sm border border-gray-300 rounded px-3 py-1.5 w-20 sm:w-40"/>
+                    </div>
                 </div>
             </div>
         </header>
@@ -264,38 +296,6 @@ if (typeof window !== 'undefined') {
             </div>
         </Transition>
 
-        <div class="border-b border-gray-200 bg-white">
-            <div class="flex flex-wrap justify-between items-center px-8 py-4 gap-4">
-                <div class="flex gap-12">
-                    <button
-                        @click="activeTab = 'Selection'"
-                        class="text-sm pb-2 transition-colors"
-                        :class="activeTab === 'Selection' ? 'border-b-2 border-[#5bae31] text-[#5bae31]' : 'text-gray-500 hover:text-gray-900'"
-                    >
-                        Selection
-                    </button>
-                    <button
-                        @click="activeTab = 'Review'"
-                        class="text-sm pb-2 transition-colors"
-                        :class="activeTab === 'Review' ? 'border-b-2 border-[#5bae31] text-[#5bae31]' : 'text-gray-500 hover:text-gray-900'"
-                    >
-                        Review
-                    </button>
-                </div>
-                <div class="flex gap-4 items-center">
-                    <label class="label">
-                        <input v-model="disableClientRestriction" type="checkbox" class="toggle toggle-sm checked:border-[#5bae31]  checked:text-[#5bae31]"/>
-                        Disable Client Restriction
-                    </label>
-                    <select v-model="searchScope" class="text-xs border border-gray-300 rounded px-2 py-1.5">
-                        <option value="global">Search globally</option>
-                        <option value="period" v-if="currentPeriod">Search in {{ currentPeriod }}</option>
-                    </select>
-                    <input v-model="searchQuery" type="text" placeholder="Search CCAs..."
-                           class="text-sm border border-gray-300 rounded px-3 py-1.5 w-20 sm:w-40"/>
-                </div>
-            </div>
-        </div>
 
         <SelectionPage v-if="activeTab === 'Selection'" ref="selectionPageRef" :ccas="filteredCCAs"
                        :search-active="searchScope === 'global' && !!searchQuery" :user-grade="userInfo?.grade"
