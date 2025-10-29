@@ -130,29 +130,27 @@ WHERE course_id = $1;
 ---- Grades
 
 -- name: GetGrades :many
-SELECT grade, enabled
+SELECT grade, enabled, max_own_choices
 FROM grades;
 
 -- name: NewGrade :exec
-INSERT INTO grades (grade, enabled)
-VALUES ($1, false);
+INSERT INTO grades (grade, enabled, max_own_choices)
+VALUES ($1, false, $2);
 
 -- name: DeleteGrade :exec
 DELETE FROM grades
 WHERE grade = $1;
 
+-- name: UpdateGradeSettings :exec
+UPDATE grades
+SET enabled = $1,
+	max_own_choices = $2
+WHERE grade = $3;
+
 -- name: SetGradeEnabled :exec
 UPDATE grades
 SET enabled = $1
 WHERE grade = $2;
-
--- name: SetGradesBulkEnabledUpdate :exec
-UPDATE grades
-SET enabled = 
-	CASE
-		WHEN COALESCE(array_length($1::text[], 1), 0) = 0 THEN FALSE
-		ELSE grade = ANY($1::text[])
-	END;
 
 -- name: GetRequirementGroupsByGrade :many
 SELECT

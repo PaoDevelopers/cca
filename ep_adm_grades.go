@@ -47,7 +47,21 @@ func (app *App) handleAdmGradesNew(w http.ResponseWriter, r *http.Request, aui *
 		return
 	}
 
-	err := app.queries.NewGrade(r.Context(), grade)
+	const defaultMaxOwnChoices int64 = 65535
+	maxOwnChoices := defaultMaxOwnChoices
+	if maxOwnChoicesStr := r.FormValue("max_own_choices"); maxOwnChoicesStr != "" {
+		parsed, err := strconv.ParseInt(maxOwnChoicesStr, 10, 64)
+		if err != nil || parsed < 0 {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nmax_own_choices must be a non-negative integer", err, slog.String("admin_username", aui.Username), slog.String("grade", grade))
+			return
+		}
+		maxOwnChoices = parsed
+	}
+
+	err := app.queries.NewGrade(r.Context(), db.NewGradeParams{
+		Grade:         grade,
+		MaxOwnChoices: maxOwnChoices,
+	})
 	if err != nil {
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("grade", grade))
 		return
@@ -67,16 +81,54 @@ func (app *App) handleAdmGradesBulkEnabledUpdate(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var grades []string
-	for _, grade := range r.PostForm {
-		if len(grade) != 1 {
-			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nDuplicate or zero-length value sets in your form...?", nil, slog.String("admin_username", aui.Username))
-			return
-		}
-		grades = append(grades, grade[0])
+	grades := r.PostForm["grade[]"]
+	maxValues := r.PostForm["max_own_choices[]"]
+	if len(grades) != len(maxValues) {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nMismatched grade and max_own_choices counts", nil, slog.String("admin_username", aui.Username))
+		return
 	}
 
-	err = app.queries.SetGradesBulkEnabledUpdate(r.Context(), grades)
+	enabledSet := make(map[string]struct{}, len(r.PostForm["enabled[]"]))
+	for _, grade := range r.PostForm["enabled[]"] {
+		enabledSet[grade] = struct{}{}
+	}
+
+	tx, err := app.pool.Begin(r.Context())
+	if err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+		return
+	}
+	defer tx.Rollback(r.Context())
+
+	qtx := app.queries.WithTx(tx)
+
+	for idx, grade := range grades {
+		if grade == "" {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nEmpty grade provided", nil, slog.String("admin_username", aui.Username))
+			return
+		}
+
+		maxOwnStr := maxValues[idx]
+		maxOwn, err := strconv.ParseInt(maxOwnStr, 10, 64)
+		if err != nil || maxOwn < 0 {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nmax_own_choices must be a non-negative integer", err, slog.String("admin_username", aui.Username), slog.String("grade", grade))
+			return
+		}
+
+		_, enabled := enabledSet[grade]
+
+		err = qtx.UpdateGradeSettings(r.Context(), db.UpdateGradeSettingsParams{
+			Enabled:       enabled,
+			MaxOwnChoices: maxOwn,
+			Grade:         grade,
+		})
+		if err != nil {
+			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("grade", grade))
+			return
+		}
+	}
+
+	err = tx.Commit(r.Context())
 	if err != nil {
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
@@ -99,7 +151,6 @@ func (app *App) handleAdmGradesEdit(w http.ResponseWriter, r *http.Request, aui 
 	}
 
 	enabled := r.FormValue("enabled")
-
 	err := app.queries.SetGradeEnabled(r.Context(), db.SetGradeEnabledParams{
 		Enabled: enabled != "",
 		Grade:   grade,

@@ -8,9 +8,10 @@ import (
 )
 
 type AbsGradesRow struct {
-	Grade     string                              `json:"grade"`
-	Enabled   bool                                `json:"enabled"`
-	ReqGroups []db.GetRequirementGroupsByGradeRow `json:"req_groups"`
+	Grade         string                              `json:"grade"`
+	Enabled       bool                                `json:"enabled"`
+	MaxOwnChoices int64                               `json:"max_own_choices"`
+	ReqGroups     []db.GetRequirementGroupsByGradeRow `json:"req_groups"`
 }
 
 func (app *App) AbsGrades(ctx context.Context) ([]AbsGradesRow, error) {
@@ -28,9 +29,10 @@ func (app *App) AbsGrades(ctx context.Context) ([]AbsGradesRow, error) {
 			return grades2, fmt.Errorf("Cannot fetch grade requirements: %w", err)
 		}
 		grades2 = append(grades2, AbsGradesRow{
-			grade.Grade,
-			grade.Enabled,
-			reqGroups,
+			Grade:         grade.Grade,
+			Enabled:       grade.Enabled,
+			MaxOwnChoices: grade.MaxOwnChoices,
+			ReqGroups:     reqGroups,
 		})
 	}
 

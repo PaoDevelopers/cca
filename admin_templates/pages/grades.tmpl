@@ -37,6 +37,7 @@ in that grade must satisfy.
 <article class="card">
 <header class="card-header hfill"><span>{{ .Grade }}</span><span>{{ if .Enabled }}Enabled{{ else }}Disabled{{ end }}</span></header>
 <div>
+<p>Max own selections: {{ .MaxOwnChoices }}</p>
 {{ if .ReqGroups }}
 <ul class="card-list">
 {{ range .ReqGroups }}
@@ -102,13 +103,21 @@ in that grade must satisfy.
 </form>
 </section>
 <section class="listing">
-<h2>Bulk-update enabled status</h2>
+<h2>Bulk-update grade settings</h2>
 <form method="POST" action="/admin/grades/bulk-enabled-update" class="stack-form">
-{{ range .Grades }}
+{{ range $idx, $grade := .Grades }}
+<fieldset class="bulk-grade">
+<legend>{{ $grade.Grade }}</legend>
+<input type="hidden" name="grade[]" value="{{ $grade.Grade }}" />
 <div class="checkbox-option">
-<input type="checkbox" id="bulk-enabled-{{ .Grade }}" value="{{ .Grade }}" name="{{ .Grade }}" {{ if .Enabled }}checked{{ end }} />
-<label for="bulk-enabled-{{ .Grade }}">{{ .Grade }}</label>
+<input type="checkbox" id="bulk-enabled-{{ $idx }}" value="{{ $grade.Grade }}" name="enabled[]" {{ if $grade.Enabled }}checked{{ end }} />
+<label for="bulk-enabled-{{ $idx }}">Enabled</label>
 </div>
+<div class="form-field">
+<label for="bulk-max-own-{{ $idx }}">Max own selections</label>
+<input type="number" id="bulk-max-own-{{ $idx }}" name="max_own_choices[]" min="0" step="1" value="{{ $grade.MaxOwnChoices }}" required />
+</div>
+</fieldset>
 {{ end }}
 <div class="form-actions">
 <button type="submit">Bulk update</button>
