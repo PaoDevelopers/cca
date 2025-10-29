@@ -23,6 +23,7 @@ const isUpdatingSelection = ref(false)
 const selectionPageRef = ref<{ loadPeriods: () => Promise<void> } | null>(null)
 const grades = ref<any[]>([])
 const periods = ref<string[]>([])
+const disableClientRestriction = ref(true)
 let eventSource: EventSource | null = null
 
 const extractErrorMessage = async (res: Response) => {
@@ -263,7 +264,11 @@ if (typeof window !== 'undefined') {
                         Review
                     </button>
                 </div>
-                <div class="flex gap-2 items-center">
+                <div class="flex gap-4 items-center">
+                    <label class="label">
+                        <input v-model="disableClientRestriction" type="checkbox" class="toggle toggle-sm checked:border-[#5bae31]  checked:text-[#5bae31]"/>
+                        Disable Client Restriction
+                    </label>
                     <select v-model="searchScope" class="text-xs border border-gray-300 rounded px-2 py-1.5">
                         <option value="global">Search globally</option>
                         <option value="period" v-if="currentPeriod">Search in {{ currentPeriod }}</option>
