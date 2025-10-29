@@ -12,7 +12,7 @@ interface Selection {
     selection_type: string
 }
 
-const props = defineProps<{ ccas: CourseWithSelection[], userGrade?: string, grades: any[] }>()
+const props = defineProps<{ ccas: CourseWithSelection[], userGrade?: string, grades: any[], periods: string[] }>()
 
 const selections = ref<Selection[]>([])
 const reqGroups = ref<Array<{ id: number, min_count: number, category_ids: string[] }>>([])
@@ -46,9 +46,7 @@ const requirementCounts = computed(() => {
 })
 
 const selectionRows = computed(() => {
-    const periodSet = new Set(props.ccas.map(c => c.period))
-    const allPeriods = Array.from(periodSet).sort()
-    return allPeriods.map(period => {
+    return props.periods.map(period => {
         let sel = null;
         if (selections.value) {
             sel = selections.value.find(s => s.period === period)
