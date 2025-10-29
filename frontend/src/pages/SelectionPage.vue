@@ -92,7 +92,7 @@ const requirementCounts = computed(() => {
 
 <template>
     <div class="flex flex-1">
-        <aside class="w-56 border-r border-gray-200 bg-white p-8">
+        <aside class="w-56 border-r border-gray-200 bg-white p-8 sticky top-[73px] self-start">
             <ul v-if="!isLoading" class="space-y-2 text-sm text-gray-600">
                 <li v-for="period in props.periods" :key="period" @click="selectPeriod(period)" class="cursor-pointer"
                     :class="[selectedPeriod === period ? 'text-[#5bae31] font-medium' : '', searchActive && !ccasByPeriod[period]?.length ? 'text-gray-300' : 'hover:text-gray-900']">
