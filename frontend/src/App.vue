@@ -16,6 +16,10 @@ function cancelAction(): void {
 	showInputError.value = false
 }
 
+function reloadPage() {
+	window.location.reload()
+}
+
 const activeTab = ref<'Selection' | 'Review'>('Selection')
 const ccas = ref<CourseWithSelection[]>([])
 const userInfo = ref<Student | null>(null)
@@ -33,8 +37,13 @@ const grades = ref<GradeRequirement[]>([])
 const periods = ref<string[]>([])
 const disableClientRestriction = ref(false)
 let ws: WebSocket | null = null
+let reconnectAttempts = 0
+const maxReconnectAttempts = 5
+let reconnectTimeout: number | null = null
+let isIntentionalClose = false
 const confirmModal = ref<HTMLDialogElement | null>(null)
 const initialLoadComplete = ref(false)
+const reconnectModal = ref<HTMLDialogElement | null>(null)
 const pendingAction = ref<{
 	type: 'unselect' | 'replace'
 	course: CourseWithSelection
@@ -237,6 +246,7 @@ const showInfoToast = (message: string): void => {
 
 const closeWebSocket = (): void => {
 	if (ws !== null) {
+		isIntentionalClose = true
 		ws.close()
 		ws = null
 	}
@@ -251,6 +261,7 @@ const startWebSocket = (): void => {
 
 	socket.onopen = (): void => {
 		console.log('WebSocket connected')
+		reconnectAttempts = 0
 	}
 	
 	socket.onmessage = (event: MessageEvent<string>): void => {
@@ -344,8 +355,24 @@ const startWebSocket = (): void => {
 	
 	socket.onclose = (): void => {
 		console.log('WebSocket disconnected')
-		if (ws === socket) {
-			ws = null
+		if (ws !== socket) return
+
+		ws = null
+
+		if (isIntentionalClose) {
+			isIntentionalClose = false
+			return
+		}
+
+		if (reconnectAttempts < maxReconnectAttempts) {
+			reconnectAttempts++
+			const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 10000)
+			console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`)
+			reconnectTimeout = window.setTimeout(() => {
+				startWebSocket()
+			}, delay)
+		} else {
+			reconnectModal.value?.showModal()
 		}
 	}
 }
@@ -468,6 +495,10 @@ const filteredCCAs = computed<CourseWithSelection[]>(() => {
 
 const cleanup = (): void => {
 	closeWebSocket()
+	if (reconnectTimeout !== null) {
+		clearTimeout(reconnectTimeout)
+		reconnectTimeout = null
+	}
 	if (infoTimeout !== null) {
 		clearTimeout(infoTimeout)
 		infoTimeout = null
@@ -695,6 +726,20 @@ onBeforeUnmount((): void => {
 				>.
 			</p>
 		</footer>
+
+		<dialog ref="reconnectModal" class="modal">
+			<div class="modal-box">
+				<h3 class="font-bold text-lg">Connection Lost</h3>
+				<p class="py-4">
+					Unable to reconnect to the server. Please refresh the page to continue.
+				</p>
+				<div class="modal-action">
+					<button class="btn" @click="reloadPage">
+						Refresh Page
+					</button>
+				</div>
+			</div>
+		</dialog>
 
 		<dialog ref="confirmModal" class="modal">
 			<div class="modal-box">
