@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import type { Course } from '@/types'
+import type { Course, GradeRequirement, GradeRequirementGroup } from '@/types'
 
 interface CourseWithSelection extends Course {
 	selected: boolean
@@ -15,20 +15,18 @@ interface Selection {
 const props = defineProps<{
 	ccas: CourseWithSelection[]
 	userGrade?: string
-	grades: any[]
+	grades: GradeRequirement[]
 	periods: string[]
 }>()
 
 const selections = ref<Selection[]>([])
-const reqGroups = ref<
-	Array<{ id: number; min_count: number; category_ids: string[] }>
->([])
+const reqGroups = ref<GradeRequirementGroup[]>([])
 const isLoading = ref(true)
 
 const updateReqGroups = () => {
 	if (props.userGrade && props.grades.length) {
 		const userGradeData = props.grades.find(
-			(g: any) => g.grade === props.userGrade,
+			(g) => g.grade === props.userGrade,
 		)
 		if (userGradeData) reqGroups.value = userGradeData.req_groups
 	}
@@ -63,20 +61,17 @@ watch(() => [props.userGrade, props.grades], updateReqGroups)
 const requirementCounts = computed(() => {
 	if (!reqGroups.value) return []
 	if (!reqGroups.value.length) return []
-	return reqGroups.value.map(
-		(group: { id: number; min_count: number; category_ids: string[] }) => {
-			const selected = props.ccas.filter(
-				(c) =>
-					c.selected &&
-					group.category_ids.indexOf(c.category_id) !== -1,
-			).length
-			return {
-				selected,
-				required: group.min_count,
-				categories: group.category_ids,
-			}
-		},
-	)
+	return reqGroups.value.map((group) => {
+		const selected = props.ccas.filter(
+			(c) =>
+				c.selected && group.category_ids.indexOf(c.category_id) !== -1,
+		).length
+		return {
+			selected,
+			required: group.min_count,
+			categories: group.category_ids,
+		}
+	})
 })
 
 const selectionRows = computed(() => {

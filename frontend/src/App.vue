@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import SelectionPage from './pages/SelectionPage.vue'
 import ReviewPage from './pages/ReviewPage.vue'
-import type { Choice, Course, Student } from './types'
+import SelectionPage from './pages/SelectionPage.vue'
+import type { Choice, Course, GradeRequirement, Student } from './types'
 
 interface CourseWithSelection extends Course {
 	selected: boolean
@@ -29,7 +29,7 @@ const infoMessage = ref<string | null>(null)
 let infoTimeout: number | null = null
 const updatingCcaId = ref<string | null>(null)
 const selectionPageRef = ref<{ loadPeriods: () => Promise<void> } | null>(null)
-const grades = ref<any[]>([])
+const grades = ref<GradeRequirement[]>([])
 const periods = ref<string[]>([])
 const disableClientRestriction = ref(false)
 let eventSource: EventSource | null = null
@@ -191,7 +191,8 @@ const loadGrades = async () => {
 		}
 		return
 	}
-	grades.value = await gradesRes.json()
+	const gradeData = (await gradesRes.json()) as GradeRequirement[]
+	grades.value = gradeData
 }
 
 const loadPeriods = async () => {
@@ -232,40 +233,50 @@ const startEventStream = () => {
 	const source = new EventSource('/student/api/events')
 	eventSource = source
 
-	source.addEventListener('invalidate_periods', async () => {
-		try {
-			await Promise.all([loadCourses(), loadPeriods()])
-		} catch (err) {
-			console.error('Failed to refresh periods:', err)
-		}
+	source.addEventListener('invalidate_periods', () => {
+		void (async () => {
+			try {
+				await Promise.all([loadCourses(), loadPeriods()])
+			} catch (err) {
+				console.error('Failed to refresh periods:', err)
+			}
+		})()
 	})
-	source.addEventListener('invalidate_courses', async () => {
-		try {
-			await loadCourses()
-		} catch (err) {
-			console.error('Failed to refresh courses:', err)
-		}
+	source.addEventListener('invalidate_courses', () => {
+		void (async () => {
+			try {
+				await loadCourses()
+			} catch (err) {
+				console.error('Failed to refresh courses:', err)
+			}
+		})()
 	})
-	source.addEventListener('invalidate_categories', async () => {
-		try {
-			await loadCourses()
-		} catch (err) {
-			console.error('Failed to refresh categories:', err)
-		}
+	source.addEventListener('invalidate_categories', () => {
+		void (async () => {
+			try {
+				await loadCourses()
+			} catch (err) {
+				console.error('Failed to refresh categories:', err)
+			}
+		})()
 	})
-	source.addEventListener('invalidate_grades', async () => {
-		try {
-			await loadGrades()
-		} catch (err) {
-			console.error('Failed to refresh grades:', err)
-		}
+	source.addEventListener('invalidate_grades', () => {
+		void (async () => {
+			try {
+				await loadGrades()
+			} catch (err) {
+				console.error('Failed to refresh grades:', err)
+			}
+		})()
 	})
-	source.addEventListener('invalidate_selections', async () => {
-		try {
-			await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
-		} catch (err) {
-			console.error('Failed to refresh selections:', err)
-		}
+	source.addEventListener('invalidate_selections', () => {
+		void (async () => {
+			try {
+				await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
+			} catch (err) {
+				console.error('Failed to refresh selections:', err)
+			}
+		})()
 	})
 	source.addEventListener('course_count_update', (event) => {
 		try {
@@ -372,9 +383,16 @@ const confirmAction = async () => {
 				pendingAction.value.course.id,
 			)
 		} else {
+			const existingSelection = pendingAction.value.existing
+			if (!existingSelection) {
+				console.error(
+					'Missing existing selection while confirming replace action',
+				)
+				return
+			}
 			const removed = await requestSelectionUpdate(
 				'DELETE',
-				pendingAction.value.existing!.id,
+				existingSelection.id,
 			)
 			if (removed) {
 				await requestSelectionUpdate(

@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import CCAGrid from '../components/CCAGrid.vue'
 import CCATable from '../components/CCATable.vue'
-import type { Course } from '@/types'
+import type { Course, GradeRequirement, GradeRequirementGroup } from '@/types'
 
 interface CourseWithSelection extends Course {
 	selected: boolean
@@ -14,7 +14,7 @@ const props = defineProps<{
 	ccas: CourseWithSelection[]
 	searchActive: boolean
 	userGrade?: string
-	grades: any[]
+	grades: GradeRequirement[]
 	periods: string[]
 	initialPeriod?: string
 	initialViewMode?: 'grid' | 'table'
@@ -34,9 +34,7 @@ const hasNoResults = computed(
 	() => !isLoading.value && filteredCCAs.value.length === 0,
 )
 const viewMode = ref<'grid' | 'table'>(props.initialViewMode || 'grid')
-const reqGroups = ref<
-	Array<{ id: number; min_count: number; category_ids: string[] }>
->([])
+const reqGroups = ref<GradeRequirementGroup[]>([])
 const isAllPeriods = computed(() => selectedPeriod.value === ALL_PERIODS)
 
 watch(
@@ -49,7 +47,7 @@ watch(
 const updateReqGroups = () => {
 	if (props.userGrade && props.grades.length) {
 		const userGradeData = props.grades.find(
-			(g: any) => g.grade === props.userGrade,
+			(g) => g.grade === props.userGrade,
 		)
 		if (userGradeData) reqGroups.value = userGradeData.req_groups
 	}
@@ -121,20 +119,17 @@ const requirementCounts = computed(() => {
 	// reqGroups.value can be null
 	if (!reqGroups.value) return []
 	if (!reqGroups.value.length) return []
-	return reqGroups.value.map(
-		(group: { id: number; min_count: number; category_ids: string[] }) => {
-			const selected = props.ccas.filter(
-				(c) =>
-					c.selected &&
-					group.category_ids.indexOf(c.category_id) !== -1,
-			).length
-			return {
-				selected,
-				required: group.min_count,
-				categories: group.category_ids,
-			}
-		},
-	)
+	return reqGroups.value.map((group) => {
+		const selected = props.ccas.filter(
+			(c) =>
+				c.selected && group.category_ids.indexOf(c.category_id) !== -1,
+		).length
+		return {
+			selected,
+			required: group.min_count,
+			categories: group.category_ids,
+		}
+	})
 })
 </script>
 

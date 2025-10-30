@@ -5,6 +5,17 @@ export type MembershipType = 'free' | 'invite_only'
 export interface Grade {
 	grade: string
 	enabled: boolean
+	max_own_choices: number
+}
+
+export interface GradeRequirementGroup {
+	id: number
+	min_count: number
+	category_ids: string[]
+}
+
+export interface GradeRequirement extends Grade {
+	req_groups: GradeRequirementGroup[]
 }
 
 export interface Category {
