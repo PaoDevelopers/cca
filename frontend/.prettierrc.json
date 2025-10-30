@@ -1,0 +1,23 @@
+{
+	"$schema": "https://json.schemastore.org/prettierrc",
+	"useTabs": true,
+	"tabWidth": 8,
+	"singleQuote": true,
+	"semi": false,
+	"endOfLine": "lf",
+	"overrides": [
+		{
+			"files": [
+				"*.js",
+				"*.jsx",
+				"*.ts",
+				"*.tsx",
+				"*.html",
+				"*.vue"
+			],
+			"options": {
+				"tabWidth": 4
+			}
+		}
+	]
+}

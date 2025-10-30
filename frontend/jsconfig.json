@@ -1,9 +1,9 @@
 {
-  "compilerOptions": {
-    "lib": ["ES2015", "DOM"],
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  },
-  "exclude": ["node_modules", "dist"]
+	"compilerOptions": {
+		"lib": ["ES2015", "DOM"],
+		"paths": {
+			"@/*": ["./src/*"]
+		}
+	},
+	"exclude": ["node_modules", "dist"]
 }
