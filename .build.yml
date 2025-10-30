@@ -15,7 +15,6 @@ tasks:
       cd cca
       ./prepare
   - build: |
-      tree
       cd cca
       export PATH="$(realpath ..)/bin:$PATH"
       ls "$(realpath ..)/bin"
