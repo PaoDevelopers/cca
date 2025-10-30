@@ -4,11 +4,21 @@ packages:
   - go
   - npm
 tasks:
+  - install-binaries: |
+      mkdir bin
+      cd bin
+      curl -Lo sqlc.tar.gz https://downloads.sqlc.dev/sqlc_1.30.0_linux_amd64.tar.gz
+      tar xvf sqlc.tar.gz
+      rm sqlc.tar.gz
+      chmod +x sqlc
   - prepare: |
       cd cca
       ./prepare
   - build: |
+      tree
       cd cca
+      export PATH="$(realpath ..)/bin:$PATH"
+      ls "$(realpath ..)/bin"
       ./build
   - lint: |
       cd cca
