@@ -12,4 +12,4 @@ tasks:
       ./build
   - lint: |
       cd cca
-      golangci-lint run .
+      ./lint

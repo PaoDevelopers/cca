@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -eux
+
+golangci-lint run .
+
+cd frontend
+
+npm run lint:typescript
+npm run lint:prettier

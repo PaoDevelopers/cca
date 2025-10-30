@@ -5,9 +5,11 @@
 	"type": "module",
 	"scripts": {
 		"dev": "vite",
-		"build": "vue-tsc --noEmit && vite build",
+		"build": "vite build",
 		"preview": "vite preview",
-		"format": "prettier . --write"
+		"format": "prettier . --write",
+		"lint:typescript": "vue-tsc --noEmit",
+		"lint:prettier": "prettier . --check"
 	},
 	"dependencies": {
 		"vue": "^3.5.22"
