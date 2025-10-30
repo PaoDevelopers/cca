@@ -280,7 +280,7 @@ const requirementCounts = computed(() => {
 				v-else-if="hasNoResults"
 				class="flex items-center justify-center h-64 text-gray-500"
 			>
-				No search result
+				No result
 			</div>
 			<CCAGrid
 				v-else-if="viewMode === 'grid'"
