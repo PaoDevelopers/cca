@@ -58,6 +58,12 @@ const extractErrorMessage = async (res: Response) => {
 
 const fetchJson = async <T>(input: RequestInfo, init?: RequestInit) => {
     const res = await fetch(input, init)
+    if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) {
+        if (typeof window !== 'undefined') {
+            window.location.href = '/'
+        }
+        throw new Error('Redirecting to root')
+    }
     if (!res.ok) {
         throw new Error(await extractErrorMessage(res))
     }
@@ -94,9 +100,16 @@ const requestSelectionUpdate = async (method: 'PUT' | 'DELETE', courseId: string
         const res = await fetch('/student/api/my_selections', {
             method,
             credentials: 'include',
+            redirect: 'manual',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify(courseId)
         })
+        if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) {
+            if (typeof window !== 'undefined') {
+                window.location.href = '/'
+            }
+            return false
+        }
         if (!res.ok) {
             const errMsg = await extractErrorMessage(res)
             console.error('Selection update failed:', errMsg)
@@ -121,8 +134,8 @@ const requestSelectionUpdate = async (method: 'PUT' | 'DELETE', courseId: string
 
 const loadCourses = async () => {
     const [coursesData, selectionsData] = await Promise.all([
-        fetchJson<Course[]>('/student/api/courses', {credentials: 'include'}),
-        fetchJson<SelectionResponse[] | null>('/student/api/my_selections', {credentials: 'include'})
+        fetchJson<Course[]>('/student/api/courses', {credentials: 'include', redirect: 'manual'}),
+        fetchJson<SelectionResponse[] | null>('/student/api/my_selections', {credentials: 'include', redirect: 'manual'})
     ])
     ccas.value = coursesData.map((course: Course) => ({
         ...course,
@@ -133,12 +146,24 @@ const loadCourses = async () => {
 }
 
 const loadGrades = async () => {
-    const gradesRes = await fetch('/student/api/grades', {credentials: 'include'})
+    const gradesRes = await fetch('/student/api/grades', {credentials: 'include', redirect: 'manual'})
+    if (gradesRes.type === 'opaqueredirect' || (gradesRes.status >= 300 && gradesRes.status < 400)) {
+        if (typeof window !== 'undefined') {
+            window.location.href = '/'
+        }
+        return
+    }
     grades.value = await gradesRes.json()
 }
 
 const loadPeriods = async () => {
-    const periodsRes = await fetch('/student/api/periods', {credentials: 'include'})
+    const periodsRes = await fetch('/student/api/periods', {credentials: 'include', redirect: 'manual'})
+    if (periodsRes.type === 'opaqueredirect' || (periodsRes.status >= 300 && periodsRes.status < 400)) {
+        if (typeof window !== 'undefined') {
+            window.location.href = '/'
+        }
+        return
+    }
     periods.value = await periodsRes.json()
 }
 
@@ -229,7 +254,7 @@ const startEventStream = () => {
 
 onMounted(async () => {
     try {
-        userInfo.value = await fetchJson<Student>('/student/api/user_info', {credentials: 'include'})
+        userInfo.value = await fetchJson<Student>('/student/api/user_info', {credentials: 'include', redirect: 'manual'})
         await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
         startEventStream()
     } catch (err) {

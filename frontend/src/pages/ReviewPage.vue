@@ -27,7 +27,13 @@ const updateReqGroups = () => {
 
 const loadSelections = async () => {
     isLoading.value = true
-    const res = await fetch('/student/api/my_selections', {credentials: 'include'})
+    const res = await fetch('/student/api/my_selections', {credentials: 'include', redirect: 'manual'})
+    if (res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)) {
+        if (typeof window !== 'undefined') {
+            window.location.href = '/'
+        }
+        return
+    }
     selections.value = await res.json()
     isLoading.value = false
 }

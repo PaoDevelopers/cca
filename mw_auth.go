@@ -84,26 +84,12 @@ func (app *App) studentOnly(handlerName string, handler func(w http.ResponseWrit
 		app.logRequestStart(r, handlerName, slog.String("middleware", "studentOnly"))
 		ui, err := app.authenticateRequest(r)
 		if err != nil {
-			app.respondHTTPError(
-				r,
-				w,
-				http.StatusUnauthorized,
-				"Unauthorized\nGo to the root URL (remove everything after the \"/\") to authenticate?\n"+err.Error(),
-				err,
-				slog.String("middleware", "studentOnly"),
-			)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 		sui, ok := ui.(*UserInfoStudent)
 		if !ok {
-			app.respondHTTPError(
-				r,
-				w,
-				http.StatusForbidden,
-				"Forbidden\nStudent-only endpoint\nGo to the root URL (remove everything after the \"/\") to authenticate?",
-				nil,
-				slog.String("middleware", "studentOnly"),
-			)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 		app.logInfo(r, "authenticated student request", slog.String("middleware", "studentOnly"), slog.Int64("student_id", sui.ID))
@@ -116,26 +102,12 @@ func (app *App) adminOnly(handlerName string, handler func(w http.ResponseWriter
 		app.logRequestStart(r, handlerName, slog.String("middleware", "adminOnly"))
 		ui, err := app.authenticateRequest(r)
 		if err != nil {
-			app.respondHTTPError(
-				r,
-				w,
-				http.StatusUnauthorized,
-				"Unauthorized\nGo to the root URL (remove everything after the \"/\") to authenticate?\n"+err.Error(),
-				err,
-				slog.String("middleware", "adminOnly"),
-			)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 		aui, ok := ui.(*UserInfoAdmin)
 		if !ok {
-			app.respondHTTPError(
-				r,
-				w,
-				http.StatusForbidden,
-				"Forbidden\nAdmin-only endpoint\nGo to the root URL (remove everything after the \"/\") to authenticate?",
-				nil,
-				slog.String("middleware", "adminOnly"),
-			)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 		app.logInfo(r, "authenticated admin request", slog.String("middleware", "adminOnly"), slog.String("admin_username", aui.Username))
