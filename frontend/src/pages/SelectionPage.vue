@@ -22,7 +22,7 @@ const props = defineProps<{
 	updatingCcaId: string | null
 }>()
 
-const isLoading = computed(() => !props.periods.length)
+const isLoading = computed<boolean>(() => props.periods.length === 0)
 const emit = defineEmits<{
 	toggle: [id: string]
 	periodChange: [period: string]
@@ -30,40 +30,54 @@ const emit = defineEmits<{
 }>()
 
 const initialSelectedPeriod =
-	props.initialPeriod && props.initialPeriod !== ''
+	typeof props.initialPeriod === 'string' && props.initialPeriod.length > 0
 		? props.initialPeriod
 		: ALL_PERIODS
 const selectedPeriod = ref<string>(initialSelectedPeriod)
-const hasNoResults = computed(
+const hasNoResults = computed<boolean>(
 	() => !isLoading.value && filteredCCAs.value.length === 0,
 )
-const viewMode = ref<'grid' | 'table'>(props.initialViewMode || 'grid')
+const viewMode = ref<'grid' | 'table'>(props.initialViewMode ?? 'grid')
 const reqGroups = ref<GradeRequirementGroup[]>([])
-const isAllPeriods = computed(() => selectedPeriod.value === ALL_PERIODS)
+const isAllPeriods = computed<boolean>(
+	() => selectedPeriod.value === ALL_PERIODS,
+)
 
 watch(
 	() => viewMode.value,
-	(newMode) => {
+	(newMode): void => {
 		emit('viewModeChange', newMode)
 	},
 )
 
-const updateReqGroups = () => {
-	if (props.userGrade && props.grades.length) {
-		const userGradeData = props.grades.find(
-			(g) => g.grade === props.userGrade,
-		)
-		if (userGradeData) reqGroups.value = userGradeData.req_groups
+const updateReqGroups = (): void => {
+	const gradeId = props.userGrade
+	if (
+		typeof gradeId === 'string' &&
+		gradeId.length > 0 &&
+		props.grades.length > 0
+	) {
+		const userGradeData = props.grades.find((g) => g.grade === gradeId)
+		if (userGradeData !== undefined) {
+			reqGroups.value = userGradeData.req_groups
+			return
+		}
 	}
+	reqGroups.value = []
 }
 
-const initPeriod = () => {
-	if (props.initialPeriod && props.initialPeriod !== '') {
-		selectedPeriod.value = props.initialPeriod
-		emit('periodChange', props.initialPeriod)
+const initPeriod = (): void => {
+	const initialPeriod =
+		typeof props.initialPeriod === 'string' &&
+		props.initialPeriod.length > 0
+			? props.initialPeriod
+			: null
+	if (initialPeriod !== null) {
+		selectedPeriod.value = initialPeriod
+		emit('periodChange', initialPeriod)
 		return
 	}
-	if (!props.periods.length) {
+	if (props.periods.length === 0) {
 		return
 	}
 	if (selectedPeriod.value === ALL_PERIODS) {
@@ -76,17 +90,17 @@ const initPeriod = () => {
 	}
 }
 
-onMounted(() => {
+onMounted((): void => {
 	updateReqGroups()
 	initPeriod()
 })
 
 watch(() => [props.userGrade, props.grades], updateReqGroups)
-watch(() => props.periods, initPeriod, { immediate: true })
+watch(() => props.periods, initPeriod)
 watch(
 	() => props.initialPeriod,
-	(newInitial) => {
-		if (newInitial && newInitial !== '') {
+	(newInitial): void => {
+		if (typeof newInitial === 'string' && newInitial.length > 0) {
 			selectedPeriod.value = newInitial
 		} else if (selectedPeriod.value !== ALL_PERIODS) {
 			selectedPeriod.value = ALL_PERIODS
@@ -94,7 +108,7 @@ watch(
 	},
 )
 
-const selectPeriod = (period: string) => {
+const selectPeriod = (period: string): void => {
 	if (period === ALL_PERIODS) {
 		selectedPeriod.value = ALL_PERIODS
 		emit('periodChange', '')
@@ -104,43 +118,55 @@ const selectPeriod = (period: string) => {
 	}
 }
 
-const filteredCCAs = computed(() => {
+const filteredCCAs = computed<CourseWithSelection[]>(() => {
 	if (selectedPeriod.value === ALL_PERIODS) {
 		return props.ccas
 	}
 	return props.ccas.filter((c) => c.period === selectedPeriod.value)
 })
 
-const ccasByPeriod = computed(() => {
+const ccasByPeriod = computed<Record<string, CourseWithSelection[]>>(() => {
 	const grouped: Record<string, CourseWithSelection[]> = {}
 	props.ccas.forEach((c) => {
-		if (!grouped[c.period]) grouped[c.period] = []
-		grouped[c.period].push(c)
+		const list = grouped[c.period]
+		if (Array.isArray(list)) {
+			list.push(c)
+		} else {
+			grouped[c.period] = [c]
+		}
 	})
 	if (
 		props.searchActive &&
 		Object.keys(grouped).length > 0 &&
 		selectedPeriod.value !== ALL_PERIODS
 	) {
-		const firstPeriodWithResults = props.periods.find(
-			(p) => grouped[p]?.length > 0,
-		)
+		const firstPeriodWithResults = props.periods.find((p) => {
+			const periodGroup = grouped[p]
+			return Array.isArray(periodGroup) && periodGroup.length > 0
+		})
 		if (
-			firstPeriodWithResults &&
-			selectedPeriod.value !== firstPeriodWithResults &&
-			!grouped[selectedPeriod.value]?.length
+			firstPeriodWithResults !== undefined &&
+			selectedPeriod.value !== firstPeriodWithResults
 		) {
-			selectedPeriod.value = firstPeriodWithResults
-			emit('periodChange', firstPeriodWithResults)
+			const selectedGroup = grouped[selectedPeriod.value]
+			if (!Array.isArray(selectedGroup) || selectedGroup.length === 0) {
+				// eslint-disable-next-line vue/no-side-effects-in-computed-properties
+				selectedPeriod.value = firstPeriodWithResults
+				emit('periodChange', firstPeriodWithResults)
+			}
 		}
 	}
 	return grouped
 })
 
-const requirementCounts = computed(() => {
-	// reqGroups.value can be null
-	if (!reqGroups.value) return []
-	if (!reqGroups.value.length) return []
+const requirementCounts = computed<
+	Array<{
+		selected: number
+		required: number
+		categories: string[]
+	}>
+>(() => {
+	if (reqGroups.value.length === 0) return []
 	return reqGroups.value.map((group) => {
 		const selected = props.ccas.filter(
 			(c) =>

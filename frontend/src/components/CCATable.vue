@@ -14,11 +14,14 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ toggle: [id: string] }>()
 
-const groupedCCAs = computed(() => {
+const groupedCCAs = computed<Record<string, CourseWithSelection[]>>(() => {
 	const groups: Record<string, CourseWithSelection[]> = {}
 	props.ccas.forEach((cca) => {
-		if (!groups[cca.category_id]) groups[cca.category_id] = []
-		groups[cca.category_id].push(cca)
+		if (Object.prototype.hasOwnProperty.call(groups, cca.category_id)) {
+			groups[cca.category_id].push(cca)
+		} else {
+			groups[cca.category_id] = [cca]
+		}
 	})
 	return groups
 })

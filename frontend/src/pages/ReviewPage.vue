@@ -23,16 +23,23 @@ const selections = ref<Selection[]>([])
 const reqGroups = ref<GradeRequirementGroup[]>([])
 const isLoading = ref(true)
 
-const updateReqGroups = () => {
-	if (props.userGrade && props.grades.length) {
-		const userGradeData = props.grades.find(
-			(g) => g.grade === props.userGrade,
-		)
-		if (userGradeData) reqGroups.value = userGradeData.req_groups
+const updateReqGroups = (): void => {
+	const gradeId = props.userGrade
+	if (
+		typeof gradeId === 'string' &&
+		gradeId.length > 0 &&
+		props.grades.length > 0
+	) {
+		const userGradeData = props.grades.find((g) => g.grade === gradeId)
+		if (userGradeData !== undefined) {
+			reqGroups.value = userGradeData.req_groups
+			return
+		}
 	}
+	reqGroups.value = []
 }
 
-const loadSelections = async () => {
+const loadSelections = async (): Promise<void> => {
 	isLoading.value = true
 	const res = await fetch('/student/api/my_selections', {
 		credentials: 'include',
@@ -47,20 +54,26 @@ const loadSelections = async () => {
 		}
 		return
 	}
-	selections.value = await res.json()
+	const data = (await res.json()) as Selection[] | null
+	selections.value = Array.isArray(data) ? data : []
 	isLoading.value = false
 }
 
-onMounted(async () => {
+onMounted(async (): Promise<void> => {
 	updateReqGroups()
 	await loadSelections()
 })
 
 watch(() => [props.userGrade, props.grades], updateReqGroups)
 
-const requirementCounts = computed(() => {
-	if (!reqGroups.value) return []
-	if (!reqGroups.value.length) return []
+const requirementCounts = computed<
+	Array<{
+		selected: number
+		required: number
+		categories: string[]
+	}>
+>(() => {
+	if (reqGroups.value.length === 0) return []
 	return reqGroups.value.map((group) => {
 		const selected = props.ccas.filter(
 			(c) =>
@@ -74,20 +87,16 @@ const requirementCounts = computed(() => {
 	})
 })
 
-const selectionRows = computed(() => {
+const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 	return props.periods.map((period) => {
-		let sel = null
-		if (selections.value) {
-			sel = selections.value.find((s) => s.period === period)
-		} else {
-			sel = null
-		}
-		const course = sel
-			? props.ccas.find((c) => c.id === sel.course_id)
-			: null
+		const sel = selections.value.find((s) => s.period === period)
+		const course =
+			sel !== undefined
+				? props.ccas.find((c) => c.id === sel.course_id)
+				: undefined
 		return {
 			period,
-			cca: course?.name || '-',
+			cca: course?.name ?? '-',
 		}
 	})
 })

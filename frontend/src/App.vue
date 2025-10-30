@@ -10,7 +10,7 @@ interface CourseWithSelection extends Course {
 
 type SelectionResponse = Pick<Choice, 'course_id' | 'period' | 'selection_type'>
 
-function cancelAction() {
+function cancelAction(): void {
 	pendingAction.value = null
 	confirmInput.value = ''
 	showInputError.value = false
@@ -34,6 +34,7 @@ const periods = ref<string[]>([])
 const disableClientRestriction = ref(false)
 let eventSource: EventSource | null = null
 const confirmModal = ref<HTMLDialogElement | null>(null)
+const initialLoadComplete = ref(false)
 const pendingAction = ref<{
 	type: 'unselect' | 'replace'
 	course: CourseWithSelection
@@ -42,27 +43,30 @@ const pendingAction = ref<{
 const confirmInput = ref('')
 const showInputError = ref(false)
 
-const extractErrorMessage = async (res: Response) => {
+const extractErrorMessage = async (res: Response): Promise<string> => {
 	const text = await res.text()
-	if (!text) {
+	if (text.length === 0) {
 		return `Request failed with status ${res.status}`
 	}
 	try {
-		const data = JSON.parse(text)
-		if (typeof data === 'string') return data
-		if (data && typeof data === 'object') {
-			if (typeof (data as { message?: unknown }).message === 'string') {
-				return (data as { message: string }).message
+		const parsed: unknown = JSON.parse(text)
+		if (typeof parsed === 'string') return parsed
+		if (parsed !== null && typeof parsed === 'object') {
+			const record = parsed as Record<string, unknown>
+			const message = record.message
+			if (typeof message === 'string') {
+				return message
 			}
-			if (typeof (data as { error?: unknown }).error === 'string') {
-				return (data as { error: string }).error
+			const error = record.error
+			if (typeof error === 'string') {
+				return error
 			}
-			const fallback = JSON.stringify(data)
+			const fallback = JSON.stringify(record)
 			return fallback === '{}'
 				? `Request failed with status ${res.status}`
 				: fallback
 		}
-		return String(data)
+		return String(parsed)
 	} catch {
 		return text.trim() === 'null'
 			? `Request failed with status ${res.status}`
@@ -70,7 +74,10 @@ const extractErrorMessage = async (res: Response) => {
 	}
 }
 
-const fetchJson = async <T,>(input: RequestInfo, init?: RequestInit) => {
+const fetchJson = async <T,>(
+	input: RequestInfo,
+	init?: RequestInit,
+): Promise<T> => {
 	const res = await fetch(input, init)
 	if (
 		res.type === 'opaqueredirect' ||
@@ -84,11 +91,11 @@ const fetchJson = async <T,>(input: RequestInfo, init?: RequestInit) => {
 	if (!res.ok) {
 		throw new Error(await extractErrorMessage(res))
 	}
-	return (await res.json()) as Promise<T>
+	return (await res.json()) as T
 }
 
-const extractCourseId = (value: unknown) => {
-	if (value && typeof value === 'object') {
+const extractCourseId = (value: unknown): string | null => {
+	if (value !== null && typeof value === 'object') {
 		const courseId = (value as SelectionResponse).course_id
 		if (typeof courseId === 'string') return courseId
 		const fallback = (value as { courseID?: unknown }).courseID
@@ -99,12 +106,12 @@ const extractCourseId = (value: unknown) => {
 
 const applySelections = (
 	selections: SelectionResponse[] | null | undefined,
-) => {
+): void => {
 	const list = Array.isArray(selections) ? selections : []
 	const selectedIds = new Set<string>()
 	list.forEach((selection) => {
 		const courseId = extractCourseId(selection)
-		if (courseId) {
+		if (courseId !== null) {
 			selectedIds.add(courseId)
 		}
 	})
@@ -117,7 +124,7 @@ const applySelections = (
 const requestSelectionUpdate = async (
 	method: 'PUT' | 'DELETE',
 	courseId: string,
-) => {
+): Promise<boolean> => {
 	try {
 		const res = await fetch('/student/api/my_selections', {
 			method,
@@ -139,8 +146,10 @@ const requestSelectionUpdate = async (
 			const errMsg = await extractErrorMessage(res)
 			console.error('Selection update failed:', errMsg)
 			errorMessage.value = errMsg
-			if (errorTimeout) clearTimeout(errorTimeout)
-			errorTimeout = setTimeout(() => (errorMessage.value = null), 5000)
+			if (errorTimeout !== null) clearTimeout(errorTimeout)
+			errorTimeout = window.setTimeout((): void => {
+				errorMessage.value = null
+			}, 5000)
 			return false
 		}
 		const selections = (await res.json()) as SelectionResponse[] | null
@@ -152,13 +161,15 @@ const requestSelectionUpdate = async (
 			err instanceof Error ? err.message : 'Unable to update selections.'
 		console.error('Selection update error:', err)
 		errorMessage.value = errMsg
-		if (errorTimeout) clearTimeout(errorTimeout)
-		errorTimeout = setTimeout(() => (errorMessage.value = null), 5000)
+		if (errorTimeout !== null) clearTimeout(errorTimeout)
+		errorTimeout = window.setTimeout((): void => {
+			errorMessage.value = null
+		}, 5000)
 		return false
 	}
 }
 
-const loadCourses = async () => {
+const loadCourses = async (): Promise<void> => {
 	const [coursesData, selectionsData] = await Promise.all([
 		fetchJson<Course[]>('/student/api/courses', {
 			credentials: 'include',
@@ -171,13 +182,16 @@ const loadCourses = async () => {
 	])
 	ccas.value = coursesData.map((course: Course) => ({
 		...course,
-		current_students: course.current_students ?? 0,
+		current_students:
+			typeof course.current_students === 'number'
+				? course.current_students
+				: 0,
 		selected: false,
 	}))
 	applySelections(selectionsData)
 }
 
-const loadGrades = async () => {
+const loadGrades = async (): Promise<void> => {
 	const gradesRes = await fetch('/student/api/grades', {
 		credentials: 'include',
 		redirect: 'manual',
@@ -195,7 +209,7 @@ const loadGrades = async () => {
 	grades.value = gradeData
 }
 
-const loadPeriods = async () => {
+const loadPeriods = async (): Promise<void> => {
 	const periodsRes = await fetch('/student/api/periods', {
 		credentials: 'include',
 		redirect: 'manual',
@@ -209,32 +223,32 @@ const loadPeriods = async () => {
 		}
 		return
 	}
-	periods.value = await periodsRes.json()
+	periods.value = (await periodsRes.json()) as string[]
 }
 
-const showInfoToast = (message: string) => {
+const showInfoToast = (message: string): void => {
 	infoMessage.value = message
-	if (infoTimeout) clearTimeout(infoTimeout)
-	infoTimeout = window.setTimeout(() => {
+	if (infoTimeout !== null) clearTimeout(infoTimeout)
+	infoTimeout = window.setTimeout((): void => {
 		infoMessage.value = null
 		infoTimeout = null
 	}, 5000)
 }
 
-const closeEventSource = () => {
-	if (eventSource) {
+const closeEventSource = (): void => {
+	if (eventSource !== null) {
 		eventSource.close()
 		eventSource = null
 	}
 }
 
-const startEventStream = () => {
+const startEventStream = (): void => {
 	closeEventSource()
 	const source = new EventSource('/student/api/events')
 	eventSource = source
 
-	source.addEventListener('invalidate_periods', () => {
-		void (async () => {
+	source.addEventListener('invalidate_periods', (): void => {
+		void (async (): Promise<void> => {
 			try {
 				await Promise.all([loadCourses(), loadPeriods()])
 			} catch (err) {
@@ -242,8 +256,8 @@ const startEventStream = () => {
 			}
 		})()
 	})
-	source.addEventListener('invalidate_courses', () => {
-		void (async () => {
+	source.addEventListener('invalidate_courses', (): void => {
+		void (async (): Promise<void> => {
 			try {
 				await loadCourses()
 			} catch (err) {
@@ -251,8 +265,8 @@ const startEventStream = () => {
 			}
 		})()
 	})
-	source.addEventListener('invalidate_categories', () => {
-		void (async () => {
+	source.addEventListener('invalidate_categories', (): void => {
+		void (async (): Promise<void> => {
 			try {
 				await loadCourses()
 			} catch (err) {
@@ -260,8 +274,8 @@ const startEventStream = () => {
 			}
 		})()
 	})
-	source.addEventListener('invalidate_grades', () => {
-		void (async () => {
+	source.addEventListener('invalidate_grades', (): void => {
+		void (async (): Promise<void> => {
 			try {
 				await loadGrades()
 			} catch (err) {
@@ -269,8 +283,8 @@ const startEventStream = () => {
 			}
 		})()
 	})
-	source.addEventListener('invalidate_selections', () => {
-		void (async () => {
+	source.addEventListener('invalidate_selections', (): void => {
+		void (async (): Promise<void> => {
 			try {
 				await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
 			} catch (err) {
@@ -278,33 +292,49 @@ const startEventStream = () => {
 			}
 		})()
 	})
-	source.addEventListener('course_count_update', (event) => {
-		try {
-			const data = JSON.parse((event as MessageEvent<string>).data)
-			if (!data || typeof data.c !== 'string') {
-				return
+	source.addEventListener(
+		'course_count_update',
+		(event: MessageEvent<string>): void => {
+			try {
+				const parsed: unknown = JSON.parse(event.data)
+				if (parsed === null || typeof parsed !== 'object') {
+					return
+				}
+				const data = parsed as {
+					c?: unknown
+					n?: unknown
+				}
+				if (typeof data.c !== 'string') {
+					return
+				}
+				const rawCount = data.n
+				const count =
+					typeof rawCount === 'number'
+						? rawCount
+						: typeof rawCount === 'string'
+							? Number.parseInt(rawCount, 10)
+							: Number.NaN
+				const target = ccas.value.find(
+					(course: CourseWithSelection) => course.id === data.c,
+				)
+				if (target !== undefined) {
+					target.current_students = Number.isNaN(count) ? 0 : count
+				}
+			} catch (err) {
+				console.error(
+					'Failed to process course_count_update event:',
+					err,
+				)
 			}
-			const count =
-				typeof data.n === 'number'
-					? data.n
-					: Number.parseInt(data.n, 10)
-			const target = ccas.value.find(
-				(course: CourseWithSelection) => course.id === data.c,
-			)
-			if (target) {
-				target.current_students = Number.isNaN(count) ? 0 : count
-			}
-		} catch (err) {
-			console.error('Failed to process course_count_update event:', err)
-		}
-	})
-	source.addEventListener('notify', (event) => {
-		const data = (event as MessageEvent<string>).data
-		if (data) {
+		},
+	)
+	source.addEventListener('notify', (event: MessageEvent<string>): void => {
+		const data = event.data
+		if (data.length > 0) {
 			showInfoToast(data)
 		}
 	})
-	source.onerror = () => {
+	source.onerror = (): void => {
 		source.close()
 		if (eventSource === source) {
 			eventSource = null
@@ -312,7 +342,7 @@ const startEventStream = () => {
 	}
 }
 
-onMounted(async () => {
+onMounted(async (): Promise<void> => {
 	try {
 		userInfo.value = await fetchJson<Student>('/student/api/user_info', {
 			credentials: 'include',
@@ -323,12 +353,14 @@ onMounted(async () => {
 	} catch (err) {
 		errorMessage.value =
 			err instanceof Error ? err.message : 'Failed to load data.'
+	} finally {
+		initialLoadComplete.value = true
 	}
 })
 
-const toggleCCA = async (id: string) => {
+const toggleCCA = async (id: string): Promise<void> => {
 	const course = ccas.value.find((c: CourseWithSelection) => c.id === id)
-	if (!course || updatingCcaId.value) return
+	if (course === undefined || updatingCcaId.value !== null) return
 
 	if (course.selected) {
 		pendingAction.value = { type: 'unselect', course }
@@ -339,7 +371,7 @@ const toggleCCA = async (id: string) => {
 	const existingSelection = ccas.value.find(
 		(c) => c.period === course.period && c.selected,
 	)
-	if (existingSelection) {
+	if (existingSelection !== undefined) {
 		pendingAction.value = {
 			type: 'replace',
 			course,
@@ -358,33 +390,33 @@ const toggleCCA = async (id: string) => {
 	}
 }
 
-const confirmAction = async () => {
-	if (!pendingAction.value) return
+const confirmAction = async (): Promise<void> => {
+	if (pendingAction.value === null) return
+	const action = pendingAction.value
 
 	const needsConfirmation =
-		(pendingAction.value.type === 'unselect' &&
-			pendingAction.value.course.membership === 'invite_only') ||
-		(pendingAction.value.type === 'replace' &&
-			pendingAction.value.existing?.membership === 'invite_only')
+		(action.type === 'unselect' &&
+			action.course.membership === 'invite_only') ||
+		(action.type === 'replace' &&
+			action.existing?.membership === 'invite_only')
 	if (needsConfirmation && confirmInput.value !== 'I am really sure') {
 		showInputError.value = true
-		setTimeout(() => (showInputError.value = false), 1500)
+		window.setTimeout((): void => {
+			showInputError.value = false
+		}, 1500)
 		return
 	}
 
 	confirmModal.value?.close()
-	updatingCcaId.value = pendingAction.value.course.id
+	updatingCcaId.value = action.course.id
 	errorMessage.value = null
 
 	try {
-		if (pendingAction.value.type === 'unselect') {
-			await requestSelectionUpdate(
-				'DELETE',
-				pendingAction.value.course.id,
-			)
+		if (action.type === 'unselect') {
+			await requestSelectionUpdate('DELETE', action.course.id)
 		} else {
-			const existingSelection = pendingAction.value.existing
-			if (!existingSelection) {
+			const existingSelection = action.existing
+			if (existingSelection === undefined) {
 				console.error(
 					'Missing existing selection while confirming replace action',
 				)
@@ -395,10 +427,7 @@ const confirmAction = async () => {
 				existingSelection.id,
 			)
 			if (removed) {
-				await requestSelectionUpdate(
-					'PUT',
-					pendingAction.value.course.id,
-				)
+				await requestSelectionUpdate('PUT', action.course.id)
 			}
 		}
 	} finally {
@@ -409,13 +438,13 @@ const confirmAction = async () => {
 	}
 }
 
-const filteredCCAs = computed(() => {
-	if (!searchQuery.value) return ccas.value
+const filteredCCAs = computed<CourseWithSelection[]>(() => {
+	if (searchQuery.value.length === 0) return ccas.value
 
 	const query = searchQuery.value.toLowerCase()
 	let filtered = ccas.value
 
-	if (searchScope.value === 'period' && currentPeriod.value) {
+	if (searchScope.value === 'period' && currentPeriod.value !== '') {
 		filtered = filtered.filter((c) => c.period === currentPeriod.value)
 	}
 
@@ -429,25 +458,25 @@ const filteredCCAs = computed(() => {
 	)
 })
 
-const cleanup = () => {
+const cleanup = (): void => {
 	closeEventSource()
-	if (infoTimeout) {
+	if (infoTimeout !== null) {
 		clearTimeout(infoTimeout)
 		infoTimeout = null
 	}
-	if (errorTimeout) {
+	if (errorTimeout !== null) {
 		clearTimeout(errorTimeout)
 		errorTimeout = null
 	}
 }
 
-const handleBeforeUnload = () => cleanup()
+const handleBeforeUnload = (): void => cleanup()
 
 if (typeof window !== 'undefined') {
 	window.addEventListener('beforeunload', handleBeforeUnload)
 }
 
-onBeforeUnmount(() => {
+onBeforeUnmount((): void => {
 	if (typeof window !== 'undefined') {
 		window.removeEventListener('beforeunload', handleBeforeUnload)
 	}
@@ -574,7 +603,7 @@ onBeforeUnmount(() => {
 		</div>
 
 		<SelectionPage
-			v-if="activeTab === 'Selection'"
+			v-if="activeTab === 'Selection' && initialLoadComplete"
 			ref="selectionPageRef"
 			:ccas="filteredCCAs"
 			:search-active="searchScope === 'global' && !!searchQuery"
@@ -590,12 +619,40 @@ onBeforeUnmount(() => {
 			@view-mode-change="viewMode = $event"
 		/>
 		<ReviewPage
-			v-else
+			v-else-if="activeTab === 'Review' && initialLoadComplete"
 			:ccas="ccas"
 			:user-grade="userInfo?.grade"
 			:grades="grades"
 			:periods="periods"
 		/>
+		<div v-else class="flex flex-1">
+			<aside
+				class="w-56 border-r border-gray-200 bg-white p-8 sticky top-[137px] self-start max-h-[calc(100vh-137px)] overflow-y-auto"
+			>
+				<div class="space-y-2">
+					<div class="skeleton h-6 w-full"></div>
+					<div class="skeleton h-6 w-full"></div>
+					<div class="skeleton h-6 w-full"></div>
+					<div class="skeleton h-6 w-full"></div>
+				</div>
+			</aside>
+			<main class="flex-1 p-8 bg-gray-50/30">
+				<div class="flex justify-between items-center mb-6">
+					<div class="skeleton h-10 w-64"></div>
+					<div class="flex gap-2">
+						<div class="skeleton h-10 w-10 rounded"></div>
+						<div class="skeleton h-10 w-10 rounded"></div>
+					</div>
+				</div>
+				<div
+					class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+				>
+					<div class="skeleton h-64 w-full"></div>
+					<div class="skeleton h-64 w-full"></div>
+					<div class="skeleton h-64 w-full"></div>
+				</div>
+			</main>
+		</div>
 
 		<footer
 			class="px-4 border-t border-gray-200 bg-white py-4 text-sm text-gray-600"
