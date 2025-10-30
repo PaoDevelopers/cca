@@ -38,7 +38,7 @@ func (app *App) handleAdmPeriodsNew(w http.ResponseWriter, r *http.Request, aui 
 	}
 
 	app.logInfo(r, "created period", slog.String("admin_username", aui.Username), slog.String("period_id", id))
-	app.broker.Broadcast(BrokerMsg{event: "invalidate_periods"})
+	app.wsHub.Broadcast(WSMessage("invalidate_periods"))
 
 	app.logInfo(r, "redirecting after new period", slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	http.Redirect(w, r, "/admin/periods", http.StatusSeeOther)
@@ -58,7 +58,7 @@ func (app *App) handleAdmPeriodsDelete(w http.ResponseWriter, r *http.Request, a
 	}
 
 	app.logInfo(r, "deleted period", slog.String("admin_username", aui.Username), slog.String("period_id", id))
-	app.broker.Broadcast(BrokerMsg{event: "invalidate_periods"})
+	app.wsHub.Broadcast(WSMessage("invalidate_periods"))
 
 	app.logInfo(r, "redirecting after delete period", slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	http.Redirect(w, r, "/admin/periods", http.StatusSeeOther)

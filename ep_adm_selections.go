@@ -150,7 +150,7 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 		slog.Any("course_ids", courseIDs),
 		slog.String("selection_type", string(selectionType)),
 	)
-	app.broker.BroadcastToStudents(studentIDs, BrokerMsg{event: "invalidate_selections"})
+	app.wsHub.BroadcastToStudents(studentIDs, WSMessage("invalidate_selections"))
 	app.broadcastCourseCounts(r, courseIDs)
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
@@ -215,7 +215,7 @@ func (app *App) handleAdmSelectionsEdit(w http.ResponseWriter, r *http.Request, 
 	}
 
 	app.logInfo(r, "updated selection", slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID), slog.String("period", period), slog.String("selection_type", string(selectionType)))
-	app.broker.BroadcastToStudents([]int64{studentID}, BrokerMsg{event: "invalidate_selections"})
+	app.wsHub.BroadcastToStudents([]int64{studentID}, WSMessage("invalidate_selections"))
 	courseSet := []string{courseID}
 	if currentCourse != courseID {
 		courseSet = append(courseSet, currentCourse)
@@ -262,7 +262,7 @@ func (app *App) handleAdmSelectionsDelete(w http.ResponseWriter, r *http.Request
 	}
 
 	app.logInfo(r, "deleted selection", slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
-	app.broker.BroadcastToStudents([]int64{studentID}, BrokerMsg{event: "invalidate_selections"})
+	app.wsHub.BroadcastToStudents([]int64{studentID}, WSMessage("invalidate_selections"))
 	app.broadcastCourseCounts(r, []string{existingCourse})
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
@@ -404,7 +404,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 	}
 	app.logInfo(r, "imported selections", slog.String("admin_username", aui.Username), slog.Int("rows", row-2), slog.Int("students_impacted", len(students)), slog.Int("courses_impacted", len(courses)))
 	if len(students) > 0 {
-		app.broker.BroadcastToStudents(students, BrokerMsg{event: "invalidate_selections"})
+		app.wsHub.BroadcastToStudents(students, WSMessage("invalidate_selections"))
 	}
 	app.broadcastCourseCounts(r, courses)
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)

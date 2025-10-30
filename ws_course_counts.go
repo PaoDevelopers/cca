@@ -1,9 +1,9 @@
 package main
 
 import (
-	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strconv"
 )
 
 func (app *App) broadcastCourseCounts(r *http.Request, courseIDs []string) {
@@ -41,14 +41,6 @@ func (app *App) broadcastCourseCounts(r *http.Request, courseIDs []string) {
 
 	for _, id := range dedup {
 		count := counts[id]
-		payload, err := json.Marshal(map[string]any{
-			"c": id,
-			"n": count,
-		})
-		if err != nil {
-			app.logError(r, "failed encoding course count payload", slog.Any("error", err), slog.String("course_id", id))
-			continue
-		}
-		app.broker.Broadcast(BrokerMsg{event: "course_count_update", data: string(payload)})
+		app.wsHub.Broadcast(WSMessage("course_count_update," + id + "," + strconv.FormatInt(count, 10)))
 	}
 }

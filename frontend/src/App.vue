@@ -32,7 +32,7 @@ const selectionPageRef = ref<{ loadPeriods: () => Promise<void> } | null>(null)
 const grades = ref<GradeRequirement[]>([])
 const periods = ref<string[]>([])
 const disableClientRestriction = ref(false)
-let eventSource: EventSource | null = null
+let ws: WebSocket | null = null
 const confirmModal = ref<HTMLDialogElement | null>(null)
 const initialLoadComplete = ref(false)
 const pendingAction = ref<{
@@ -235,109 +235,117 @@ const showInfoToast = (message: string): void => {
 	}, 30000)
 }
 
-const closeEventSource = (): void => {
-	if (eventSource !== null) {
-		eventSource.close()
-		eventSource = null
+const closeWebSocket = (): void => {
+	if (ws !== null) {
+		ws.close()
+		ws = null
 	}
 }
 
-const startEventStream = (): void => {
-	closeEventSource()
-	const source = new EventSource('/student/api/events')
-	eventSource = source
+const startWebSocket = (): void => {
+	closeWebSocket()
+	const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+	const wsUrl = `${protocol}//${window.location.host}/student/api/events`
+	const socket = new WebSocket(wsUrl)
+	ws = socket
 
-	source.addEventListener('invalidate_periods', (): void => {
-		void (async (): Promise<void> => {
-			try {
-				await Promise.all([loadCourses(), loadPeriods()])
-			} catch (err) {
-				console.error('Failed to refresh periods:', err)
+	socket.onopen = (): void => {
+		console.log('WebSocket connected')
+	}
+	
+	socket.onmessage = (event: MessageEvent<string>): void => {
+		try {
+			const message: string = event.data
+			const parts: string[] = message.split(',')
+			const eventType: string = parts[0]
+	
+			switch (eventType) {
+				case 'invalidate_periods':
+					void (async (): Promise<void> => {
+						try {
+							await Promise.all([loadCourses(), loadPeriods()])
+						} catch (err) {
+							console.error('Failed to refresh periods:', err)
+						}
+					})()
+					break
+	
+				case 'invalidate_courses':
+					void (async (): Promise<void> => {
+						try {
+							await loadCourses()
+						} catch (err) {
+							console.error('Failed to refresh courses:', err)
+						}
+					})()
+					break
+	
+				case 'invalidate_categories':
+					void (async (): Promise<void> => {
+						try {
+							await loadCourses()
+						} catch (err) {
+							console.error('Failed to refresh categories:', err)
+						}
+					})()
+					break
+	
+				case 'invalidate_grades':
+					void (async (): Promise<void> => {
+						try {
+							await loadGrades()
+						} catch (err) {
+							console.error('Failed to refresh grades:', err)
+						}
+					})()
+					break
+	
+				case 'invalidate_selections':
+					void (async (): Promise<void> => {
+						try {
+							await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
+						} catch (err) {
+							console.error('Failed to refresh selections:', err)
+						}
+					})()
+					break
+	
+				case 'course_count_update':
+					if (parts.length === 3) {
+						const courseId: string = parts[1]
+						const count: number = Number.parseInt(parts[2], 10)
+						const target = ccas.value.find(
+							(course: CourseWithSelection) => course.id === courseId,
+						)
+						if (target !== undefined) {
+							target.current_students = Number.isNaN(count) ? 0 : count
+						}
+					}
+					break
+	
+				case 'notify':
+					if (parts.length > 1) {
+						showInfoToast(parts.slice(1).join(','))
+					}
+					break
+	
+				default:
+					console.warn('Unknown WebSocket event type:', eventType)
+					break
 			}
-		})()
-	})
-	source.addEventListener('invalidate_courses', (): void => {
-		void (async (): Promise<void> => {
-			try {
-				await loadCourses()
-			} catch (err) {
-				console.error('Failed to refresh courses:', err)
-			}
-		})()
-	})
-	source.addEventListener('invalidate_categories', (): void => {
-		void (async (): Promise<void> => {
-			try {
-				await loadCourses()
-			} catch (err) {
-				console.error('Failed to refresh categories:', err)
-			}
-		})()
-	})
-	source.addEventListener('invalidate_grades', (): void => {
-		void (async (): Promise<void> => {
-			try {
-				await loadGrades()
-			} catch (err) {
-				console.error('Failed to refresh grades:', err)
-			}
-		})()
-	})
-	source.addEventListener('invalidate_selections', (): void => {
-		void (async (): Promise<void> => {
-			try {
-				await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
-			} catch (err) {
-				console.error('Failed to refresh selections:', err)
-			}
-		})()
-	})
-	source.addEventListener(
-		'course_count_update',
-		(event: MessageEvent<string>): void => {
-			try {
-				const parsed: unknown = JSON.parse(event.data)
-				if (parsed === null || typeof parsed !== 'object') {
-					return
-				}
-				const data = parsed as {
-					c?: unknown
-					n?: unknown
-				}
-				if (typeof data.c !== 'string') {
-					return
-				}
-				const rawCount = data.n
-				const count =
-					typeof rawCount === 'number'
-						? rawCount
-						: typeof rawCount === 'string'
-							? Number.parseInt(rawCount, 10)
-							: Number.NaN
-				const target = ccas.value.find(
-					(course: CourseWithSelection) => course.id === data.c,
-				)
-				if (target !== undefined) {
-					target.current_students = Number.isNaN(count) ? 0 : count
-				}
-			} catch (err) {
-				console.error(
-					'Failed to process course_count_update event:',
-					err,
-				)
-			}
-		},
-	)
-	source.addEventListener('notify', (event: MessageEvent<string>): void => {
-		const data = event.data
-		if (data.length > 0) {
-			showInfoToast(data)
+		} catch (err) {
+			console.error('Failed to parse WebSocket message:', err)
 		}
-	})
-	source.onerror = (): void => {
-		source.close()
-		if (eventSource === source) {
-			eventSource = null
+	}
+	
+	socket.onerror = (error: Event): void => {
+		console.error('WebSocket error:', error)
+	}
+	
+	socket.onclose = (): void => {
+		console.log('WebSocket disconnected')
+		if (ws === socket) {
+			ws = null
 		}
 	}
 }
@@ -349,7 +357,7 @@ onMounted(async (): Promise<void> => {
 			redirect: 'manual',
 		})
 		await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
-		startEventStream()
+		startWebSocket()
 	} catch (err) {
 		errorMessage.value =
 			err instanceof Error ? err.message : 'Failed to load data.'
@@ -459,7 +467,7 @@ const filteredCCAs = computed<CourseWithSelection[]>(() => {
 })
 
 const cleanup = (): void => {
-	closeEventSource()
+	closeWebSocket()
 	if (infoTimeout !== null) {
 		clearTimeout(infoTimeout)
 		infoTimeout = null

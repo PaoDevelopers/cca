@@ -38,7 +38,7 @@ func (app *App) handleAdmCategoriesNew(w http.ResponseWriter, r *http.Request, a
 	}
 
 	app.logInfo(r, "created category", slog.String("admin_username", aui.Username), slog.String("category_id", id))
-	app.broker.Broadcast(BrokerMsg{event: "invalidate_categories"})
+	app.wsHub.Broadcast(WSMessage("invalidate_categories"))
 
 	app.logInfo(r, "redirecting after new category", slog.String("admin_username", aui.Username), slog.String("category_id", id))
 	http.Redirect(w, r, "/admin/categories", http.StatusSeeOther)
@@ -58,7 +58,7 @@ func (app *App) handleAdmCategoriesDelete(w http.ResponseWriter, r *http.Request
 	}
 
 	app.logInfo(r, "deleted category", slog.String("admin_username", aui.Username), slog.String("category_id", id))
-	app.broker.Broadcast(BrokerMsg{event: "invalidate_categories"})
+	app.wsHub.Broadcast(WSMessage("invalidate_categories"))
 
 	app.logInfo(r, "redirecting after delete category", slog.String("admin_username", aui.Username), slog.String("category_id", id))
 	http.Redirect(w, r, "/admin/categories", http.StatusSeeOther)

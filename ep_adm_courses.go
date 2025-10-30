@@ -265,7 +265,7 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 	}
 
 	app.logInfo(r, "created course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
-	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
+	app.wsHub.Broadcast(WSMessage("invalidate_courses"))
 
 	app.logInfo(r, "redirecting after new course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
@@ -438,7 +438,7 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 	}
 
 	app.logInfo(r, "updated course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
-	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
+	app.wsHub.Broadcast(WSMessage("invalidate_courses"))
 
 	app.logInfo(r, "redirecting after edit course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
@@ -459,7 +459,7 @@ func (app *App) handleAdmCoursesDelete(w http.ResponseWriter, r *http.Request, a
 	}
 
 	app.logInfo(r, "deleted course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
-	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
+	app.wsHub.Broadcast(WSMessage("invalidate_courses"))
 
 	app.logInfo(r, "redirecting after delete course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
@@ -683,7 +683,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 	}
 
 	app.logInfo(r, "imported courses", slog.String("admin_username", aui.Username))
-	app.broker.Broadcast(BrokerMsg{event: "invalidate_courses"})
+	app.wsHub.Broadcast(WSMessage("invalidate_courses"))
 
 	app.logInfo(r, "redirecting after course import", slog.String("admin_username", aui.Username))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)

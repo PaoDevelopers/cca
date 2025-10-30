@@ -90,9 +90,10 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	// SSE broker
-	slog.Info("Setting up SSE broker", slog.Int("buffer_length", app.config.SSEBuf))
-	app.broker = NewBroker(app.config.SSEBuf)
+	// WebSocket hub
+	slog.Info("Setting up WebSocket hub")
+	app.wsHub = NewWebSocketHub()
+	go app.wsHub.Run()
 
 	// Router
 	slog.Info("Registering routes")
