@@ -29,7 +29,11 @@ const emit = defineEmits<{
 	viewModeChange: [mode: 'grid' | 'table']
 }>()
 
-const selectedPeriod = ref<string>('')
+const initialSelectedPeriod =
+	props.initialPeriod && props.initialPeriod !== ''
+		? props.initialPeriod
+		: ALL_PERIODS
+const selectedPeriod = ref<string>(initialSelectedPeriod)
 const hasNoResults = computed(
 	() => !isLoading.value && filteredCCAs.value.length === 0,
 )
@@ -54,13 +58,21 @@ const updateReqGroups = () => {
 }
 
 const initPeriod = () => {
-	if (props.initialPeriod) {
+	if (props.initialPeriod && props.initialPeriod !== '') {
 		selectedPeriod.value = props.initialPeriod
-	} else if (selectedPeriod.value === ALL_PERIODS) {
+		emit('periodChange', props.initialPeriod)
 		return
-	} else if (props.periods.length > 0 && !selectedPeriod.value) {
-		selectedPeriod.value = props.periods[0]
-		emit('periodChange', props.periods[0])
+	}
+	if (!props.periods.length) {
+		return
+	}
+	if (selectedPeriod.value === ALL_PERIODS) {
+		emit('periodChange', '')
+		return
+	}
+	if (!props.periods.includes(selectedPeriod.value)) {
+		selectedPeriod.value = ALL_PERIODS
+		emit('periodChange', '')
 	}
 }
 
@@ -71,6 +83,16 @@ onMounted(() => {
 
 watch(() => [props.userGrade, props.grades], updateReqGroups)
 watch(() => props.periods, initPeriod, { immediate: true })
+watch(
+	() => props.initialPeriod,
+	(newInitial) => {
+		if (newInitial && newInitial !== '') {
+			selectedPeriod.value = newInitial
+		} else if (selectedPeriod.value !== ALL_PERIODS) {
+			selectedPeriod.value = ALL_PERIODS
+		}
+	},
+)
 
 const selectPeriod = (period: string) => {
 	if (period === ALL_PERIODS) {
