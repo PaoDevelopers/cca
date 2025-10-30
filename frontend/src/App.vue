@@ -598,11 +598,16 @@ onBeforeUnmount(() => {
 		/>
 
 		<footer
-			class="border-t border-gray-200 bg-white py-4 text-center text-sm text-gray-600"
+			class="px-4 border-t border-gray-200 bg-white py-4 text-sm text-gray-600"
 		>
+			<p>
 			Copyright © 2025
 			<a href="https://runxiyu.org" style="color: #5bae31">Runxi Yu</a>
-			and Henry Yang. This program is Free Software: you can redistribute
+			and Henry Yang.
+			</p>
+
+			<p>
+			This program is Free Software: you can redistribute
 			it and/or modify it under the terms of the
 			<a
 				href="https://www.gnu.org/licenses/agpl-3.0.en.html"
@@ -613,11 +618,16 @@ onBeforeUnmount(() => {
 			only. This program is distributed in the hope that it will be
 			useful, but WITHOUT ANY WARRANTY; without even the implied warranty
 			of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-			Affero General Public License for more details. The source code is
+			Affero General Public License for more details.
+			</p>
+
+			<p>
+			The source code is
 			available
 			<a style="color: #5bae31" href="https://sr.ht/~runxiyu/cca/"
 				>on SourceHut</a
 			>.
+			</p>
 		</footer>
 
 		<dialog ref="confirmModal" class="modal">
