@@ -132,12 +132,12 @@ func main() {
 	mux.HandleFunc("/admin/selections/import", app.adminOnly("handleAdmSelectionsImport", app.handleAdmSelectionsImport))
 	mux.HandleFunc("/student", app.studentOnly("handleStu", app.handleStu))
 	mux.Handle("/student/assets/", http.StripPrefix("/student/assets/", http.FileServer(http.Dir("frontend/dist/assets/"))))
-	mux.HandleFunc("/student/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/student/", app.studentOnlyPlain("studentFrontend", func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, "/student/assets/") {
 			http.ServeFile(w, r, "./frontend/dist/index.html")
 			return
 		}
-	})
+	}))
 	mux.HandleFunc("/student/api/events", app.studentOnly("handleStuAPIEvents", app.handleStuAPIEvents))
 	mux.HandleFunc("/student/api/user_info", app.studentOnly("handleStuAPIInfo", app.handleStuAPIInfo))
 	mux.HandleFunc("/student/api/courses", app.studentOnly("handleStuAPICourses", app.handleStuAPICourses))

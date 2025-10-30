@@ -73,6 +73,12 @@ func (app *App) authenticateRequest(r *http.Request) (UserInfo, error) {
 	}
 }
 
+func (app *App) studentOnlyPlain(handlerName string, handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	return app.studentOnly(handlerName, func(w http.ResponseWriter, r *http.Request, _ *UserInfoStudent) {
+		handler(w, r)
+	})
+}
+
 func (app *App) studentOnly(handlerName string, handler func(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		app.logRequestStart(r, handlerName, slog.String("middleware", "studentOnly"))
