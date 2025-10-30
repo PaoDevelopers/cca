@@ -1,6 +1,5 @@
 root = true
 
-# Most things should just be nice 8-sized tabs.
 [*]
 end_of_line = lf
 insert_final_newline = true
@@ -8,9 +7,7 @@ indent_style = tab
 indent_size = 8
 tab_size = 8
 
-# 8-sized tabs is a bit too deep for JS, svelte, and HTML,
-# so let's use 4...
-[*.svelte]
+[*.vue]
 tab_size = 4
 indent_size = 4
 [*.js]
@@ -23,17 +20,6 @@ indent_size = 4
 tab_size = 4
 indent_size = 4
 
-# PEP-8 uses 4 spaces.
-[*.py]
-indent_style = space
-indent_size = 4
-
-# Gleam standard style always uses 2 spaces.
-[*.gleam]
-indent_style = space
-indent_size = 2
-
-# YAML requires spaces.
 [*.yml]
 indent_style = space
 indent_size = 2
@@ -41,7 +27,6 @@ indent_size = 2
 indent_style = space
 indent_size = 2
 
-# A bit of an oddball but generally works reliably with spaces.
 [*.md]
 indent_style = space
 indent_size = 2
