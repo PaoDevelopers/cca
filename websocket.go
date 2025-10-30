@@ -113,7 +113,7 @@ func (h *WebSocketHub) BroadcastToStudents(studentIDs []int64, msg WSMessage) {
 
 func (c *Client) writePump() {
 	defer func() {
-		c.conn.Close()
+		_ = c.conn.Close()
 	}()
 
 	for message := range c.send {
@@ -127,7 +127,7 @@ func (c *Client) writePump() {
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
-		c.conn.Close()
+		_ = c.conn.Close()
 	}()
 
 	for {
