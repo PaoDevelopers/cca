@@ -16,7 +16,7 @@ function cancelAction(): void {
 	showInputError.value = false
 }
 
-function reloadPage() {
+function reloadPage(): void {
 	window.location.reload()
 }
 
@@ -263,13 +263,13 @@ const startWebSocket = (): void => {
 		console.log('WebSocket connected')
 		reconnectAttempts = 0
 	}
-	
+
 	socket.onmessage = (event: MessageEvent<string>): void => {
 		try {
 			const message: string = event.data
 			const parts: string[] = message.split(',')
 			const eventType: string = parts[0]
-	
+
 			switch (eventType) {
 				case 'invalidate_periods':
 					void (async (): Promise<void> => {
@@ -280,7 +280,7 @@ const startWebSocket = (): void => {
 						}
 					})()
 					break
-	
+
 				case 'invalidate_courses':
 					void (async (): Promise<void> => {
 						try {
@@ -290,7 +290,7 @@ const startWebSocket = (): void => {
 						}
 					})()
 					break
-	
+
 				case 'invalidate_categories':
 					void (async (): Promise<void> => {
 						try {
@@ -300,7 +300,7 @@ const startWebSocket = (): void => {
 						}
 					})()
 					break
-	
+
 				case 'invalidate_grades':
 					void (async (): Promise<void> => {
 						try {
@@ -310,36 +310,43 @@ const startWebSocket = (): void => {
 						}
 					})()
 					break
-	
+
 				case 'invalidate_selections':
 					void (async (): Promise<void> => {
 						try {
-							await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
+							await Promise.all([
+								loadCourses(),
+								loadGrades(),
+								loadPeriods(),
+							])
 						} catch (err) {
 							console.error('Failed to refresh selections:', err)
 						}
 					})()
 					break
-	
+
 				case 'course_count_update':
 					if (parts.length === 3) {
 						const courseId: string = parts[1]
 						const count: number = Number.parseInt(parts[2], 10)
 						const target = ccas.value.find(
-							(course: CourseWithSelection) => course.id === courseId,
+							(course: CourseWithSelection) =>
+								course.id === courseId,
 						)
 						if (target !== undefined) {
-							target.current_students = Number.isNaN(count) ? 0 : count
+							target.current_students = Number.isNaN(count)
+								? 0
+								: count
 						}
 					}
 					break
-	
+
 				case 'notify':
 					if (parts.length > 1) {
 						showInfoToast(parts.slice(1).join(','))
 					}
 					break
-	
+
 				default:
 					console.warn('Unknown WebSocket event type:', eventType)
 					break
@@ -348,11 +355,11 @@ const startWebSocket = (): void => {
 			console.error('Failed to parse WebSocket message:', err)
 		}
 	}
-	
+
 	socket.onerror = (error: Event): void => {
 		console.error('WebSocket error:', error)
 	}
-	
+
 	socket.onclose = (): void => {
 		console.log('WebSocket disconnected')
 		if (ws !== socket) return
@@ -366,8 +373,13 @@ const startWebSocket = (): void => {
 
 		if (reconnectAttempts < maxReconnectAttempts) {
 			reconnectAttempts++
-			const delay = Math.min(1000 * Math.pow(2, reconnectAttempts - 1), 10000)
-			console.log(`Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`)
+			const delay = Math.min(
+				1000 * Math.pow(2, reconnectAttempts - 1),
+				10000,
+			)
+			console.log(
+				`Reconnecting in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`,
+			)
 			reconnectTimeout = window.setTimeout(() => {
 				startWebSocket()
 			}, delay)
@@ -731,7 +743,8 @@ onBeforeUnmount((): void => {
 			<div class="modal-box">
 				<h3 class="font-bold text-lg">Connection Lost</h3>
 				<p class="py-4">
-					Unable to reconnect to the server. Please refresh the page to continue.
+					Unable to reconnect to the server. Please refresh the page
+					to continue.
 				</p>
 				<div class="modal-action">
 					<button class="btn" @click="reloadPage">
