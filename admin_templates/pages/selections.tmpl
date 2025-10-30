@@ -96,6 +96,7 @@ assignments, or to move students between courses.
 <option value="{{ .ID }}">{{ .ID }} &mdash; {{ .Name }} (Period {{ .Period }})</option>
 {{ end }}
 </select>
+<div id="new-selection-courses-display" class="form-note selected-list"></div>
 <p class="form-note">Use Ctrl/Command or Shift to select multiple courses.</p>
 </div>
 <div class="form-field">
@@ -105,7 +106,6 @@ assignments, or to move students between courses.
 <option value="{{ . }}">{{ . }}</option>
 {{ end }}
 </select>
-<div id="new-selection-courses-display" class="form-note selected-list"></div>
 </div>
 <div class="form-actions">
 <button type="submit">Add</button>
