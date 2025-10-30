@@ -232,7 +232,7 @@ const showInfoToast = (message: string): void => {
 	infoTimeout = window.setTimeout((): void => {
 		infoMessage.value = null
 		infoTimeout = null
-	}, 5000)
+	}, 30000)
 }
 
 const closeEventSource = (): void => {
