@@ -8,3 +8,4 @@ cd frontend
 
 npm run lint:typescript
 npm run lint:prettier
+npm run lint:eslint
