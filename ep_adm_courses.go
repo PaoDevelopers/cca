@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"encoding/csv"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -639,7 +640,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 			Location:    location,
 			CategoryID:  category,
 		}); err != nil {
-			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
+			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error()+"\n"+fmt.Sprintf("%#v", record), err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 			return
 		}
 
