@@ -33,5 +33,3 @@ admins {
 	ed.chapman
 	tracy.zhou
 }
-
-sse_buf 256

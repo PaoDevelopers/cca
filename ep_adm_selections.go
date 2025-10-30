@@ -14,6 +14,7 @@ import (
 )
 
 // TODO: See how SSEs should be handled here. We may need a way to map from usernames to connections.
+// Not using SSE anymore
 
 func (app *App) handleAdmSelections(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
 	app.logRequestStart(r, "handleAdmSelections", slog.String("admin_username", aui.Username))

@@ -36,7 +36,7 @@ type Config struct {
 		JWKS      string `scfgs:"jwks"`
 	} `scfgs:"oidc"`
 	Admins map[string]struct{} `scfgs:"admins"`
-	SSEBuf int                 `scfgs:"sse_buf"`
+	// SSEBuf int                 `scfgs:"sse_buf"` // Not needed anymore
 }
 
 func loadConfig(path string) (Config, error) {
