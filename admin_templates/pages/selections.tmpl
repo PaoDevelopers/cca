@@ -31,6 +31,7 @@ assignments, or to move students between courses.
 <div class="hfill"><span>{{ $row.SelectionType }}</span><span></span></div>
 <details>
 <summary>Actions</summary>
+{{/*
 <form method="POST" action="/admin/selections/edit" class="stack-form">
 <input type="hidden" name="current_student_id" value="{{ $row.StudentID }}" />
 <input type="hidden" name="period" value="{{ $row.Period }}" />
@@ -62,6 +63,7 @@ assignments, or to move students between courses.
 <button type="submit">Save</button>
 </div>
 </form>
+*/}}
 <form method="POST" action="/admin/selections/delete" class="stack-form">
 <input type="hidden" name="student_id" value="{{ $row.StudentID }}" />
 <input type="hidden" name="period" value="{{ $row.Period }}" />
