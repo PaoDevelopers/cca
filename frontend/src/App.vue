@@ -455,18 +455,6 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
-@keyframes flash {
-	0%,
-	100% {
-		color: inherit;
-	}
-	50% {
-		color: #dc2626;
-	}
-}
-</style>
-
 <template>
 	<div class="min-h-screen bg-white flex flex-col">
 		<header class="bg-white/80 backdrop-blur-sm sticky top-0 z-50">
@@ -680,7 +668,6 @@ onBeforeUnmount(() => {
 					<label
 						class="block text-sm mb-2"
 						:class="{ 'text-red-600': showInputError }"
-						:style="showInputError ? 'animation: flash 0.2s 7' : ''"
 						>Type "I am really sure" to confirm:</label
 					>
 					<input

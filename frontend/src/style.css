@@ -20,3 +20,11 @@ input[type='radio'],
 select {
 	cursor: pointer;
 }
+
+:where(.modal),
+:where(.modal-box),
+:where(.modal)::backdrop,
+:where(.modal) > :where(.modal-box) {
+	animation: none !important;
+	transition: none !important;
+}

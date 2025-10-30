@@ -145,9 +145,9 @@ const selectionRows = computed(() => {
 			>
 				<div
 					v-if="isLoading"
-					class="flex justify-center items-center p-12"
+					class="flex justify-center items-center p-12 text-sm text-gray-600"
 				>
-					<span class="loading loading-spinner loading-xl"></span>
+					<span>Loading...</span>
 				</div>
 				<table v-else class="w-full border-collapse">
 					<thead class="border-b-1 border-gray-300 bg-gray-50">

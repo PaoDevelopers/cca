@@ -91,8 +91,9 @@ const groupedCCAs = computed(() => {
 							>
 								<span
 									v-if="updatingCcaId === cca.id"
-									class="loading loading-spinner loading-sm"
-								></span>
+									class="text-sm leading-none text-gray-500"
+									>Loading...</span
+								>
 								<svg
 									v-else-if="cca.selected"
 									class="w-4 h-4"
