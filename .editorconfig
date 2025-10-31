@@ -16,6 +16,9 @@ indent_size = 4
 [*.ts]
 tab_size = 4
 indent_size = 4
+[*.tmpl]
+tab_size = 4
+indent_size = 4
 [*.html]
 tab_size = 4
 indent_size = 4

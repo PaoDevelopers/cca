@@ -50,7 +50,7 @@ func (app *App) handleAdmSelections(w http.ResponseWriter, r *http.Request, aui 
 		Selections:     selections,
 		Students:       students,
 		Courses:        courses,
-		SelectionTypes: []db.SelectionType{db.SelectionTypeNo, db.SelectionTypeInvite, db.SelectionTypeForce},
+		SelectionTypes: []db.SelectionType{db.SelectionTypeNormal, db.SelectionTypeInvite, db.SelectionTypeForce},
 	}, slog.String("admin_username", aui.Username)); err != nil {
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\nfailed rendering template", err, slog.String("admin_username", aui.Username))
 	}
@@ -119,7 +119,7 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 
 	selectionType := db.SelectionType(strings.TrimSpace(r.FormValue("selection_type")))
 	switch selectionType {
-	case db.SelectionTypeNo, db.SelectionTypeInvite, db.SelectionTypeForce:
+	case db.SelectionTypeNormal, db.SelectionTypeInvite, db.SelectionTypeForce:
 	default:
 		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown selection type", nil, slog.String("admin_username", aui.Username))
 		return
@@ -199,7 +199,7 @@ func (app *App) handleAdmSelectionsEdit(w http.ResponseWriter, r *http.Request, 
 
 	selectionType := db.SelectionType(strings.TrimSpace(r.FormValue("selection_type")))
 	switch selectionType {
-	case db.SelectionTypeNo, db.SelectionTypeInvite, db.SelectionTypeForce:
+	case db.SelectionTypeNormal, db.SelectionTypeInvite, db.SelectionTypeForce:
 	default:
 		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown selection type", nil, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID))
 		return
@@ -364,8 +364,8 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		selectionTypeStr := strings.ToLower(strings.TrimSpace(record[2]))
 		var selectionType db.SelectionType
 		switch selectionTypeStr {
-		case string(db.SelectionTypeNo):
-			selectionType = db.SelectionTypeNo
+		case string(db.SelectionTypeNormal):
+			selectionType = db.SelectionTypeNormal
 		case string(db.SelectionTypeInvite):
 			selectionType = db.SelectionTypeInvite
 		case string(db.SelectionTypeForce):

@@ -21,13 +21,13 @@ INSERT INTO schema_version (version) VALUES (1);
 -- described as legal sex.
 CREATE TYPE legal_sex AS ENUM ('F', 'M', 'X');
 
--- The only difference 'invite' has on top of 'no', is that the schema will
+-- The only difference 'invite' has on top of 'normal', is that the schema will
 -- allow inserting 'invite's that don't satisfy typical constraints such as
 -- legal sex restrictions, maximum member counts, or year group restrictions. A
 -- selection type of 'force' means that the student would not be allowed to
--- remove the selection. Students are only able to add selections of type 'no';
+-- remove the selection. Students are only able to add selections of type 'normal';
 -- the others may only be added by administrators.
-CREATE TYPE selection_type AS ENUM ('no', 'invite', 'force');
+CREATE TYPE selection_type AS ENUM ('normal', 'invite', 'force');
 
 -- Courses may either have 'free' or 'invite_only' membership. Courses with
 -- free membership may be chosen by students (as long as the restrictions
@@ -43,7 +43,7 @@ CREATE TABLE grades (
 	enabled BOOLEAN NOT NULL DEFAULT FALSE,
 
 	-- A student should not be allowed to make more choices if the number
-	-- of choices with selection_type="no" that they have exceeds the
+	-- of choices with selection_type="normal" that they have exceeds the
 	-- max_own_choices for their grade.
 	-- max_own_choices for each grade should be settable by the admin, next
 	-- to where they could set grade enabled status.
@@ -141,7 +141,7 @@ CREATE TABLE choices (
 	student_id BIGINT NOT NULL REFERENCES students(id) ON UPDATE CASCADE ON DELETE RESTRICT,
 	course_id TEXT NOT NULL,
 	period TEXT NOT NULL,
-	selection_type selection_type NOT NULL DEFAULT 'no',
+	selection_type selection_type NOT NULL DEFAULT 'normal',
 	PRIMARY KEY (student_id, period),
 	UNIQUE (student_id, course_id),
 	-- This is the reason for the UNIQUE on courses.
@@ -149,7 +149,7 @@ CREATE TABLE choices (
 );
 
 -- Enforce legal_sex/grade/membership/capacity/selection_window only when
--- selection_type = 'no'. Invites/forces bypass these checks by design.
+-- selection_type = 'normal'. Invites/forces bypass these checks by design.
 CREATE FUNCTION enforce_choice_constraints()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -170,10 +170,10 @@ DECLARE
 BEGIN
 	-- Gate: only act when the resulting row is a normal selection
 	IF NOT (
-		NEW.selection_type = 'no' AND
+		NEW.selection_type = 'normal' AND
 		(
 			TG_OP = 'INSERT'
-			OR OLD.selection_type IS DISTINCT FROM 'no'
+			OR OLD.selection_type IS DISTINCT FROM 'normal'
 			OR OLD.course_id IS DISTINCT FROM NEW.course_id
 		)
 	) THEN
@@ -251,14 +251,14 @@ BEGIN
 			USING ERRCODE = 'check_violation';
 	END IF;
 
-	-- Own selections cap (count only selections with selection_type = 'no')
+	-- Own selections cap (count only selections with selection_type = 'normal')
 	SELECT COUNT(*)::bigint
 	INTO v_student_no_count
 	FROM choices
 	WHERE student_id = NEW.student_id
-		AND selection_type = 'no';
+		AND selection_type = 'normal';
 
-	IF TG_OP = 'INSERT' OR OLD.selection_type IS DISTINCT FROM 'no' THEN
+	IF TG_OP = 'INSERT' OR OLD.selection_type IS DISTINCT FROM 'normal' THEN
 		v_student_no_count := v_student_no_count + 1;
 
 		IF v_student_no_count > v_max_own_choices THEN
@@ -371,7 +371,7 @@ CREATE INDEX IF NOT EXISTS idx_choices_course_period
 	ON choices (course_id, period);
 CREATE INDEX IF NOT EXISTS idx_choices_student_no_only
 	ON choices (student_id)
-	WHERE selection_type = 'no';
+	WHERE selection_type = 'normal';
 CREATE INDEX IF NOT EXISTS idx_students_grade
 	ON students (grade);
 CREATE INDEX IF NOT EXISTS idx_courses_category_id

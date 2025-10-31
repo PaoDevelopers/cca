@@ -1,5 +1,5 @@
 export type LegalSex = "F" | "M" | "X"
-export type SelectionType = "no" | "invite" | "force"
+export type SelectionType = "normal" | "invite" | "force"
 export type MembershipType = "free" | "invite_only"
 
 export interface Grade {
