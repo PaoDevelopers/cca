@@ -109,7 +109,9 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 			<div class="grid grid-cols-3 gap-6">
 				<div class="col-span-1">
 					<div class="bg-white border border-gray-200 rounded-lg p-4">
-						<h3 class="text-base font-medium text-gray-700 mb-3">Requirements Status</h3>
+						<h3 class="text-base font-medium text-gray-700 mb-3">
+							Requirements Status
+						</h3>
 						<div class="space-y-2">
 							<div
 								v-for="(req, i) in requirementCounts"
@@ -124,7 +126,8 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 												: 'text-gray-900'
 										"
 									>
-										{{ req.selected }}/{{ req.required }} {{ req.categories.join('/') }}
+										{{ req.selected }}/{{ req.required }}
+										{{ req.categories.join('/') }}
 									</span>
 									<span
 										v-if="req.selected >= req.required"
@@ -132,11 +135,9 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 									>
 										✓ Satisfied
 									</span>
-									<span
-										v-else
-										class="text-sm text-amber-600"
-									>
-										Need {{ req.required - req.selected }} more
+									<span v-else class="text-sm text-amber-600">
+										Need
+										{{ req.required - req.selected }} more
 									</span>
 								</div>
 							</div>
@@ -163,8 +164,8 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 							></path>
 						</svg>
 						<span class="text-[#5bae31]"
-							>If your chosen CCA is in the table, you have successfully
-							chosen your CCA.</span
+							>If your chosen CCA is in the table, you have
+							successfully chosen your CCA.</span
 						>
 					</div>
 
@@ -178,14 +179,18 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 							<span>Loading...</span>
 						</div>
 						<table v-else class="w-full border-collapse">
-							<thead class="border-b-1 border-gray-300 bg-gray-50">
+							<thead
+								class="border-b-1 border-gray-300 bg-gray-50"
+							>
 								<tr>
 									<th
 										class="text-left p-3 font-medium border-r-1 border-gray-300 w-1/4"
 									>
 										Period
 									</th>
-									<th class="text-left p-3 font-medium w-3/4">CCA</th>
+									<th class="text-left p-3 font-medium w-3/4">
+										CCA
+									</th>
 								</tr>
 							</thead>
 							<tbody>
