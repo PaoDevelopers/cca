@@ -236,6 +236,21 @@ const loadPeriods = async (): Promise<void> => {
 	periods.value = (await periodsRes.json()) as string[]
 }
 
+const fetchAllData = async (): Promise<void> => {
+	const user = await fetchJson<Student>('/student/api/user_info', {
+		credentials: 'include',
+		redirect: 'manual',
+	})
+	userInfo.value = user
+	await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
+}
+
+const handleDataLoadError = (err: unknown): void => {
+	console.error('Failed to load data:', err)
+	errorMessage.value =
+		err instanceof Error ? err.message : 'Failed to load data.'
+}
+
 const showInfoToast = (message: string): void => {
 	infoMessage.value = message
 	if (infoTimeout !== null) clearTimeout(infoTimeout)
@@ -273,6 +288,16 @@ const startWebSocket = (): void => {
 			const eventType: string = parts[0]
 
 			switch (eventType) {
+				case 'hello':
+					void (async (): Promise<void> => {
+						try {
+							await fetchAllData()
+						} catch (err) {
+							handleDataLoadError(err)
+						}
+					})()
+					break
+
 				case 'invalidate_periods':
 					void (async (): Promise<void> => {
 						try {
@@ -397,15 +422,10 @@ const startWebSocket = (): void => {
 
 onMounted(async (): Promise<void> => {
 	try {
-		userInfo.value = await fetchJson<Student>('/student/api/user_info', {
-			credentials: 'include',
-			redirect: 'manual',
-		})
-		await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
+		await fetchAllData()
 		startWebSocket()
 	} catch (err) {
-		errorMessage.value =
-			err instanceof Error ? err.message : 'Failed to load data.'
+		handleDataLoadError(err)
 	} finally {
 		initialLoadComplete.value = true
 	}

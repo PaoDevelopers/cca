@@ -37,6 +37,13 @@ func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *
 
 	app.wsHub.register <- client
 
+	if err := conn.WriteMessage(websocket.TextMessage, []byte("hello")); err != nil {
+		app.logError(r, "failed to send websocket hello", slog.Any("error", err))
+		app.wsHub.unregister <- client
+		_ = conn.Close()
+		return
+	}
+
 	go client.writePump()
 	go client.readPump()
 
