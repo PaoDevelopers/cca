@@ -43,7 +43,7 @@ const groupedCCAs = computed<Record<string, CourseWithSelection[]>>(() => {
 			</thead>
 			<tbody>
 				<template
-					v-for="(ccas, category) in groupedCCAs"
+					v-for="(ccas_, category) in groupedCCAs"
 					:key="category"
 				>
 					<tr class="bg-gray-100">
@@ -52,7 +52,7 @@ const groupedCCAs = computed<Record<string, CourseWithSelection[]>>(() => {
 						</td>
 					</tr>
 					<tr
-						v-for="cca in ccas"
+						v-for="cca in ccas_"
 						:key="cca.id"
 						class="border-b border-gray-200"
 						:class="

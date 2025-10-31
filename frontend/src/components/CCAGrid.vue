@@ -30,13 +30,13 @@ const groupedCCAs = computed<Record<string, CourseWithSelection[]>>(() => {
 
 <template>
 	<div class="space-y-8">
-		<div v-for="(ccas, category) in groupedCCAs" :key="category">
+		<div v-for="(ccas_, category) in groupedCCAs" :key="category">
 			<h3 class="text-xl font-medium mb-4">{{ category }}</h3>
 			<div
 				class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl"
 			>
 				<CCACard
-					v-for="cca in ccas"
+					v-for="cca in ccas_"
 					:key="cca.id"
 					:cca="cca"
 					:disable-client-restriction="disableClientRestriction"
