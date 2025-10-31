@@ -104,90 +104,111 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 
 <template>
 	<div class="flex-1 p-8 bg-gray-50/30">
-		<div class="max-w-4xl mx-auto">
-			<div class="flex items-center justify-between mb-6">
-				<h2 class="text-2xl font-light">Your Selections</h2>
-				<div
-					class="flex gap-3 text-sm border border-gray-200 rounded px-4 py-2 bg-white"
-				>
-					<span class="text-gray-600">Requirements:</span>
-					<template v-for="(req, i) in requirementCounts" :key="i">
-						<span v-if="i > 0" class="text-gray-300">·</span>
-						<span
-							:class="
-								req.selected >= req.required
-									? 'text-green-600'
-									: 'text-gray-900'
-							"
-							>{{ req.selected }}/{{ req.required }}
-							{{ req.categories.join('/') }}</span
-						>
-					</template>
-				</div>
-			</div>
-
-			<div
-				role="alert"
-				class="flex items-center gap-3 bg-[#5bae31]/10 border border-[#5bae31]/30 rounded-lg px-4 py-3 mb-4"
-			>
-				<svg
-					xmlns="http://www.w3.org/2000/svg"
-					fill="none"
-					viewBox="0 0 24 24"
-					class="h-5 w-5 shrink-0 stroke-[#5bae31]"
-				>
-					<path
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						stroke-width="2"
-						d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-					></path>
-				</svg>
-				<span class="text-[#5bae31]"
-					>If your chosen CCA is in the table, you have successfully
-					chosen your CCA.</span
-				>
-			</div>
-
-			<div
-				class="bg-white border-1 border-gray-300 rounded-lg overflow-hidden"
-			>
-				<div
-					v-if="isLoading"
-					class="flex justify-center items-center p-12 text-sm text-gray-600"
-				>
-					<span>Loading...</span>
-				</div>
-				<table v-else class="w-full border-collapse">
-					<thead class="border-b-1 border-gray-300 bg-gray-50">
-						<tr>
-							<th
-								class="text-left p-3 font-medium border-r-1 border-gray-300 w-1/4"
+		<div class="max-w-6xl mx-auto">
+			<h2 class="text-2xl font-light mb-6">Your Selections</h2>
+			<div class="grid grid-cols-3 gap-6">
+				<div class="col-span-1">
+					<div class="bg-white border border-gray-200 rounded-lg p-4">
+						<h3 class="text-base font-medium text-gray-700 mb-3">Requirements Status</h3>
+						<div class="space-y-2">
+							<div
+								v-for="(req, i) in requirementCounts"
+								:key="i"
+								class="flex items-center justify-between text-base py-2 border-b border-gray-100 last:border-b-0"
 							>
-								Period
-							</th>
-							<th class="text-left p-3 font-medium w-3/4">CCA</th>
-						</tr>
-					</thead>
-					<tbody>
-						<tr
-							v-for="(row, index) in selectionRows"
-							:key="index"
-							:class="
-								index < selectionRows.length - 1
-									? 'border-b-1 border-gray-300'
-									: ''
-							"
+								<div class="flex flex-col gap-1">
+									<span
+										:class="
+											req.selected >= req.required
+												? 'text-green-600 font-medium'
+												: 'text-gray-900'
+										"
+									>
+										{{ req.selected }}/{{ req.required }} {{ req.categories.join('/') }}
+									</span>
+									<span
+										v-if="req.selected >= req.required"
+										class="text-sm text-green-600"
+									>
+										✓ Satisfied
+									</span>
+									<span
+										v-else
+										class="text-sm text-amber-600"
+									>
+										Need {{ req.required - req.selected }} more
+									</span>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="col-span-2">
+					<div
+						role="alert"
+						class="flex items-center gap-3 bg-[#5bae31]/10 border border-[#5bae31]/30 rounded-lg px-4 py-3 mb-4"
+					>
+						<svg
+							xmlns="http://www.w3.org/2000/svg"
+							fill="none"
+							viewBox="0 0 24 24"
+							class="h-5 w-5 shrink-0 stroke-[#5bae31]"
 						>
-							<td
-								class="p-3 font-medium border-r-1 border-gray-300 w-1/4"
-							>
-								{{ row.period }}
-							</td>
-							<td class="p-3 w-3/4">{{ row.cca }}</td>
-						</tr>
-					</tbody>
-				</table>
+							<path
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								stroke-width="2"
+								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							></path>
+						</svg>
+						<span class="text-[#5bae31]"
+							>If your chosen CCA is in the table, you have successfully
+							chosen your CCA.</span
+						>
+					</div>
+
+					<div
+						class="bg-white border-1 border-gray-300 rounded-lg overflow-hidden"
+					>
+						<div
+							v-if="isLoading"
+							class="flex justify-center items-center p-12 text-sm text-gray-600"
+						>
+							<span>Loading...</span>
+						</div>
+						<table v-else class="w-full border-collapse">
+							<thead class="border-b-1 border-gray-300 bg-gray-50">
+								<tr>
+									<th
+										class="text-left p-3 font-medium border-r-1 border-gray-300 w-1/4"
+									>
+										Period
+									</th>
+									<th class="text-left p-3 font-medium w-3/4">CCA</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr
+									v-for="(row, index) in selectionRows"
+									:key="index"
+									:class="
+										index < selectionRows.length - 1
+											? 'border-b-1 border-gray-300'
+											: ''
+									"
+								>
+									<td
+										class="p-3 font-medium border-r-1 border-gray-300 w-1/4"
+									>
+										{{ row.period }}
+									</td>
+									<td class="p-3 w-3/4">{{ row.cca }}</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
