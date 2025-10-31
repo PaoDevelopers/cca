@@ -63,11 +63,11 @@ const extractErrorMessage = async (res: Response): Promise<string> => {
 		if (typeof parsed === "string") return parsed
 		if (parsed !== null && typeof parsed === "object") {
 			const record = parsed as Record<string, unknown>
-			const message = record.message
+			const message = record["message"]
 			if (typeof message === "string") {
 				return message
 			}
-			const error = record.error
+			const error = record["error"]
 			if (typeof error === "string") {
 				return error
 			}
@@ -285,7 +285,14 @@ const startWebSocket = (): void => {
 		try {
 			const message: string = event.data
 			const parts: string[] = message.split(",")
-			const eventType: string = parts[0]
+			const eventType = parts[0]
+			if (eventType === undefined) {
+				console.warn(
+					"Received WebSocket message without event type:",
+					message,
+				)
+				return
+			}
 
 			switch (eventType) {
 				case "hello":
@@ -352,21 +359,27 @@ const startWebSocket = (): void => {
 					})()
 					break
 
-				case "course_count_update":
-					if (parts.length === 3) {
-						const courseId: string = parts[1]
-						const count: number = Number.parseInt(parts[2], 10)
-						const target = ccas.value.find(
-							(course: CourseWithSelection) =>
-								course.id === courseId,
+				case "course_count_update": {
+					const courseId = parts[1]
+					const countPart = parts[2]
+					if (courseId === undefined || countPart === undefined) {
+						console.warn(
+							"Invalid course_count_update payload:",
+							parts,
 						)
-						if (target !== undefined) {
-							target.current_students = Number.isNaN(count)
-								? 0
-								: count
-						}
+						break
+					}
+					const count = Number.parseInt(countPart, 10)
+					const target = ccas.value.find(
+						(course: CourseWithSelection) => course.id === courseId,
+					)
+					if (target !== undefined) {
+						target.current_students = Number.isNaN(count)
+							? 0
+							: count
 					}
 					break
+				}
 
 				case "notify":
 					if (parts.length > 1) {
@@ -529,6 +542,14 @@ const filteredCCAs = computed<CourseWithSelection[]>(() => {
 			c.teacher.toLowerCase().includes(query) ||
 			c.location.toLowerCase().includes(query),
 	)
+})
+
+const userGradeBinding = computed(() => {
+	const grade = userInfo.value?.grade
+	if (typeof grade === "string" && grade.length > 0) {
+		return { userGrade: grade }
+	}
+	return {}
 })
 
 const cleanup = (): void => {
@@ -694,8 +715,8 @@ onBeforeUnmount((): void => {
 			ref="selectionPageRef"
 			:ccas="filteredCCAs"
 			:search-active="searchScope === 'global' && !!searchQuery"
-			:user-grade="userInfo?.grade"
 			:grades="grades"
+			v-bind="userGradeBinding"
 			:periods="periods"
 			:initial-period="currentPeriod"
 			:initial-view-mode="viewMode"
@@ -708,8 +729,8 @@ onBeforeUnmount((): void => {
 		<ReviewPage
 			v-else-if="activeTab === 'Review' && initialLoadComplete"
 			:ccas="ccas"
-			:user-grade="userInfo?.grade"
 			:grades="grades"
+			v-bind="userGradeBinding"
 			:periods="periods"
 		/>
 		<div v-else class="flex flex-1">
