@@ -223,11 +223,11 @@ const requirementCounts = computed<
 			</div>
 		</aside>
 
-		<main class="flex-1 p-8 bg-gray-50/30">
-			<div class="flex justify-between items-center mb-6">
+		<main class="flex-1 flex flex-col bg-gray-50/30">
+			<div class="sticky top-[137px] z-10 bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center">
 				<div
 					v-if="!isLoading"
-					class="flex gap-3 text-sm border border-gray-200 rounded px-4 py-2 bg-white"
+					class="flex gap-3 text-base"
 				>
 					<span class="text-gray-600">Requirements:</span>
 					<template v-for="(req, i) in requirementCounts" :key="i">
@@ -235,8 +235,8 @@ const requirementCounts = computed<
 						<span
 							:class="
 								req.selected >= req.required
-									? 'text-green-600'
-									: 'text-gray-900'
+									? 'text-[#5bae31]'
+									: 'text-red-600'
 							"
 							>{{ req.selected }}/{{ req.required }}
 							{{ req.categories.join('/') }}</span
@@ -294,36 +294,38 @@ const requirementCounts = computed<
 				</div>
 			</div>
 
-			<div
-				v-if="isLoading"
-				class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-			>
-				<div class="skeleton h-64 w-full"></div>
-				<div class="skeleton h-64 w-full"></div>
-				<div class="skeleton h-64 w-full"></div>
+			<div class="flex-1 p-8">
+				<div
+					v-if="isLoading"
+					class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+				>
+					<div class="skeleton h-64 w-full"></div>
+					<div class="skeleton h-64 w-full"></div>
+					<div class="skeleton h-64 w-full"></div>
+				</div>
+				<div
+					v-else-if="hasNoResults"
+					class="flex items-center justify-center h-64 text-gray-500"
+				>
+					No result
+				</div>
+				<CCAGrid
+					v-else-if="viewMode === 'grid'"
+					:ccas="filteredCCAs"
+					:disable-client-restriction="disableClientRestriction"
+					:updating-cca-id="updatingCcaId"
+					:show-period="isAllPeriods"
+					@toggle="emit('toggle', $event)"
+				/>
+				<CCATable
+					v-else
+					:ccas="filteredCCAs"
+					:disable-client-restriction="disableClientRestriction"
+					:updating-cca-id="updatingCcaId"
+					:show-period="isAllPeriods"
+					@toggle="emit('toggle', $event)"
+				/>
 			</div>
-			<div
-				v-else-if="hasNoResults"
-				class="flex items-center justify-center h-64 text-gray-500"
-			>
-				No result
-			</div>
-			<CCAGrid
-				v-else-if="viewMode === 'grid'"
-				:ccas="filteredCCAs"
-				:disable-client-restriction="disableClientRestriction"
-				:updating-cca-id="updatingCcaId"
-				:show-period="isAllPeriods"
-				@toggle="emit('toggle', $event)"
-			/>
-			<CCATable
-				v-else
-				:ccas="filteredCCAs"
-				:disable-client-restriction="disableClientRestriction"
-				:updating-cca-id="updatingCcaId"
-				:show-period="isAllPeriods"
-				@toggle="emit('toggle', $event)"
-			/>
 		</main>
 	</div>
 </template>
