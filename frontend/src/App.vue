@@ -41,6 +41,7 @@ let reconnectAttempts = 0
 const maxReconnectAttempts = 5
 let reconnectTimeout: number | null = null
 let isIntentionalClose = false
+const isDisconnected = ref(false)
 const confirmModal = ref<HTMLDialogElement | null>(null)
 const initialLoadComplete = ref(false)
 const reconnectModal = ref<HTMLDialogElement | null>(null)
@@ -262,6 +263,7 @@ const startWebSocket = (): void => {
 	socket.onopen = (): void => {
 		console.log('WebSocket connected')
 		reconnectAttempts = 0
+		isDisconnected.value = false
 	}
 
 	socket.onmessage = (event: MessageEvent<string>): void => {
@@ -365,6 +367,10 @@ const startWebSocket = (): void => {
 		if (ws !== socket) return
 
 		ws = null
+
+		if (!isIntentionalClose) {
+			isDisconnected.value = true
+		}
 
 		if (isIntentionalClose) {
 			isIntentionalClose = false
@@ -542,14 +548,24 @@ onBeforeUnmount((): void => {
 				class="flex justify-between items-center px-8 py-5 border-b border-gray-200"
 			>
 				<h1 class="text-xl font-light tracking-wide">CCA Selection</h1>
-				<div v-if="userInfo" class="flex items-center gap-3 text-sm">
-					<span class="text-gray-900 font-medium">{{
-						userInfo.name
-					}}</span>
-					<span class="text-gray-400">·</span>
-					<span class="text-gray-600">{{ userInfo.grade }}</span>
-					<span class="text-gray-400">·</span>
-					<span class="text-gray-600">ID: {{ userInfo.id }}</span>
+				<div class="flex items-center gap-3 text-sm">
+					<span
+						v-if="isDisconnected"
+						class="px-2 py-1 rounded bg-red-100 text-red-700 font-medium"
+					>
+						Disconnected
+					</span>
+					<template v-if="userInfo">
+						<span class="text-gray-900 font-medium">{{
+							userInfo.name
+						}}</span>
+						<span class="text-gray-400">·</span>
+						<span class="text-gray-600">{{ userInfo.grade }}</span>
+						<span class="text-gray-400">·</span>
+						<span class="text-gray-600">
+							ID: {{ userInfo.id }}
+						</span>
+					</template>
 				</div>
 			</div>
 			<div class="border-b border-gray-200 bg-white">
