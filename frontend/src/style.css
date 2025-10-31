@@ -1,4 +1,4 @@
-@import 'tailwindcss';
+@import "tailwindcss";
 @plugin "daisyui";
 
 html,
@@ -7,15 +7,15 @@ body {
 }
 
 button:not(:disabled),
-input[type='button']:not(:disabled),
-input[type='submit']:not(:disabled),
-input[type='reset']:not(:disabled),
-[role='button']:not([aria-disabled='true']),
+input[type="button"]:not(:disabled),
+input[type="submit"]:not(:disabled),
+input[type="reset"]:not(:disabled),
+[role="button"]:not([aria-disabled="true"]),
 a[href],
 summary,
 details > summary,
-input[type='checkbox'],
-input[type='radio'],
+input[type="checkbox"],
+input[type="radio"],
 .label,
 select {
 	cursor: pointer;

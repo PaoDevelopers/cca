@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import CCAGrid from '../components/CCAGrid.vue'
-import CCATable from '../components/CCATable.vue'
-import type { Course, GradeRequirement, GradeRequirementGroup } from '@/types'
+import { computed, onMounted, ref, watch } from "vue"
+import CCAGrid from "../components/CCAGrid.vue"
+import CCATable from "../components/CCATable.vue"
+import type { Course, GradeRequirement, GradeRequirementGroup } from "@/types"
 
 interface CourseWithSelection extends Course {
 	selected: boolean
 }
 
-const ALL_PERIODS = '__ALL_PERIODS__'
+const ALL_PERIODS = "__ALL_PERIODS__"
 
 const props = defineProps<{
 	ccas: CourseWithSelection[]
@@ -17,7 +17,7 @@ const props = defineProps<{
 	grades: GradeRequirement[]
 	periods: string[]
 	initialPeriod?: string
-	initialViewMode?: 'grid' | 'table'
+	initialViewMode?: "grid" | "table"
 	disableClientRestriction: boolean
 	updatingCcaId: string | null
 }>()
@@ -26,18 +26,18 @@ const isLoading = computed<boolean>(() => props.periods.length === 0)
 const emit = defineEmits<{
 	toggle: [id: string]
 	periodChange: [period: string]
-	viewModeChange: [mode: 'grid' | 'table']
+	viewModeChange: [mode: "grid" | "table"]
 }>()
 
 const initialSelectedPeriod =
-	typeof props.initialPeriod === 'string' && props.initialPeriod.length > 0
+	typeof props.initialPeriod === "string" && props.initialPeriod.length > 0
 		? props.initialPeriod
 		: ALL_PERIODS
 const selectedPeriod = ref<string>(initialSelectedPeriod)
 const hasNoResults = computed<boolean>(
 	() => !isLoading.value && filteredCCAs.value.length === 0,
 )
-const viewMode = ref<'grid' | 'table'>(props.initialViewMode ?? 'grid')
+const viewMode = ref<"grid" | "table">(props.initialViewMode ?? "grid")
 const reqGroups = ref<GradeRequirementGroup[]>([])
 const isAllPeriods = computed<boolean>(
 	() => selectedPeriod.value === ALL_PERIODS,
@@ -46,14 +46,14 @@ const isAllPeriods = computed<boolean>(
 watch(
 	() => viewMode.value,
 	(newMode): void => {
-		emit('viewModeChange', newMode)
+		emit("viewModeChange", newMode)
 	},
 )
 
 const updateReqGroups = (): void => {
 	const gradeId = props.userGrade
 	if (
-		typeof gradeId === 'string' &&
+		typeof gradeId === "string" &&
 		gradeId.length > 0 &&
 		props.grades.length > 0
 	) {
@@ -68,25 +68,25 @@ const updateReqGroups = (): void => {
 
 const initPeriod = (): void => {
 	const initialPeriod =
-		typeof props.initialPeriod === 'string' &&
+		typeof props.initialPeriod === "string" &&
 		props.initialPeriod.length > 0
 			? props.initialPeriod
 			: null
 	if (initialPeriod !== null) {
 		selectedPeriod.value = initialPeriod
-		emit('periodChange', initialPeriod)
+		emit("periodChange", initialPeriod)
 		return
 	}
 	if (props.periods.length === 0) {
 		return
 	}
 	if (selectedPeriod.value === ALL_PERIODS) {
-		emit('periodChange', '')
+		emit("periodChange", "")
 		return
 	}
 	if (!props.periods.includes(selectedPeriod.value)) {
 		selectedPeriod.value = ALL_PERIODS
-		emit('periodChange', '')
+		emit("periodChange", "")
 	}
 }
 
@@ -100,7 +100,7 @@ watch(() => props.periods, initPeriod)
 watch(
 	() => props.initialPeriod,
 	(newInitial): void => {
-		if (typeof newInitial === 'string' && newInitial.length > 0) {
+		if (typeof newInitial === "string" && newInitial.length > 0) {
 			selectedPeriod.value = newInitial
 		} else if (selectedPeriod.value !== ALL_PERIODS) {
 			selectedPeriod.value = ALL_PERIODS
@@ -111,10 +111,10 @@ watch(
 const selectPeriod = (period: string): void => {
 	if (period === ALL_PERIODS) {
 		selectedPeriod.value = ALL_PERIODS
-		emit('periodChange', '')
+		emit("periodChange", "")
 	} else {
 		selectedPeriod.value = period
-		emit('periodChange', period)
+		emit("periodChange", period)
 	}
 }
 
@@ -152,7 +152,7 @@ const ccasByPeriod = computed<Record<string, CourseWithSelection[]>>(() => {
 			if (!Array.isArray(selectedGroup) || selectedGroup.length === 0) {
 				// eslint-disable-next-line vue/no-side-effects-in-computed-properties
 				selectedPeriod.value = firstPeriodWithResults
-				emit('periodChange', firstPeriodWithResults)
+				emit("periodChange", firstPeriodWithResults)
 			}
 		}
 	}
@@ -237,11 +237,11 @@ const requirementCounts = computed<
 									: 'text-red-600'
 							"
 							>{{ req.selected }} of {{ req.required }}
-							{{ req.categories.join('/') }}
+							{{ req.categories.join("/") }}
 							({{
 								req.selected >= req.required
-									? 'Satisfied'
-									: 'Unsatisfied'
+									? "Satisfied"
+									: "Unsatisfied"
 							}})</span
 						>
 					</template>

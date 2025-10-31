@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import type { Course, GradeRequirement, GradeRequirementGroup } from '@/types'
+import { computed, onMounted, ref, watch } from "vue"
+import type { Course, GradeRequirement, GradeRequirementGroup } from "@/types"
 
 interface CourseWithSelection extends Course {
 	selected: boolean
@@ -26,7 +26,7 @@ const isLoading = ref(true)
 const updateReqGroups = (): void => {
 	const gradeId = props.userGrade
 	if (
-		typeof gradeId === 'string' &&
+		typeof gradeId === "string" &&
 		gradeId.length > 0 &&
 		props.grades.length > 0
 	) {
@@ -41,16 +41,16 @@ const updateReqGroups = (): void => {
 
 const loadSelections = async (): Promise<void> => {
 	isLoading.value = true
-	const res = await fetch('/student/api/my_selections', {
-		credentials: 'include',
-		redirect: 'manual',
+	const res = await fetch("/student/api/my_selections", {
+		credentials: "include",
+		redirect: "manual",
 	})
 	if (
-		res.type === 'opaqueredirect' ||
+		res.type === "opaqueredirect" ||
 		(res.status >= 300 && res.status < 400)
 	) {
-		if (typeof window !== 'undefined') {
-			window.location.href = '/'
+		if (typeof window !== "undefined") {
+			window.location.href = "/"
 		}
 		return
 	}
@@ -96,7 +96,7 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 				: undefined
 		return {
 			period,
-			cca: course?.name ?? '-',
+			cca: course?.name ?? "-",
 		}
 	})
 })
@@ -127,7 +127,7 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 										"
 									>
 										{{ req.selected }} of {{ req.required }}
-										{{ req.categories.join('/') }}
+										{{ req.categories.join("/") }}
 									</span>
 									<span
 										v-if="req.selected >= req.required"

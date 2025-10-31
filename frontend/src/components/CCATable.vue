@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Course } from '@/types'
+import { computed } from "vue"
+import type { Course } from "@/types"
 
 interface CourseWithSelection extends Course {
 	selected: boolean

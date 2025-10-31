@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { Course } from '@/types'
+import { computed } from "vue"
+import type { Course } from "@/types"
 
 interface CourseWithSelection extends Course {
 	selected: boolean
@@ -21,7 +21,7 @@ const isOutOfCapacity = computed(
 )
 const isUpdating = computed(() => props.updatingCcaId === props.cca.id)
 const isInviteOnly = computed(
-	() => props.cca.membership === 'invite_only' && !props.cca.selected,
+	() => props.cca.membership === "invite_only" && !props.cca.selected,
 )
 const isDisabled = computed(
 	() =>

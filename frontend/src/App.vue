@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import ReviewPage from './pages/ReviewPage.vue'
-import SelectionPage from './pages/SelectionPage.vue'
-import type { Choice, Course, GradeRequirement, Student } from './types'
+import { computed, onBeforeUnmount, onMounted, ref } from "vue"
+import ReviewPage from "./pages/ReviewPage.vue"
+import SelectionPage from "./pages/SelectionPage.vue"
+import type { Choice, Course, GradeRequirement, Student } from "./types"
 
 interface CourseWithSelection extends Course {
 	selected: boolean
 }
 
-type SelectionResponse = Pick<Choice, 'course_id' | 'period' | 'selection_type'>
+type SelectionResponse = Pick<Choice, "course_id" | "period" | "selection_type">
 
 function cancelAction(): void {
 	pendingAction.value = null
-	confirmInput.value = ''
+	confirmInput.value = ""
 	showInputError.value = false
 }
 
@@ -20,13 +20,13 @@ function reloadPage(): void {
 	window.location.reload()
 }
 
-const activeTab = ref<'Selection' | 'Review'>('Selection')
+const activeTab = ref<"Selection" | "Review">("Selection")
 const ccas = ref<CourseWithSelection[]>([])
 const userInfo = ref<Student | null>(null)
-const searchQuery = ref<string>('')
-const searchScope = ref<'global' | 'period'>('global')
-const currentPeriod = ref<string>('')
-const viewMode = ref<'grid' | 'table'>('grid')
+const searchQuery = ref<string>("")
+const searchScope = ref<"global" | "period">("global")
+const currentPeriod = ref<string>("")
+const viewMode = ref<"grid" | "table">("grid")
 const errorMessage = ref<string | null>(null)
 let errorTimeout: number | null = null
 const infoMessage = ref<string | null>(null)
@@ -46,11 +46,11 @@ const confirmModal = ref<HTMLDialogElement | null>(null)
 const initialLoadComplete = ref(false)
 const reconnectModal = ref<HTMLDialogElement | null>(null)
 const pendingAction = ref<{
-	type: 'unselect' | 'replace'
+	type: "unselect" | "replace"
 	course: CourseWithSelection
 	existing?: CourseWithSelection
 } | null>(null)
-const confirmInput = ref('')
+const confirmInput = ref("")
 const showInputError = ref(false)
 
 const extractErrorMessage = async (res: Response): Promise<string> => {
@@ -60,25 +60,25 @@ const extractErrorMessage = async (res: Response): Promise<string> => {
 	}
 	try {
 		const parsed: unknown = JSON.parse(text)
-		if (typeof parsed === 'string') return parsed
-		if (parsed !== null && typeof parsed === 'object') {
+		if (typeof parsed === "string") return parsed
+		if (parsed !== null && typeof parsed === "object") {
 			const record = parsed as Record<string, unknown>
 			const message = record.message
-			if (typeof message === 'string') {
+			if (typeof message === "string") {
 				return message
 			}
 			const error = record.error
-			if (typeof error === 'string') {
+			if (typeof error === "string") {
 				return error
 			}
 			const fallback = JSON.stringify(record)
-			return fallback === '{}'
+			return fallback === "{}"
 				? `Request failed with status ${res.status}`
 				: fallback
 		}
 		return String(parsed)
 	} catch {
-		return text.trim() === 'null'
+		return text.trim() === "null"
 			? `Request failed with status ${res.status}`
 			: text
 	}
@@ -90,13 +90,13 @@ const fetchJson = async <T,>(
 ): Promise<T> => {
 	const res = await fetch(input, init)
 	if (
-		res.type === 'opaqueredirect' ||
+		res.type === "opaqueredirect" ||
 		(res.status >= 300 && res.status < 400)
 	) {
-		if (typeof window !== 'undefined') {
-			window.location.href = '/'
+		if (typeof window !== "undefined") {
+			window.location.href = "/"
 		}
-		throw new Error('Redirecting to root')
+		throw new Error("Redirecting to root")
 	}
 	if (!res.ok) {
 		throw new Error(await extractErrorMessage(res))
@@ -105,13 +105,13 @@ const fetchJson = async <T,>(
 }
 
 const extractCourseId = (value: unknown): string | null => {
-	if (value !== null && typeof value === 'object') {
+	if (value !== null && typeof value === "object") {
 		const courseId = (value as SelectionResponse).course_id
-		if (typeof courseId === 'string') return courseId
+		if (typeof courseId === "string") return courseId
 		const fallback = (value as { courseID?: unknown }).courseID
-		if (typeof fallback === 'string') return fallback
+		if (typeof fallback === "string") return fallback
 	}
-	return typeof value === 'string' ? value : null
+	return typeof value === "string" ? value : null
 }
 
 const applySelections = (
@@ -132,29 +132,29 @@ const applySelections = (
 }
 
 const requestSelectionUpdate = async (
-	method: 'PUT' | 'DELETE',
+	method: "PUT" | "DELETE",
 	courseId: string,
 ): Promise<boolean> => {
 	try {
-		const res = await fetch('/student/api/my_selections', {
+		const res = await fetch("/student/api/my_selections", {
 			method,
-			credentials: 'include',
-			redirect: 'manual',
-			headers: { 'Content-Type': 'application/json' },
+			credentials: "include",
+			redirect: "manual",
+			headers: { "Content-Type": "application/json" },
 			body: JSON.stringify(courseId),
 		})
 		if (
-			res.type === 'opaqueredirect' ||
+			res.type === "opaqueredirect" ||
 			(res.status >= 300 && res.status < 400)
 		) {
-			if (typeof window !== 'undefined') {
-				window.location.href = '/'
+			if (typeof window !== "undefined") {
+				window.location.href = "/"
 			}
 			return false
 		}
 		if (!res.ok) {
 			const errMsg = await extractErrorMessage(res)
-			console.error('Selection update failed:', errMsg)
+			console.error("Selection update failed:", errMsg)
 			errorMessage.value = errMsg
 			if (errorTimeout !== null) clearTimeout(errorTimeout)
 			errorTimeout = window.setTimeout((): void => {
@@ -168,8 +168,8 @@ const requestSelectionUpdate = async (
 		return true
 	} catch (err) {
 		const errMsg =
-			err instanceof Error ? err.message : 'Unable to update selections.'
-		console.error('Selection update error:', err)
+			err instanceof Error ? err.message : "Unable to update selections."
+		console.error("Selection update error:", err)
 		errorMessage.value = errMsg
 		if (errorTimeout !== null) clearTimeout(errorTimeout)
 		errorTimeout = window.setTimeout((): void => {
@@ -181,19 +181,19 @@ const requestSelectionUpdate = async (
 
 const loadCourses = async (): Promise<void> => {
 	const [coursesData, selectionsData] = await Promise.all([
-		fetchJson<Course[]>('/student/api/courses', {
-			credentials: 'include',
-			redirect: 'manual',
+		fetchJson<Course[]>("/student/api/courses", {
+			credentials: "include",
+			redirect: "manual",
 		}),
-		fetchJson<SelectionResponse[] | null>('/student/api/my_selections', {
-			credentials: 'include',
-			redirect: 'manual',
+		fetchJson<SelectionResponse[] | null>("/student/api/my_selections", {
+			credentials: "include",
+			redirect: "manual",
 		}),
 	])
 	ccas.value = coursesData.map((course: Course) => ({
 		...course,
 		current_students:
-			typeof course.current_students === 'number'
+			typeof course.current_students === "number"
 				? course.current_students
 				: 0,
 		selected: false,
@@ -202,16 +202,16 @@ const loadCourses = async (): Promise<void> => {
 }
 
 const loadGrades = async (): Promise<void> => {
-	const gradesRes = await fetch('/student/api/grades', {
-		credentials: 'include',
-		redirect: 'manual',
+	const gradesRes = await fetch("/student/api/grades", {
+		credentials: "include",
+		redirect: "manual",
 	})
 	if (
-		gradesRes.type === 'opaqueredirect' ||
+		gradesRes.type === "opaqueredirect" ||
 		(gradesRes.status >= 300 && gradesRes.status < 400)
 	) {
-		if (typeof window !== 'undefined') {
-			window.location.href = '/'
+		if (typeof window !== "undefined") {
+			window.location.href = "/"
 		}
 		return
 	}
@@ -220,16 +220,16 @@ const loadGrades = async (): Promise<void> => {
 }
 
 const loadPeriods = async (): Promise<void> => {
-	const periodsRes = await fetch('/student/api/periods', {
-		credentials: 'include',
-		redirect: 'manual',
+	const periodsRes = await fetch("/student/api/periods", {
+		credentials: "include",
+		redirect: "manual",
 	})
 	if (
-		periodsRes.type === 'opaqueredirect' ||
+		periodsRes.type === "opaqueredirect" ||
 		(periodsRes.status >= 300 && periodsRes.status < 400)
 	) {
-		if (typeof window !== 'undefined') {
-			window.location.href = '/'
+		if (typeof window !== "undefined") {
+			window.location.href = "/"
 		}
 		return
 	}
@@ -237,18 +237,18 @@ const loadPeriods = async (): Promise<void> => {
 }
 
 const fetchAllData = async (): Promise<void> => {
-	const user = await fetchJson<Student>('/student/api/user_info', {
-		credentials: 'include',
-		redirect: 'manual',
+	const user = await fetchJson<Student>("/student/api/user_info", {
+		credentials: "include",
+		redirect: "manual",
 	})
 	userInfo.value = user
 	await Promise.all([loadCourses(), loadGrades(), loadPeriods()])
 }
 
 const handleDataLoadError = (err: unknown): void => {
-	console.error('Failed to load data:', err)
+	console.error("Failed to load data:", err)
 	errorMessage.value =
-		err instanceof Error ? err.message : 'Failed to load data.'
+		err instanceof Error ? err.message : "Failed to load data."
 }
 
 const showInfoToast = (message: string): void => {
@@ -270,13 +270,13 @@ const closeWebSocket = (): void => {
 
 const startWebSocket = (): void => {
 	closeWebSocket()
-	const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+	const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
 	const wsUrl = `${protocol}//${window.location.host}/student/api/events`
 	const socket = new WebSocket(wsUrl)
 	ws = socket
 
 	socket.onopen = (): void => {
-		console.log('WebSocket connected')
+		console.log("WebSocket connected")
 		reconnectAttempts = 0
 		isDisconnected.value = false
 	}
@@ -284,11 +284,11 @@ const startWebSocket = (): void => {
 	socket.onmessage = (event: MessageEvent<string>): void => {
 		try {
 			const message: string = event.data
-			const parts: string[] = message.split(',')
+			const parts: string[] = message.split(",")
 			const eventType: string = parts[0]
 
 			switch (eventType) {
-				case 'hello':
+				case "hello":
 					void (async (): Promise<void> => {
 						try {
 							await fetchAllData()
@@ -298,47 +298,47 @@ const startWebSocket = (): void => {
 					})()
 					break
 
-				case 'invalidate_periods':
+				case "invalidate_periods":
 					void (async (): Promise<void> => {
 						try {
 							await Promise.all([loadCourses(), loadPeriods()])
 						} catch (err) {
-							console.error('Failed to refresh periods:', err)
+							console.error("Failed to refresh periods:", err)
 						}
 					})()
 					break
 
-				case 'invalidate_courses':
+				case "invalidate_courses":
 					void (async (): Promise<void> => {
 						try {
 							await loadCourses()
 						} catch (err) {
-							console.error('Failed to refresh courses:', err)
+							console.error("Failed to refresh courses:", err)
 						}
 					})()
 					break
 
-				case 'invalidate_categories':
+				case "invalidate_categories":
 					void (async (): Promise<void> => {
 						try {
 							await loadCourses()
 						} catch (err) {
-							console.error('Failed to refresh categories:', err)
+							console.error("Failed to refresh categories:", err)
 						}
 					})()
 					break
 
-				case 'invalidate_grades':
+				case "invalidate_grades":
 					void (async (): Promise<void> => {
 						try {
 							await loadGrades()
 						} catch (err) {
-							console.error('Failed to refresh grades:', err)
+							console.error("Failed to refresh grades:", err)
 						}
 					})()
 					break
 
-				case 'invalidate_selections':
+				case "invalidate_selections":
 					void (async (): Promise<void> => {
 						try {
 							await Promise.all([
@@ -347,12 +347,12 @@ const startWebSocket = (): void => {
 								loadPeriods(),
 							])
 						} catch (err) {
-							console.error('Failed to refresh selections:', err)
+							console.error("Failed to refresh selections:", err)
 						}
 					})()
 					break
 
-				case 'course_count_update':
+				case "course_count_update":
 					if (parts.length === 3) {
 						const courseId: string = parts[1]
 						const count: number = Number.parseInt(parts[2], 10)
@@ -368,27 +368,27 @@ const startWebSocket = (): void => {
 					}
 					break
 
-				case 'notify':
+				case "notify":
 					if (parts.length > 1) {
-						showInfoToast(parts.slice(1).join(','))
+						showInfoToast(parts.slice(1).join(","))
 					}
 					break
 
 				default:
-					console.warn('Unknown WebSocket event type:', eventType)
+					console.warn("Unknown WebSocket event type:", eventType)
 					break
 			}
 		} catch (err) {
-			console.error('Failed to parse WebSocket message:', err)
+			console.error("Failed to parse WebSocket message:", err)
 		}
 	}
 
 	socket.onerror = (error: Event): void => {
-		console.error('WebSocket error:', error)
+		console.error("WebSocket error:", error)
 	}
 
 	socket.onclose = (): void => {
-		console.log('WebSocket disconnected')
+		console.log("WebSocket disconnected")
 		if (ws !== socket) return
 
 		ws = null
@@ -436,7 +436,7 @@ const toggleCCA = async (id: string): Promise<void> => {
 	if (course === undefined || updatingCcaId.value !== null) return
 
 	if (course.selected) {
-		pendingAction.value = { type: 'unselect', course }
+		pendingAction.value = { type: "unselect", course }
 		confirmModal.value?.showModal()
 		return
 	}
@@ -446,7 +446,7 @@ const toggleCCA = async (id: string): Promise<void> => {
 	)
 	if (existingSelection !== undefined) {
 		pendingAction.value = {
-			type: 'replace',
+			type: "replace",
 			course,
 			existing: existingSelection,
 		}
@@ -457,7 +457,7 @@ const toggleCCA = async (id: string): Promise<void> => {
 	updatingCcaId.value = id
 	errorMessage.value = null
 	try {
-		await requestSelectionUpdate('PUT', course.id)
+		await requestSelectionUpdate("PUT", course.id)
 	} finally {
 		updatingCcaId.value = null
 	}
@@ -468,11 +468,11 @@ const confirmAction = async (): Promise<void> => {
 	const action = pendingAction.value
 
 	const needsConfirmation =
-		(action.type === 'unselect' &&
-			action.course.membership === 'invite_only') ||
-		(action.type === 'replace' &&
-			action.existing?.membership === 'invite_only')
-	if (needsConfirmation && confirmInput.value !== 'I am really sure') {
+		(action.type === "unselect" &&
+			action.course.membership === "invite_only") ||
+		(action.type === "replace" &&
+			action.existing?.membership === "invite_only")
+	if (needsConfirmation && confirmInput.value !== "I am really sure") {
 		showInputError.value = true
 		window.setTimeout((): void => {
 			showInputError.value = false
@@ -485,28 +485,28 @@ const confirmAction = async (): Promise<void> => {
 	errorMessage.value = null
 
 	try {
-		if (action.type === 'unselect') {
-			await requestSelectionUpdate('DELETE', action.course.id)
+		if (action.type === "unselect") {
+			await requestSelectionUpdate("DELETE", action.course.id)
 		} else {
 			const existingSelection = action.existing
 			if (existingSelection === undefined) {
 				console.error(
-					'Missing existing selection while confirming replace action',
+					"Missing existing selection while confirming replace action",
 				)
 				return
 			}
 			const removed = await requestSelectionUpdate(
-				'DELETE',
+				"DELETE",
 				existingSelection.id,
 			)
 			if (removed) {
-				await requestSelectionUpdate('PUT', action.course.id)
+				await requestSelectionUpdate("PUT", action.course.id)
 			}
 		}
 	} finally {
 		updatingCcaId.value = null
 		pendingAction.value = null
-		confirmInput.value = ''
+		confirmInput.value = ""
 		showInputError.value = false
 	}
 }
@@ -517,7 +517,7 @@ const filteredCCAs = computed<CourseWithSelection[]>(() => {
 	const query = searchQuery.value.toLowerCase()
 	let filtered = ccas.value
 
-	if (searchScope.value === 'period' && currentPeriod.value !== '') {
+	if (searchScope.value === "period" && currentPeriod.value !== "") {
 		filtered = filtered.filter((c) => c.period === currentPeriod.value)
 	}
 
@@ -549,13 +549,13 @@ const cleanup = (): void => {
 
 const handleBeforeUnload = (): void => cleanup()
 
-if (typeof window !== 'undefined') {
-	window.addEventListener('beforeunload', handleBeforeUnload)
+if (typeof window !== "undefined") {
+	window.addEventListener("beforeunload", handleBeforeUnload)
 }
 
 onBeforeUnmount((): void => {
-	if (typeof window !== 'undefined') {
-		window.removeEventListener('beforeunload', handleBeforeUnload)
+	if (typeof window !== "undefined") {
+		window.removeEventListener("beforeunload", handleBeforeUnload)
 	}
 	cleanup()
 })
