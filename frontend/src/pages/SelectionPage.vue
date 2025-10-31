@@ -228,7 +228,6 @@ const requirementCounts = computed<
 				class="sticky top-[137px] z-10 bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center"
 			>
 				<div v-if="!isLoading" class="flex gap-3 text-base">
-					<span class="text-gray-600">Requirements:</span>
 					<template v-for="(req, i) in requirementCounts" :key="i">
 						<span v-if="i > 0" class="text-gray-300">·</span>
 						<span
@@ -237,8 +236,13 @@ const requirementCounts = computed<
 									? 'text-[#5bae31]'
 									: 'text-red-600'
 							"
-							>{{ req.selected }}/{{ req.required }}
-							{{ req.categories.join('/') }}</span
+							>{{ req.selected }} of {{ req.required }}
+							{{ req.categories.join('/') }}
+							({{
+								req.selected >= req.required
+									? 'Satisfied'
+									: 'Unsatisfied'
+							}})</span
 						>
 					</template>
 				</div>
