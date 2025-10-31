@@ -126,7 +126,7 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 												: 'text-gray-900'
 										"
 									>
-										{{ req.selected }}/{{ req.required }}
+										{{ req.selected }} of {{ req.required }}
 										{{ req.categories.join('/') }}
 									</span>
 									<span
