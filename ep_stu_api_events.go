@@ -1,19 +1,14 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 
-	"github.com/gorilla/websocket"
+	"github.com/coder/websocket"
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(_ *http.Request) bool {
-		return true
-	},
-}
+var upgraderOpts = &websocket.AcceptOptions{}
 
 func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent) {
 	app.logRequestStart(r, "handleStuAPIEvents", slog.Int64("student_id", sui.ID))
@@ -22,7 +17,7 @@ func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *
 		return
 	}
 
-	conn, err := upgrader.Upgrade(w, r, nil)
+	conn, err := websocket.Accept(w, r, upgraderOpts)
 	if err != nil {
 		app.logError(r, "failed to upgrade to websocket", slog.Any("error", err))
 		return
@@ -37,10 +32,10 @@ func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *
 
 	app.wsHub.register <- client
 
-	if err := conn.WriteMessage(websocket.TextMessage, []byte("hello")); err != nil {
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte("hello")); err != nil {
 		app.logError(r, "failed to send websocket hello", slog.Any("error", err))
 		app.wsHub.unregister <- client
-		_ = conn.Close()
+		_ = conn.Close(websocket.StatusInternalError, "")
 		return
 	}
 

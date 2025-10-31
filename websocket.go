@@ -1,10 +1,11 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 
-	"github.com/gorilla/websocket"
+	"github.com/coder/websocket"
 )
 
 type WSMessage string
@@ -113,11 +114,11 @@ func (h *WebSocketHub) BroadcastToStudents(studentIDs []int64, msg WSMessage) {
 
 func (c *Client) writePump() {
 	defer func() {
-		_ = c.conn.Close()
+		_ = c.conn.Close(websocket.StatusNormalClosure, "")
 	}()
 
 	for message := range c.send {
-		if err := c.conn.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+		if err := c.conn.Write(context.Background(), websocket.MessageText, []byte(message)); err != nil {
 			slog.Error("websocket write error", slog.Any("error", err))
 			return
 		}
@@ -127,13 +128,13 @@ func (c *Client) writePump() {
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
-		_ = c.conn.Close()
+		_ = c.conn.Close(websocket.StatusNormalClosure, "")
 	}()
 
 	for {
-		_, _, err := c.conn.ReadMessage()
+		_, _, err := c.conn.Read(context.Background())
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			if websocket.CloseStatus(err) != websocket.StatusNormalClosure && websocket.CloseStatus(err) != websocket.StatusGoingAway {
 				slog.Error("websocket read error", slog.Any("error", err))
 			}
 			break
