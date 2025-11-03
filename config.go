@@ -31,6 +31,7 @@ type Config struct {
 		} `scfgs:"tls"`
 	} `scfgs:"listen"`
 	OIDC struct {
+		Bypass    bool   `scfgs:"bypass"`
 		Client    string `scfgs:"client"`
 		Authorize string `scfgs:"authorize"`
 		JWKS      string `scfgs:"jwks"`
