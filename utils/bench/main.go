@@ -1,3 +1,4 @@
+// Test the performance of our server
 package main
 
 import (
@@ -96,11 +97,13 @@ func main() {
 }
 
 func readStudentIDs(path string) ([]string, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //#nosec:G304
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() {
+		_ = f.Close()
+	}()
 
 	var ids []string
 	scanner := bufio.NewScanner(f)
@@ -144,8 +147,8 @@ func handleStudent(studentID string, summary *resultSummary) error {
 		atomic.AddInt64(&summary.totalRequests, 1)
 		return fmt.Errorf("auth request failed: %w", err)
 	}
-	io.Copy(io.Discard, resp.Body)
-	resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
 	atomic.AddInt64(&summary.totalRequests, 1)
 	atomic.AddInt64(&summary.totalTimeNs, time.Since(start).Nanoseconds())
 	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
@@ -186,8 +189,8 @@ func handleStudent(studentID string, summary *resultSummary) error {
 				fmt.Printf("[student %s] GET %s error: %v\n", studentID, endpoint, err)
 				return
 			}
-			io.Copy(io.Discard, resp.Body)
-			resp.Body.Close()
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
 
 			if resp.StatusCode < 200 || resp.StatusCode >= 400 {
 				atomic.AddInt64(&summary.failures, 1)
