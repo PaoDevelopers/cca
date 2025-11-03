@@ -96,6 +96,8 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 
 		app.logInfo(r, "BYPASS student authentication successful", slog.Int64("student_id", sid))
 		http.Redirect(w, r, "/student/", http.StatusSeeOther)
+
+		return
 	}
 
 	idts := r.PostFormValue("id_token")
