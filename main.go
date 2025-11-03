@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -18,6 +19,11 @@ import (
 )
 
 func main() {
+	handler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	})
+	slog.SetDefault(slog.New(handler))
+
 	var configPath string
 	flag.StringVar(&configPath, "c", "cca.scfgs", "path to configuration file")
 	flag.Parse()
