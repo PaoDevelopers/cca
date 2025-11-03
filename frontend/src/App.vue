@@ -612,7 +612,11 @@ onBeforeUnmount((): void => {
 									: 'text-red-600',
 							]"
 						>
-							{{ currentGradeInfo.enabled ? "Enabled" : "Disabled" }}
+							{{
+								currentGradeInfo.enabled
+									? "Enabled"
+									: "Disabled"
+							}}
 						</span>
 						<span class="text-gray-400">·</span>
 						<span>
