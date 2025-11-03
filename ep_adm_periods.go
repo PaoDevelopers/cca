@@ -43,6 +43,7 @@ func (app *App) handleAdmPeriodsNew(w http.ResponseWriter, r *http.Request, aui 
 	app.logInfo(r, "redirecting after new period", slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	http.Redirect(w, r, "/admin/periods", http.StatusSeeOther)
 }
+
 func (app *App) handleAdmPeriodsDelete(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
 	app.logRequestStart(r, "handleAdmPeriodsDelete", slog.String("admin_username", aui.Username))
 	id := r.FormValue("id")

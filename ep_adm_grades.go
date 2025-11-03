@@ -73,6 +73,7 @@ func (app *App) handleAdmGradesNew(w http.ResponseWriter, r *http.Request, aui *
 	app.logInfo(r, "redirecting after new grade", slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
+
 func (app *App) handleAdmGradesBulkEnabledUpdate(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
 	app.logRequestStart(r, "handleAdmGradesBulkEnabledUpdate", slog.String("admin_username", aui.Username))
 	err := r.ParseForm()
@@ -168,6 +169,7 @@ func (app *App) handleAdmGradesEdit(w http.ResponseWriter, r *http.Request, aui 
 	app.logInfo(r, "redirecting after edit grade", slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
+
 func (app *App) handleAdmGradesDelete(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
 	app.logRequestStart(r, "handleAdmGradesDelete", slog.String("admin_username", aui.Username))
 	grade := r.FormValue("grade")
@@ -230,6 +232,7 @@ func (app *App) handleAdmGradesNewRequirementGroup(w http.ResponseWriter, r *htt
 	app.logInfo(r, "redirecting after new requirement group", slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
+
 func (app *App) handleAdmGradesDeleteRequirementGroup(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
 	app.logRequestStart(r, "handleAdmGradesDeleteRequirementGroup", slog.String("admin_username", aui.Username))
 	idString := r.FormValue("id")
