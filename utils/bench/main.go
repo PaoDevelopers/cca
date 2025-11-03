@@ -17,7 +17,7 @@ import (
 )
 
 var (
-	baseURL     = "https://cca.runxiyu.org"
+	baseURL     = "https://paospace.ykpaoschool.cn:8192"
 	concurrency = 100
 	endpoints   = []string{
 		"/student/",
