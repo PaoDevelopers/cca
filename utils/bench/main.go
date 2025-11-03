@@ -21,11 +21,11 @@ var (
 	concurrency = 100
 	endpoints   = []string{
 		"/student/",
-		"/user_info",
-		"/courses",
-		"/my_selections",
-		"/grades",
-		"/periods",
+		"/student/api/user_info",
+		"/student/api/courses",
+		"/student/api/my_selections",
+		"/student/api/grades",
+		"/student/api/periods",
 	}
 	authTimeout    = 8 * time.Second
 	requestTimeout = 10 * time.Second
