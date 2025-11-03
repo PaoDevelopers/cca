@@ -42,7 +42,7 @@ func (app *App) handleStuAPIMySelections(w http.ResponseWriter, r *http.Request,
 			app.apiError(r, w, http.StatusInternalServerError, err.Error(), slog.String("operation", "delete_selection"), slog.Int64("student_id", sui.ID), slog.String("course_id", s))
 			return
 		}
-		app.logInfo(r, logMsgStudentSelectionsDelete, slog.Int64("student_id", sui.ID), slog.String("course_id", s))
+		app.logInfo(r, logMsgStudentSelectionsDelete, slog.Int64("student_id", sui.ID), slog.String("operation", "delete_selection"), slog.String("course_id", s))
 		app.broadcastCourseCounts(r, []string{s})
 		if get() {
 			return
@@ -63,7 +63,7 @@ func (app *App) handleStuAPIMySelections(w http.ResponseWriter, r *http.Request,
 			app.apiError(r, w, http.StatusInternalServerError, err.Error(), slog.String("operation", "new_selection"), slog.Int64("student_id", sui.ID), slog.String("course_id", s))
 			return
 		}
-		app.logInfo(r, logMsgStudentSelectionsCreate, slog.Int64("student_id", sui.ID), slog.String("course_id", s))
+		app.logInfo(r, logMsgStudentSelectionsCreate, slog.Int64("student_id", sui.ID), slog.String("operation", "new_selection"), slog.String("course_id", s))
 		app.broadcastCourseCounts(r, []string{s})
 		if get() {
 			return
