@@ -552,6 +552,12 @@ const userGradeBinding = computed(() => {
 	return {}
 })
 
+const currentGradeInfo = computed(() => {
+	const gradeId = userInfo.value?.grade
+	if (typeof gradeId !== "string" || gradeId.length === 0) return null
+	return grades.value.find((grade) => grade.grade === gradeId) ?? null
+})
+
 const cleanup = (): void => {
 	closeWebSocket()
 	if (reconnectTimeout !== null) {
@@ -588,7 +594,33 @@ onBeforeUnmount((): void => {
 			<div
 				class="flex justify-between items-center px-8 py-5 border-b border-gray-200"
 			>
-				<h1 class="text-xl font-light tracking-wide">CCA Selection</h1>
+				<div class="flex flex-col items-start">
+					<h1 class="text-xl font-light tracking-wide">
+						CCA Selection
+					</h1>
+					<div
+						v-if="currentGradeInfo"
+						class="flex items-center gap-2 text-xs text-gray-600 mt-1"
+					>
+						<span>Grade {{ currentGradeInfo.grade }}</span>
+						<span class="text-gray-400">·</span>
+						<span
+							:class="[
+								'font-medium',
+								currentGradeInfo.enabled
+									? 'text-emerald-600'
+									: 'text-red-600',
+							]"
+						>
+							{{ currentGradeInfo.enabled ? "Enabled" : "Disabled" }}
+						</span>
+						<span class="text-gray-400">·</span>
+						<span>
+							Max own choices:
+							{{ currentGradeInfo.max_own_choices }}
+						</span>
+					</div>
+				</div>
 				<div class="flex items-center gap-3 text-sm">
 					<span
 						v-if="isDisconnected"
