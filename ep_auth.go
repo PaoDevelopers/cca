@@ -48,6 +48,56 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if app.config.OIDC.Bypass && r.PostFormValue("bypass") != "" {
+		sid, err := strconv.ParseInt(strings.TrimLeft(r.PostFormValue("bypass"), "sS"), 10, 64)
+		if err != nil {
+			app.respondHTTPError(r, w, http.StatusUnauthorized, "Unauthorized\nInvalid student ID", nil)
+		}
+		st := rand.Text()
+		tst := "student:" + st
+		cookie := http.Cookie{
+			Name:     "session",
+			Value:    tst,
+			SameSite: http.SameSiteLaxMode,
+			HttpOnly: true,
+			Secure:   true,
+			Expires:  time.Now().Add(72 * time.Hour),
+		}
+		http.SetCookie(w, &cookie)
+		_, err = app.queries.SetStudentSession(
+			r.Context(),
+			db.SetStudentSessionParams{
+				SessionToken: pgtype.Text{String: st, Valid: true},
+				ID:           sid,
+			},
+		)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				app.respondHTTPError(
+					r,
+					w,
+					http.StatusUnauthorized,
+					"Unauthorized\nStudent ID not found in database",
+					err,
+					slog.Int64("student_id", sid),
+				)
+				return
+			}
+			app.respondHTTPError(
+				r,
+				w,
+				http.StatusInternalServerError,
+				"Internal Server Error\nCannot set student session token",
+				err,
+				slog.Int64("student_id", sid),
+			)
+			return
+		}
+
+		app.logInfo(r, "BYPASS student authentication successful", slog.Int64("student_id", sid))
+		http.Redirect(w, r, "/student/", http.StatusSeeOther)
+	}
+
 	idts := r.PostFormValue("id_token")
 	if idts == "" {
 		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nID token expected but not found", nil)
