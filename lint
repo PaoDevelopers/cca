@@ -2,7 +2,7 @@
 
 set -eux
 
-golangci-lint run .
+golangci-lint run ./...
 
 cd frontend
 
