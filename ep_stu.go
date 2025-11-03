@@ -20,11 +20,11 @@ over here. Note that all auth-related things are already done; you can
 use the network inspector to check cookie status.
 
 `); err != nil {
-		app.logError(r, "failed writing student placeholder response", slog.Any("error", err))
+		app.logError(r, logMsgStudentPlaceholderWrite, slog.Any("error", err))
 		return
 	}
 
 	if err := json.NewEncoder(w).Encode(sui); err != nil {
-		app.logError(r, "failed encoding student info", slog.Any("error", err))
+		app.logError(r, logMsgStudentInfoEncodeError, slog.Any("error", err))
 	}
 }

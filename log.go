@@ -48,7 +48,7 @@ func (app *App) requestLogger(r *http.Request, extra ...slog.Attr) *slog.Logger 
 }
 
 func (app *App) logRequestStart(r *http.Request, handler string, extra ...slog.Attr) {
-	app.requestLogger(r, append(extra, slog.String("handler", handler))...).Info("request start")
+	app.requestLogger(r, append(extra, slog.String("handler", handler))...).Info(logMsgHTTPRequestStart)
 }
 
 func (app *App) logInfo(r *http.Request, msg string, extra ...slog.Attr) {
@@ -77,9 +77,9 @@ func (app *App) respondHTTPError(r *http.Request, w http.ResponseWriter, status 
 		attrs = append(attrs, extra...)
 	}
 	if status >= http.StatusInternalServerError {
-		app.logError(r, "sending http error response", attrs...)
+		app.logError(r, logMsgHTTPResponseError, attrs...)
 	} else {
-		app.logWarn(r, "sending http error response", attrs...)
+		app.logWarn(r, logMsgHTTPResponseError, attrs...)
 	}
 	http.Error(w, message, status)
 }
@@ -101,13 +101,13 @@ func (app *App) apiError(r *http.Request, w http.ResponseWriter, code int, v any
 		attrs = append(attrs, extra...)
 	}
 	if code >= http.StatusInternalServerError {
-		app.logError(r, "sending api error response", attrs...)
+		app.logError(r, logMsgAPIResponseError, attrs...)
 	} else {
-		app.logWarn(r, "sending api error response", attrs...)
+		app.logWarn(r, logMsgAPIResponseError, attrs...)
 	}
 	w.WriteHeader(code)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
-		app.logError(r, "encoding api error payload", slog.Any("error", err))
+		app.logError(r, logMsgAPIResponseEncodeError, slog.Any("error", err))
 	}
 }
 
@@ -116,9 +116,9 @@ func (app *App) writeJSON(r *http.Request, w http.ResponseWriter, status int, pa
 	if status == 0 {
 		status = http.StatusOK
 	}
-	app.logInfo(r, "sending json response", append(extra, slog.Int("status", status))...)
+	app.logInfo(r, logMsgHTTPResponseJSON, append(extra, slog.Int("status", status))...)
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		app.logError(r, "encoding json response", slog.Any("error", err))
+		app.logError(r, logMsgHTTPResponseEncodeError, slog.Any("error", err))
 	}
 }

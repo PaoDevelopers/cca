@@ -19,7 +19,7 @@ func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *
 
 	conn, err := websocket.Accept(w, r, upgraderOpts)
 	if err != nil {
-		app.logError(r, "failed to upgrade to websocket", slog.Any("error", err))
+		app.logError(r, logMsgStudentEventsUpgradeError, slog.Any("error", err))
 		return
 	}
 
@@ -33,7 +33,7 @@ func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *
 	app.wsHub.register <- client
 
 	if err := conn.Write(context.Background(), websocket.MessageText, []byte("hello")); err != nil {
-		app.logError(r, "failed to send websocket hello", slog.Any("error", err))
+		app.logError(r, logMsgStudentEventsHelloError, slog.Any("error", err))
 		app.wsHub.unregister <- client
 		_ = conn.Close(websocket.StatusInternalError, "")
 		return
@@ -42,5 +42,5 @@ func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *
 	go client.writePump()
 	go client.readPump()
 
-	app.logInfo(r, "websocket connection established", slog.Int64("student_id", sui.ID))
+	app.logInfo(r, logMsgStudentEventsEstablished, slog.Int64("student_id", sui.ID))
 }

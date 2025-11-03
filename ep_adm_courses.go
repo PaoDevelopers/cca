@@ -264,10 +264,10 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 		}
 	}
 
-	app.logInfo(r, "created course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
+	app.logInfo(r, logMsgAdminCoursesCreate, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	app.wsHub.Broadcast(WSMessage("invalidate_courses"))
 
-	app.logInfo(r, "redirecting after new course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
+	app.logInfo(r, logMsgAdminCoursesCreateRedirect, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
 
@@ -437,10 +437,10 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		return
 	}
 
-	app.logInfo(r, "updated course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
+	app.logInfo(r, logMsgAdminCoursesUpdate, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	app.wsHub.Broadcast(WSMessage("invalidate_courses"))
 
-	app.logInfo(r, "redirecting after edit course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
+	app.logInfo(r, logMsgAdminCoursesUpdateRedirect, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
 
@@ -458,10 +458,10 @@ func (app *App) handleAdmCoursesDelete(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 
-	app.logInfo(r, "deleted course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
+	app.logInfo(r, logMsgAdminCoursesDelete, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	app.wsHub.Broadcast(WSMessage("invalidate_courses"))
 
-	app.logInfo(r, "redirecting after delete course", slog.String("admin_username", aui.Username), slog.String("course_id", id))
+	app.logInfo(r, logMsgAdminCoursesDeleteRedirect, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }
 
@@ -682,9 +682,9 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 
-	app.logInfo(r, "imported courses", slog.String("admin_username", aui.Username))
+	app.logInfo(r, logMsgAdminCoursesImport, slog.String("admin_username", aui.Username))
 	app.wsHub.Broadcast(WSMessage("invalidate_courses"))
 
-	app.logInfo(r, "redirecting after course import", slog.String("admin_username", aui.Username))
+	app.logInfo(r, logMsgAdminCoursesImportRedirect, slog.String("admin_username", aui.Username))
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
 }

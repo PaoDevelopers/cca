@@ -95,7 +95,7 @@ func (app *App) handleAdmStudentsNew(w http.ResponseWriter, r *http.Request, aui
 		return
 	}
 
-	app.logInfo(r, "created student", slog.String("admin_username", aui.Username), slog.Int64("student_id", id))
+	app.logInfo(r, logMsgAdminStudentsCreate, slog.String("admin_username", aui.Username), slog.Int64("student_id", id))
 	http.Redirect(w, r, "/admin/students", http.StatusSeeOther)
 }
 
@@ -149,7 +149,7 @@ func (app *App) handleAdmStudentsEdit(w http.ResponseWriter, r *http.Request, au
 		return
 	}
 
-	app.logInfo(r, "updated student", slog.String("admin_username", aui.Username), slog.Int64("student_id", id))
+	app.logInfo(r, logMsgAdminStudentsUpdate, slog.String("admin_username", aui.Username), slog.Int64("student_id", id))
 	http.Redirect(w, r, "/admin/students", http.StatusSeeOther)
 }
 
@@ -172,7 +172,7 @@ func (app *App) handleAdmStudentsDelete(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	app.logInfo(r, "deleted student", slog.String("admin_username", aui.Username), slog.Int64("student_id", id))
+	app.logInfo(r, logMsgAdminStudentsDelete, slog.String("admin_username", aui.Username), slog.Int64("student_id", id))
 	http.Redirect(w, r, "/admin/students", http.StatusSeeOther)
 }
 
@@ -305,6 +305,6 @@ func (app *App) handleAdmStudentsImport(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	app.logInfo(r, "imported students", slog.String("admin_username", aui.Username))
+	app.logInfo(r, logMsgAdminStudentsImport, slog.String("admin_username", aui.Username))
 	http.Redirect(w, r, "/admin/students", http.StatusSeeOther)
 }

@@ -17,7 +17,7 @@ func (app *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 		app.config.URL,
 		rand.Text(),
 	)
-	app.logInfo(r, "redirecting to oidc authorize", slog.String("target", target))
+	app.logInfo(r, logMsgAuthOIDCRedirect, slog.String("target", target))
 	http.Redirect(
 		w,
 		r,

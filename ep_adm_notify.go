@@ -20,9 +20,9 @@ func (app *App) handleAdmNotify(w http.ResponseWriter, r *http.Request, aui *Use
 	}
 
 	message := r.FormValue("text")
-	app.logInfo(r, "broadcast admin notification", slog.String("admin_username", aui.Username))
+	app.logInfo(r, logMsgAdminNotificationsSend, slog.String("admin_username", aui.Username))
 	app.wsHub.Broadcast(WSMessage("notify," + message))
 
-	app.logInfo(r, "redirecting after broadcast", slog.String("admin_username", aui.Username))
+	app.logInfo(r, logMsgAdminNotificationsRedirect, slog.String("admin_username", aui.Username))
 	http.Redirect(w, r, "/admin/notify", http.StatusSeeOther)
 }

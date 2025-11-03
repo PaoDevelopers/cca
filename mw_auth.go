@@ -92,7 +92,7 @@ func (app *App) studentOnly(handlerName string, handler func(w http.ResponseWrit
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
-		app.logInfo(r, "authenticated student request", slog.String("middleware", "studentOnly"), slog.Int64("student_id", sui.ID))
+		app.logInfo(r, logMsgAuthMiddlewareStudent, slog.String("middleware", "studentOnly"), slog.Int64("student_id", sui.ID))
 		handler(w, r, sui)
 	}
 }
@@ -110,7 +110,7 @@ func (app *App) adminOnly(handlerName string, handler func(w http.ResponseWriter
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
-		app.logInfo(r, "authenticated admin request", slog.String("middleware", "adminOnly"), slog.String("admin_username", aui.Username))
+		app.logInfo(r, logMsgAuthMiddlewareAdmin, slog.String("middleware", "adminOnly"), slog.String("admin_username", aui.Username))
 		handler(w, r, aui)
 	}
 }

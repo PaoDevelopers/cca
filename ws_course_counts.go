@@ -30,7 +30,7 @@ func (app *App) broadcastCourseCounts(r *http.Request, courseIDs []string) {
 
 	rows, err := app.queries.GetCourseCountsByIDs(r.Context(), dedup)
 	if err != nil {
-		app.logError(r, "failed fetching course counts", slog.Any("error", err))
+		app.logError(r, logMsgAdminCoursesCountsError, slog.Any("error", err))
 		return
 	}
 

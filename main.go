@@ -35,14 +35,14 @@ func main() {
 	app := App{}
 
 	// Config
-	slog.Info("Loading configuration", slog.String("path", configPath))
+	slog.Info(logMsgStartupConfigLoad, slog.String("path", configPath))
 	app.config, err = loadConfig(configPath)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	// Database
-	slog.Info("Connecting to the database")
+	slog.Info(logMsgStartupDBConnect)
 	dbCfg := app.config.Database
 	poolConfig, err := pgxpool.ParseConfig(dbCfg.URL)
 	if err != nil {
@@ -83,26 +83,26 @@ func main() {
 	}
 
 	// JWKS
-	slog.Info("Fetching JWKS", slog.String("jwks", app.config.OIDC.JWKS))
+	slog.Info(logMsgStartupJWKSFetch, slog.String("jwks", app.config.OIDC.JWKS))
 	app.kf, err = keyfunc.NewDefault([]string{app.config.OIDC.JWKS})
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	// Templates
-	slog.Info("Loading templates")
+	slog.Info(logMsgStartupTemplatesLoad)
 	err = app.admLoadTemplates()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	// WebSocket hub
-	slog.Info("Setting up WebSocket hub")
+	slog.Info(logMsgStartupWebsocketSetup)
 	app.wsHub = NewWebSocketHub()
 	go app.wsHub.Run()
 
 	// Router
-	slog.Info("Registering routes")
+	slog.Info(logMsgStartupRoutesRegister)
 	mux := http.NewServeMux()
 	mux.HandleFunc("/{$}", app.handleIndex)
 	mux.HandleFunc("/auth", app.handleAuth)
@@ -154,7 +154,7 @@ func main() {
 	mux.HandleFunc("/student/api/my_selections", app.studentOnly("handleStuAPIMySelections", app.handleStuAPIMySelections))
 
 	// Listen and serve
-	slog.Info("Starting listener", slog.String("transport", app.config.Listen.Transport), slog.String("address", app.config.Listen.Address), slog.String("network", app.config.Listen.Network))
+	slog.Info(logMsgStartupListenerStart, slog.String("transport", app.config.Listen.Transport), slog.String("address", app.config.Listen.Address), slog.String("network", app.config.Listen.Network))
 	var l net.Listener
 	switch app.config.Listen.Transport {
 	case "plain":
@@ -178,9 +178,14 @@ func main() {
 			log.Fatalf("Cannot listen TLS: %v\n", err)
 		}
 	}
-	slog.Info("Serving")
-	log.Fatal((&http.Server{
+	slog.Info(logMsgStartupServing)
+	server := &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: time.Second * time.Duration(10),
-	}).Serve(l))
+		ErrorLog:          newHTTPServerErrorLogger(),
+	}
+	if err := server.Serve(l); err != nil {
+		slog.Error(logMsgHTTPServerServeFailure, slog.Any("error", err))
+		os.Exit(1)
+	}
 }

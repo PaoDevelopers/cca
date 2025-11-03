@@ -52,7 +52,7 @@ func (h *WebSocketHub) Run() {
 			}
 			h.clients[client.studentID][client] = struct{}{}
 			h.mu.Unlock()
-			slog.Info("websocket client registered", slog.Int64("student_id", client.studentID))
+			slog.Info(logMsgWebsocketClientRegistered, slog.Int64("student_id", client.studentID))
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -66,7 +66,7 @@ func (h *WebSocketHub) Run() {
 				}
 			}
 			h.mu.Unlock()
-			slog.Info("websocket client unregistered", slog.Int64("student_id", client.studentID))
+			slog.Info(logMsgWebsocketClientUnregistered, slog.Int64("student_id", client.studentID))
 
 		case message := <-h.broadcast:
 			h.mu.RLock()
@@ -75,12 +75,12 @@ func (h *WebSocketHub) Run() {
 					select {
 					case client.send <- message:
 					default:
-						slog.Warn("dropping websocket message for slow client")
+						slog.Warn(logMsgWebsocketDropSlowClient)
 					}
 				}
 			}
 			h.mu.RUnlock()
-			slog.Info("websocket broadcast", slog.String("message", string(message)))
+			slog.Info(logMsgWebsocketBroadcastAll, slog.String("message", string(message)))
 
 		case target := <-h.broadcastTarget:
 			h.mu.RLock()
@@ -90,13 +90,13 @@ func (h *WebSocketHub) Run() {
 						select {
 						case client.send <- target.message:
 						default:
-							slog.Warn("dropping targeted websocket message for slow client")
+							slog.Warn(logMsgWebsocketDropTargetedSlowClient)
 						}
 					}
 				}
 			}
 			h.mu.RUnlock()
-			slog.Info("websocket targeted broadcast", slog.String("message", string(target.message)), slog.Int("targets", len(target.studentIDs)))
+			slog.Info(logMsgWebsocketBroadcastTargeted, slog.String("message", string(target.message)), slog.Int("targets", len(target.studentIDs)))
 		}
 	}
 }
@@ -119,7 +119,7 @@ func (c *Client) writePump() {
 
 	for message := range c.send {
 		if err := c.conn.Write(context.Background(), websocket.MessageText, []byte(message)); err != nil {
-			slog.Error("websocket write error", slog.Any("error", err))
+			slog.Error(logMsgWebsocketWriteError, slog.Any("error", err))
 			return
 		}
 	}
@@ -135,7 +135,7 @@ func (c *Client) readPump() {
 		_, _, err := c.conn.Read(context.Background())
 		if err != nil {
 			if websocket.CloseStatus(err) != websocket.StatusNormalClosure && websocket.CloseStatus(err) != websocket.StatusGoingAway {
-				slog.Error("websocket read error", slog.Any("error", err))
+				slog.Error(logMsgWebsocketReadError, slog.Any("error", err))
 			}
 			break
 		}

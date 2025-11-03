@@ -94,7 +94,7 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		app.logInfo(r, "BYPASS student authentication successful", slog.Int64("student_id", sid))
+		app.logInfo(r, logMsgAuthStudentBypass, slog.Int64("student_id", sid))
 		http.Redirect(w, r, "/student/", http.StatusSeeOther)
 
 		return
@@ -196,7 +196,7 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		app.logInfo(r, "admin authentication successful", slog.String("admin_username", lp))
+		app.logInfo(r, logMsgAuthAdminLogin, slog.String("admin_username", lp))
 		http.Redirect(w, r, "/admin/", http.StatusSeeOther)
 	} else {
 		sid, err := strconv.ParseInt(strings.TrimLeft(lp, "sS"), 10, 64)
@@ -241,7 +241,7 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		app.logInfo(r, "student authentication successful", slog.Int64("student_id", sid))
+		app.logInfo(r, logMsgAuthStudentLogin, slog.Int64("student_id", sid))
 		http.Redirect(w, r, "/student/", http.StatusSeeOther)
 	}
 }

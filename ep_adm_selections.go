@@ -145,7 +145,7 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 
 	app.logInfo(
 		r,
-		"created selections",
+		logMsgAdminSelectionsCreate,
 		slog.String("admin_username", aui.Username),
 		slog.Any("student_ids", studentIDs),
 		slog.Any("course_ids", courseIDs),
@@ -215,7 +215,7 @@ func (app *App) handleAdmSelectionsEdit(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	app.logInfo(r, "updated selection", slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID), slog.String("period", period), slog.String("selection_type", string(selectionType)))
+	app.logInfo(r, logMsgAdminSelectionsUpdate, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID), slog.String("period", period), slog.String("selection_type", string(selectionType)))
 	app.wsHub.BroadcastToStudents([]int64{studentID}, WSMessage("invalidate_selections"))
 	courseSet := []string{courseID}
 	if currentCourse != courseID {
@@ -262,7 +262,7 @@ func (app *App) handleAdmSelectionsDelete(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	app.logInfo(r, "deleted selection", slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
+	app.logInfo(r, logMsgAdminSelectionsDelete, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
 	app.wsHub.BroadcastToStudents([]int64{studentID}, WSMessage("invalidate_selections"))
 	app.broadcastCourseCounts(r, []string{existingCourse})
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
@@ -403,7 +403,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 	for id := range courseSet {
 		courses = append(courses, id)
 	}
-	app.logInfo(r, "imported selections", slog.String("admin_username", aui.Username), slog.Int("rows", row-2), slog.Int("students_impacted", len(students)), slog.Int("courses_impacted", len(courses)))
+	app.logInfo(r, logMsgAdminSelectionsImport, slog.String("admin_username", aui.Username), slog.Int("rows", row-2), slog.Int("students_impacted", len(students)), slog.Int("courses_impacted", len(courses)))
 	if len(students) > 0 {
 		app.wsHub.BroadcastToStudents(students, WSMessage("invalidate_selections"))
 	}

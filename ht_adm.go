@@ -38,7 +38,7 @@ func (app *App) admRenderTemplate(w http.ResponseWriter, r *http.Request, name s
 	t, ok := app.admTmpl[name+".tmpl"]
 	if !ok {
 		err := fmt.Errorf("unknown template %s", name)
-		app.logError(r, "unknown template", slog.String("template", name))
+		app.logError(r, logMsgTemplatesRenderMissing, slog.String("template", name))
 		return err
 	}
 
@@ -49,10 +49,10 @@ func (app *App) admRenderTemplate(w http.ResponseWriter, r *http.Request, name s
 		ActiveTab: name,
 		Data:      data,
 	}); err != nil {
-		app.logError(r, "failed rendering template", append(extra, slog.String("template", name), slog.Any("error", err))...)
+		app.logError(r, logMsgTemplatesRenderError, append(extra, slog.String("template", name), slog.Any("error", err))...)
 		return err
 	}
 
-	app.logInfo(r, "rendered template", append(extra, slog.String("template", name))...)
+	app.logInfo(r, logMsgTemplatesRenderSuccess, append(extra, slog.String("template", name))...)
 	return nil
 }
