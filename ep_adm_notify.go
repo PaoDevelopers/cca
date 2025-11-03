@@ -23,6 +23,5 @@ func (app *App) handleAdmNotify(w http.ResponseWriter, r *http.Request, aui *Use
 	app.logInfo(r, logMsgAdminNotificationsSend, slog.String("admin_username", aui.Username))
 	app.wsHub.Broadcast(WSMessage("notify," + message))
 
-	app.logInfo(r, logMsgAdminNotificationsRedirect, slog.String("admin_username", aui.Username))
 	http.Redirect(w, r, "/admin/notify", http.StatusSeeOther)
 }

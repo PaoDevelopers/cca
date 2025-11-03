@@ -70,7 +70,6 @@ func (app *App) handleAdmGradesNew(w http.ResponseWriter, r *http.Request, aui *
 	app.logInfo(r, logMsgAdminGradesCreate, slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	app.wsHub.Broadcast(WSMessage("invalidate_grades"))
 
-	app.logInfo(r, logMsgAdminGradesCreateRedirect, slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
 
@@ -140,7 +139,6 @@ func (app *App) handleAdmGradesBulkEnabledUpdate(w http.ResponseWriter, r *http.
 	app.logInfo(r, logMsgAdminGradesUpdateFlags, slog.String("admin_username", aui.Username))
 	app.wsHub.Broadcast(WSMessage("invalidate_grades"))
 
-	app.logInfo(r, logMsgAdminGradesUpdateFlagsRedirect, slog.String("admin_username", aui.Username))
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
 
@@ -166,7 +164,6 @@ func (app *App) handleAdmGradesEdit(w http.ResponseWriter, r *http.Request, aui 
 	app.logInfo(r, logMsgAdminGradesUpdateFlag, slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	app.wsHub.Broadcast(WSMessage("invalidate_grades"))
 
-	app.logInfo(r, logMsgAdminGradesUpdateFlagRedirect, slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
 
@@ -187,7 +184,6 @@ func (app *App) handleAdmGradesDelete(w http.ResponseWriter, r *http.Request, au
 	app.logInfo(r, logMsgAdminGradesDelete, slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	app.wsHub.Broadcast(WSMessage("invalidate_grades"))
 
-	app.logInfo(r, logMsgAdminGradesDeleteRedirect, slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
 
@@ -229,7 +225,6 @@ func (app *App) handleAdmGradesNewRequirementGroup(w http.ResponseWriter, r *htt
 	app.logInfo(r, logMsgAdminGradesRequirementGroupCreate, slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	app.wsHub.Broadcast(WSMessage("invalidate_grades"))
 
-	app.logInfo(r, logMsgAdminGradesRequirementGroupCreateRedirect, slog.String("admin_username", aui.Username), slog.String("grade", grade))
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }
 
@@ -250,6 +245,5 @@ func (app *App) handleAdmGradesDeleteRequirementGroup(w http.ResponseWriter, r *
 	app.logInfo(r, logMsgAdminGradesRequirementGroupDelete, slog.String("admin_username", aui.Username), slog.Int64("requirement_group_id", id))
 	app.wsHub.Broadcast(WSMessage("invalidate_grades"))
 
-	app.logInfo(r, logMsgAdminGradesRequirementGroupDeleteRedirect, slog.String("admin_username", aui.Username), slog.Int64("requirement_group_id", id))
 	http.Redirect(w, r, "/admin/grades", http.StatusSeeOther)
 }

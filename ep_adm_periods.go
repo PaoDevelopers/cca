@@ -40,7 +40,6 @@ func (app *App) handleAdmPeriodsNew(w http.ResponseWriter, r *http.Request, aui 
 	app.logInfo(r, logMsgAdminPeriodsCreate, slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	app.wsHub.Broadcast(WSMessage("invalidate_periods"))
 
-	app.logInfo(r, logMsgAdminPeriodsCreateRedirect, slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	http.Redirect(w, r, "/admin/periods", http.StatusSeeOther)
 }
 
@@ -61,6 +60,5 @@ func (app *App) handleAdmPeriodsDelete(w http.ResponseWriter, r *http.Request, a
 	app.logInfo(r, logMsgAdminPeriodsDelete, slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	app.wsHub.Broadcast(WSMessage("invalidate_periods"))
 
-	app.logInfo(r, logMsgAdminPeriodsDeleteRedirect, slog.String("admin_username", aui.Username), slog.String("period_id", id))
 	http.Redirect(w, r, "/admin/periods", http.StatusSeeOther)
 }
