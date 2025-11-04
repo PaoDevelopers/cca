@@ -240,25 +240,24 @@ INSERT INTO choices (
 	period,
 	selection_type
 )
-SELECT
-	$1,
+VALUES (
+	(SELECT s.id FROM students s WHERE s.id = $1),
 	$2,
-	c.period,
+	(SELECT c.period FROM courses c WHERE c.id = $2),
 	$3
-FROM courses c
-WHERE c.id = $2;
+);
 
 -- name: NewSelectionsBulk :exec
 WITH student_ids AS (
 	SELECT DISTINCT unnest($1::bigint[]) AS student_id
 ),
 course_ids AS (
-	SELECT DISTINCT c.id, c.period
-	FROM courses c
-	WHERE c.id = ANY($2::text[])
+	SELECT DISTINCT req.id AS course_id, c.period
+	FROM unnest($2::text[]) AS req(id)
+	LEFT JOIN courses c ON c.id = req.id
 ),
 to_insert AS (
-	SELECT s.student_id, c.id AS course_id, c.period
+	SELECT s.student_id, c.course_id, c.period
 	FROM student_ids s
 	CROSS JOIN course_ids c
 )

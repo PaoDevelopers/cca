@@ -376,7 +376,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		}
 
 		if err = qtx.NewSelection(r.Context(), db.NewSelectionParams{
-			StudentID:     studentID,
+			ID:            studentID,
 			CourseID:      courseID,
 			SelectionType: selectionType,
 		}); err != nil {

@@ -55,7 +55,7 @@ func (app *App) handleStuAPIMySelections(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		err = app.queries.NewSelection(r.Context(), db.NewSelectionParams{
-			StudentID:     sui.ID,
+			ID:            sui.ID,
 			CourseID:      s,
 			SelectionType: "normal",
 		})
