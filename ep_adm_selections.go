@@ -125,11 +125,8 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 
-	if err = app.queries.NewSelectionsBulk(r.Context(), db.NewSelectionsBulkParams{
-		Column1:       studentIDs,
-		Column2:       courseIDs,
-		SelectionType: selectionType,
-	}); err != nil {
+	tx, err := app.pool.Begin(r.Context())
+	if err != nil {
 		app.respondHTTPError(
 			r,
 			w,
@@ -137,8 +134,44 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 			"Internal Server Error\n"+err.Error(),
 			err,
 			slog.String("admin_username", aui.Username),
-			slog.Any("student_ids", studentIDs),
-			slog.Any("course_ids", courseIDs),
+		)
+		return
+	}
+	defer func() {
+		_ = tx.Rollback(r.Context())
+	}()
+
+	qtx := app.queries.WithTx(tx)
+	for _, studentID := range studentIDs {
+		for _, courseID := range courseIDs {
+			if err = qtx.NewSelection(r.Context(), db.NewSelectionParams{
+				PStudentID:     studentID,
+				PCourseID:      courseID,
+				PSelectionType: selectionType,
+			}); err != nil {
+				app.respondHTTPError(
+					r,
+					w,
+					http.StatusInternalServerError,
+					"Internal Server Error\n"+err.Error(),
+					err,
+					slog.String("admin_username", aui.Username),
+					slog.Int64("student_id", studentID),
+					slog.String("course_id", courseID),
+				)
+				return
+			}
+		}
+	}
+
+	if err = tx.Commit(r.Context()); err != nil {
+		app.respondHTTPError(
+			r,
+			w,
+			http.StatusInternalServerError,
+			"Internal Server Error\n"+err.Error(),
+			err,
+			slog.String("admin_username", aui.Username),
 		)
 		return
 	}
@@ -376,9 +409,9 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		}
 
 		if err = qtx.NewSelection(r.Context(), db.NewSelectionParams{
-			ID:            studentID,
-			CourseID:      courseID,
-			SelectionType: selectionType,
+			PStudentID:     studentID,
+			PCourseID:      courseID,
+			PSelectionType: selectionType,
 		}); err != nil {
 			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", courseID), slog.Int64("student_id", studentID))
 			return

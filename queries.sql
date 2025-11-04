@@ -236,9 +236,6 @@ ORDER BY ch.student_id, ch.period;
 -- name: NewSelection :exec
 SELECT new_selection($1, $2, $3);
 
--- name: NewSelectionsBulk :exec
-SELECT new_selections_bulk($1, $2, $3);
-
 -- name: UpdateSelection :exec
 UPDATE choices AS ch
 SET

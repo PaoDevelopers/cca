@@ -55,9 +55,9 @@ func (app *App) handleStuAPIMySelections(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		err = app.queries.NewSelection(r.Context(), db.NewSelectionParams{
-			ID:            sui.ID,
-			CourseID:      s,
-			SelectionType: "normal",
+			PStudentID:     sui.ID,
+			PCourseID:      s,
+			PSelectionType: "normal",
 		})
 		if err != nil {
 			app.apiError(r, w, http.StatusInternalServerError, err.Error(), slog.String("operation", "new_selection"), slog.Int64("student_id", sui.ID), slog.String("course_id", s))
