@@ -4,6 +4,20 @@
 	<meta charset="utf-8">
 	<title>Ticket {{.Ticket.ID}}</title>
 	<link rel="stylesheet" href="/static/styles.css">
+	<script>
+	document.addEventListener("DOMContentLoaded", function () {
+		const replyField = document.getElementById("message-body");
+		const updateButtons = document.querySelectorAll(
+			'form[action$="/status"] button, form[action$="/title"] button'
+		);
+		function toggleButtons() {
+			const hasContent = replyField.value.trim().length > 0;
+			updateButtons.forEach(btn => btn.disabled = hasContent);
+		}
+		replyField.addEventListener("input", toggleButtons);
+		toggleButtons();
+	});
+	</script>
 </head>
 <body>
 	<div class="page">
