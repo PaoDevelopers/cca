@@ -9,11 +9,9 @@
 	<div class="page">
 		<header class="page-header">
 			<p><a href="/tickets">Back to tickets</a></p>
-			<h1>{{.Ticket.Title}}</h1>
-			<p class="ticket-meta">Ticket {{.Ticket.ID}} · {{.TicketStatusLabel}}</p>
-			<p class="ticket-meta">Owner: {{.Ticket.OwnerUsername}}</p>
-			<p class="ticket-meta">Created: {{.Ticket.CreatedAt.Format "2006-01-02 15:04"}} UTC</p>
-			<p class="ticket-meta">Last activity: {{.Ticket.LastActivityAt.Format "2006-01-02 15:04"}} UTC</p>
+			<h1>{{.Ticket.Title}} ({{.Ticket.ID}})</h1>
+			<p class="ticket-meta">{{.TicketStatusLabel}}</p>
+			<p class="ticket-meta">{{.Ticket.OwnerUsername}}</p>
 			<p><a href="#thread-end">Jump to bottom</a></p>
 		</header>
 

@@ -45,7 +45,7 @@ a:focus {
 	max-width: 520px;
 }
 
-.page-header {
+.page-header-spreaded {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -54,11 +54,11 @@ a:focus {
 	margin-bottom: 1rem;
 }
 
-.page-header h1 {
+.page-header-spreaded h1 {
 	margin: 0;
 }
 
-.page-header p {
+.page-header-spreaded p {
 	margin: 0;
 	color: var(--color-muted);
 }
