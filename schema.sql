@@ -344,6 +344,113 @@ BEGIN
 END;
 $$;
 
+CREATE FUNCTION new_selection(
+	p_student_id BIGINT,
+	p_course_id TEXT,
+	p_selection_type selection_type
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_period TEXT;
+BEGIN
+	PERFORM 1
+	FROM students s
+	WHERE s.id = p_student_id;
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Student % not found', p_student_id
+			USING ERRCODE = 'foreign_key_violation';
+	END IF;
+
+	SELECT c.period
+	INTO v_period
+	FROM courses c
+	WHERE c.id = p_course_id;
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Course % not found', p_course_id
+			USING ERRCODE = 'foreign_key_violation';
+	END IF;
+
+	INSERT INTO choices (
+		student_id,
+		course_id,
+		period,
+		selection_type
+	)
+	VALUES (
+		p_student_id,
+		p_course_id,
+		v_period,
+		p_selection_type
+	);
+END;
+$$;
+
+CREATE FUNCTION new_selections_bulk(
+	p_student_ids BIGINT[],
+	p_course_ids TEXT[],
+	p_selection_type selection_type
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_missing_student BIGINT;
+	v_missing_course TEXT;
+BEGIN
+	SELECT sids.student_id
+	INTO v_missing_student
+	FROM (
+		SELECT DISTINCT unnest(p_student_ids) AS student_id
+	) AS sids
+	LEFT JOIN students s ON s.id = sids.student_id
+	WHERE s.id IS NULL
+	LIMIT 1;
+
+	IF v_missing_student IS NOT NULL THEN
+		RAISE EXCEPTION 'Student % not found', v_missing_student
+			USING ERRCODE = 'foreign_key_violation';
+	END IF;
+
+	SELECT cids.course_id
+	INTO v_missing_course
+	FROM (
+		SELECT DISTINCT unnest(p_course_ids) AS course_id
+	) AS cids
+	LEFT JOIN courses c ON c.id = cids.course_id
+	WHERE c.id IS NULL
+	LIMIT 1;
+
+	IF v_missing_course IS NOT NULL THEN
+		RAISE EXCEPTION 'Course % not found', v_missing_course
+			USING ERRCODE = 'foreign_key_violation';
+	END IF;
+
+	INSERT INTO choices (
+		student_id,
+		course_id,
+		period,
+		selection_type
+	)
+	SELECT
+		s.student_id,
+		c.course_id,
+		c.period,
+		p_selection_type
+	FROM (
+		SELECT DISTINCT unnest(p_student_ids) AS student_id
+	) AS s
+	CROSS JOIN (
+		SELECT DISTINCT c.id AS course_id, c.period
+		FROM courses c
+		WHERE c.id = ANY(p_course_ids)
+	) AS c;
+END;
+$$;
+
 
 -- TODO: trigger for deletion of choices when forced?
 

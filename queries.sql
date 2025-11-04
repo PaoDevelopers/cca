@@ -234,45 +234,10 @@ JOIN courses c ON c.id = ch.course_id
 ORDER BY ch.student_id, ch.period;
 
 -- name: NewSelection :exec
-INSERT INTO choices (
-	student_id,
-	course_id,
-	period,
-	selection_type
-)
-VALUES (
-	(SELECT s.id FROM students s WHERE s.id = $1),
-	$2,
-	(SELECT c.period FROM courses c WHERE c.id = $2),
-	$3
-);
+SELECT new_selection($1, $2, $3);
 
 -- name: NewSelectionsBulk :exec
-WITH student_ids AS (
-	SELECT DISTINCT unnest($1::bigint[]) AS student_id
-),
-course_ids AS (
-	SELECT DISTINCT req.id AS course_id, c.period
-	FROM unnest($2::text[]) AS req(id)
-	LEFT JOIN courses c ON c.id = req.id
-),
-to_insert AS (
-	SELECT s.student_id, c.course_id, c.period
-	FROM student_ids s
-	CROSS JOIN course_ids c
-)
-INSERT INTO choices (
-	student_id,
-	course_id,
-	period,
-	selection_type
-)
-SELECT
-	ti.student_id,
-	ti.course_id,
-	ti.period,
-	$3
-FROM to_insert ti;
+SELECT new_selections_bulk($1, $2, $3);
 
 -- name: UpdateSelection :exec
 UPDATE choices AS ch
