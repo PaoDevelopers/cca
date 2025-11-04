@@ -213,12 +213,9 @@ button {
 	color: var(--color-muted);
 }
 
-.message-body p {
-	margin: 0 0 0.5rem 0;
-}
-
-.message-body p:last-child {
-	margin-bottom: 0;
+.message-body {
+	white-space: pre-wrap;
+	word-break: break-word;
 }
 
 .attachments h3 {

@@ -25,7 +25,6 @@ type Server struct {
 
 type ViewMessage struct {
 	MessageWithAttachments
-	Paragraphs []string
 }
 
 func (s *Server) Handler() http.Handler {
@@ -369,7 +368,6 @@ func (s *Server) renderTicketDetail(w http.ResponseWriter, r *http.Request, user
 	for _, msg := range messages {
 		viewMessages = append(viewMessages, ViewMessage{
 			MessageWithAttachments: msg,
-			Paragraphs:             messageParagraphs(msg.Body),
 		})
 	}
 	data := map[string]any{
@@ -575,31 +573,4 @@ func cleanupFiles(paths []string, logger *slog.Logger) {
 			logger.Warn("attachment cleanup failed", "path", path, "error", err)
 		}
 	}
-}
-
-func messageParagraphs(body string) []string {
-	lines := strings.Split(body, "\n")
-	var paragraphs []string
-	var current strings.Builder
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			if current.Len() > 0 {
-				paragraphs = append(paragraphs, current.String())
-				current.Reset()
-			}
-			continue
-		}
-		if current.Len() > 0 {
-			current.WriteByte(' ')
-		}
-		current.WriteString(trimmed)
-	}
-	if current.Len() > 0 {
-		paragraphs = append(paragraphs, current.String())
-	}
-	if len(paragraphs) == 0 {
-		paragraphs = append(paragraphs, "")
-	}
-	return paragraphs
 }

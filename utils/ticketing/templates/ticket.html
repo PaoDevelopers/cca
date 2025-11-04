@@ -59,11 +59,7 @@
 					<header class="message-meta">
 						<p>{{.Author}} wrote on {{.CreatedAt.Format "2006-01-02 15:04"}} UTC</p>
 					</header>
-					<div class="message-body">
-						{{range .Paragraphs}}
-						<p>{{.}}</p>
-						{{end}}
-					</div>
+					<div class="message-body">{{- .Body -}}</div>
 					{{if .Attachments}}
 					<div class="attachments">
 						<h3>Attachments</h3>
