@@ -371,7 +371,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		case string(db.SelectionTypeForce):
 			selectionType = db.SelectionTypeForce
 		default:
-			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown invitation type", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("selection_type", selectionTypeStr))
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnknown selection type", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("selection_type", selectionTypeStr))
 			return
 		}
 
@@ -408,5 +408,6 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		app.wsHub.BroadcastToStudents(students, WSMessage("invalidate_selections"))
 	}
 	app.broadcastCourseCounts(r, courses)
+
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
