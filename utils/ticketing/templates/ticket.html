@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Ticket {{.Ticket.ID}}</title>
+	<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+	<div class="page">
+		<header class="page-header">
+			<p><a href="/tickets">Back to tickets</a></p>
+			<h1>{{.Ticket.Title}}</h1>
+			<p class="ticket-meta">Ticket {{.Ticket.ID}} · {{.TicketStatusLabel}}</p>
+			<p class="ticket-meta">Owner: {{.Ticket.OwnerUsername}}</p>
+			<p class="ticket-meta">Created: {{.Ticket.CreatedAt.Format "2006-01-02 15:04"}} UTC</p>
+			<p class="ticket-meta">Last activity: {{.Ticket.LastActivityAt.Format "2006-01-02 15:04"}} UTC</p>
+			<p><a href="#thread-end">Jump to bottom</a></p>
+		</header>
+
+		<section class="panel">
+			<h2>Ticket settings</h2>
+			<form method="post" action="/tickets/{{.Ticket.ID}}/status" class="inline-form">
+				<label for="ticket-status">Status</label>
+				<select id="ticket-status" name="status" required>
+					{{range .StatusOptions}}
+					<option value="{{.Value}}" {{if eq .Value $.Ticket.Status}}selected{{end}}>{{.Label}}</option>
+					{{end}}
+				</select>
+				<button type="submit" class="button-secondary">Update</button>
+			</form>
+
+			{{if .CanRenameTicket}}
+			<form method="post" action="/tickets/{{.Ticket.ID}}/title" class="inline-form">
+				<label for="ticket-title">Title</label>
+				<input type="text" id="ticket-title" name="title" value="{{.Ticket.Title}}" required>
+				<button type="submit" class="button-secondary">Rename</button>
+			</form>
+			{{end}}
+		</section>
+
+		<section class="conversation">
+			<h2>Conversation</h2>
+			{{if .Messages}}
+			<div class="message-list">
+				{{range .Messages}}
+				<article class="message">
+					<header class="message-meta">
+						<p>{{.Author}} wrote on {{.CreatedAt.Format "2006-01-02 15:04"}} UTC</p>
+					</header>
+					<div class="message-body">
+						{{range .Paragraphs}}
+						<p>{{.}}</p>
+						{{end}}
+					</div>
+					{{if .Attachments}}
+					<div class="attachments">
+						<h3>Attachments</h3>
+						<ul>
+							{{range .Attachments}}
+							<li><a href="/attachments/{{.ID}}">{{.OriginalName}}</a></li>
+							{{end}}
+						</ul>
+					</div>
+					{{end}}
+				</article>
+				{{end}}
+			</div>
+			{{else}}
+			<p>No messages yet.</p>
+			{{end}}
+			<div id="thread-end"></div>
+		</section>
+
+		<section class="panel">
+			<h2>Add a reply</h2>
+			<form method="post" action="/tickets/{{.Ticket.ID}}/messages" enctype="multipart/form-data" class="form-stack">
+				<div class="field">
+					<label for="message-body">Message</label>
+					<textarea id="message-body" name="body" rows="5" required></textarea>
+				</div>
+				<div class="field">
+					<label for="message-attachments">Attachments</label>
+					<input type="file" id="message-attachments" name="attachments" multiple>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="button-primary">Post reply</button>
+				</div>
+			</form>
+		</section>
+	</div>
+</body>
+</html>

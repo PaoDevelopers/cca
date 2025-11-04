@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Ticketing Sign In</title>
+	<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+	<div class="page page-narrow">
+		<header class="page-header">
+			<h1>Ticketing System</h1>
+			<p>Please sign in or register to manage support tickets.</p>
+		</header>
+
+		<section class="panel">
+			<h2>Sign in</h2>
+			<form method="post" action="/login" class="form-stack">
+				<div class="field">
+					<label for="login-username">Username</label>
+					<input type="text" id="login-username" name="username" autocomplete="username" required>
+				</div>
+				<div class="field">
+					<label for="login-password">Password</label>
+					<input type="password" id="login-password" name="password" autocomplete="current-password" required>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="button-primary">Sign in</button>
+				</div>
+			</form>
+		</section>
+
+		<section class="panel">
+			<h2>Create an account</h2>
+			<form method="post" action="/register" class="form-stack">
+				<div class="field">
+					<label for="register-invite">Invite code{{if not .InviteRequired}} (optional){{end}}</label>
+					<input type="text" id="register-invite" name="invite_code" {{if .InviteRequired}}required{{end}}>
+				</div>
+				<div class="field">
+					<label for="register-username">Username</label>
+					<input type="text" id="register-username" name="username" autocomplete="username" required>
+				</div>
+				<div class="field">
+					<label for="register-password">Password</label>
+					<input type="password" id="register-password" name="password" autocomplete="new-password" required>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="button-primary">Register</button>
+				</div>
+			</form>
+		</section>
+	</div>
+</body>
+</html>

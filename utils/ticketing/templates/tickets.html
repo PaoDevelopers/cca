@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title>Your Tickets</title>
+	<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+	<div class="page">
+		<header class="page-header">
+			<div class="header-main">
+				<h1>Tickets</h1>
+				<p>Signed in as <strong>{{.User.Username}}</strong>.</p>
+			</div>
+			<form method="post" action="/logout" class="inline-form">
+				<button type="submit" class="button-secondary">Sign out</button>
+			</form>
+		</header>
+
+		<section class="panel">
+			<h2>Find tickets</h2>
+			<form method="get" action="/tickets" class="inline-form">
+				<label for="search-query">Search by title{{if .User.IsAdmin}} or username{{end}}</label>
+				<input type="search" id="search-query" name="q" value="{{.SearchQuery}}">
+				<button type="submit" class="button-secondary">Search</button>
+			</form>
+		</section>
+
+		<section class="panel">
+			<h2>Create a new ticket</h2>
+			<form method="post" action="/tickets" enctype="multipart/form-data" class="form-stack">
+				<div class="field">
+					<label for="new-title">Title</label>
+					<input type="text" id="new-title" name="title" required>
+				</div>
+				<div class="field field-inline">
+					<label for="new-status">Initial status</label>
+					<select id="new-status" name="status" required>
+						{{range .NewTicketStatuses}}
+						<option value="{{.Value}}">{{.Label}}</option>
+						{{end}}
+					</select>
+				</div>
+				<div class="field">
+					<label for="new-body">Message</label>
+					<textarea id="new-body" name="body" rows="5" required></textarea>
+				</div>
+				<div class="field">
+					<label for="new-attachments">Attachments</label>
+					<input type="file" id="new-attachments" name="attachments" multiple>
+				</div>
+				<div class="form-actions">
+					<button type="submit" class="button-primary">Create ticket</button>
+				</div>
+			</form>
+		</section>
+
+		{{range .Sections}}
+		<section>
+			<h2>{{.Title}}</h2>
+			{{if .Tickets}}
+			<table class="ticket-table">
+				<thead>
+					<tr>
+						<th scope="col">Title</th>
+						{{if $.ShowOwnerColumn}}<th scope="col">Owner</th>{{end}}
+						<th scope="col">Last activity</th>
+						<th scope="col">Created</th>
+					</tr>
+				</thead>
+				<tbody>
+					{{range .Tickets}}
+					<tr>
+						<td><a href="/tickets/{{.ID}}">{{.Title}}</a></td>
+						{{if $.ShowOwnerColumn}}<td>{{.OwnerUsername}}</td>{{end}}
+						<td>{{.LastActivityAt.Format "2006-01-02 15:04"}} UTC</td>
+						<td>{{.CreatedAt.Format "2006-01-02 15:04"}} UTC</td>
+					</tr>
+					{{end}}
+				</tbody>
+			</table>
+			{{else}}
+			<p>No tickets in this list.</p>
+			{{end}}
+		</section>
+		{{end}}
+	</div>
+</body>
+</html>
