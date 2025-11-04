@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue"
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue"
 import ReviewPage from "./pages/ReviewPage.vue"
 import SelectionPage from "./pages/SelectionPage.vue"
 import type { Choice, Course, GradeRequirement, Student } from "./types"
@@ -24,6 +24,7 @@ const activeTab = ref<"Selection" | "Review">("Selection")
 const ccas = ref<CourseWithSelection[]>([])
 const userInfo = ref<Student | null>(null)
 const searchQuery = ref<string>("")
+const searchInput = ref<string>("")
 const searchScope = ref<"global" | "period">("global")
 const currentPeriod = ref<string>("")
 const viewMode = ref<"grid" | "table">("grid")
@@ -45,6 +46,7 @@ const isDisconnected = ref(false)
 const confirmModal = ref<HTMLDialogElement | null>(null)
 const initialLoadComplete = ref(false)
 const reconnectModal = ref<HTMLDialogElement | null>(null)
+const headerRef = ref<HTMLElement | null>(null)
 const pendingAction = ref<{
 	type: "unselect" | "replace"
 	course: CourseWithSelection
@@ -52,6 +54,9 @@ const pendingAction = ref<{
 } | null>(null)
 const confirmInput = ref("")
 const showInputError = ref(false)
+let searchDebounceTimeout: number | null = null
+let headerResizeObserver: ResizeObserver | null = null
+let hasWindowResizeListener = false
 
 const extractErrorMessage = async (res: Response): Promise<string> => {
 	const text = await res.text()
@@ -433,6 +438,16 @@ const startWebSocket = (): void => {
 	}
 }
 
+const handleReconnectClick = (): void => {
+	if (!isDisconnected.value) return
+	if (reconnectTimeout !== null) {
+		clearTimeout(reconnectTimeout)
+		reconnectTimeout = null
+	}
+	reconnectAttempts = 0
+	startWebSocket()
+}
+
 onMounted(async (): Promise<void> => {
 	try {
 		await fetchAllData()
@@ -441,6 +456,24 @@ onMounted(async (): Promise<void> => {
 		handleDataLoadError(err)
 	} finally {
 		initialLoadComplete.value = true
+	}
+	if (typeof window !== "undefined") {
+		if (!hasWindowResizeListener) {
+			window.addEventListener("resize", updateHeaderOffset)
+			hasWindowResizeListener = true
+		}
+		window.requestAnimationFrame(() => {
+			updateHeaderOffset()
+			if ("ResizeObserver" in window && headerRef.value !== null) {
+				if (headerResizeObserver !== null) {
+					headerResizeObserver.disconnect()
+				}
+				headerResizeObserver = new ResizeObserver(() => {
+					updateHeaderOffset()
+				})
+				headerResizeObserver.observe(headerRef.value)
+			}
+		})
 	}
 })
 
@@ -544,6 +577,29 @@ const filteredCCAs = computed<CourseWithSelection[]>(() => {
 	)
 })
 
+watch(
+	() => searchInput.value,
+	(newValue): void => {
+		if (searchDebounceTimeout !== null) {
+			clearTimeout(searchDebounceTimeout)
+		}
+		searchDebounceTimeout = window.setTimeout((): void => {
+			searchQuery.value = newValue.trim()
+			searchDebounceTimeout = null
+		}, 250)
+	},
+)
+
+watch(
+	() => searchQuery.value,
+	(newValue): void => {
+		if (newValue !== searchInput.value) {
+			searchInput.value = newValue
+		}
+	},
+	{ immediate: true },
+)
+
 const userGradeBinding = computed(() => {
 	const grade = userInfo.value?.grade
 	if (typeof grade === "string" && grade.length > 0) {
@@ -558,6 +614,17 @@ const currentGradeInfo = computed(() => {
 	return grades.value.find((grade) => grade.grade === gradeId) ?? null
 })
 
+const updateHeaderOffset = (): void => {
+	if (typeof document === "undefined") return
+	const headerEl = headerRef.value
+	if (headerEl === null) return
+	const height = Math.ceil(headerEl.getBoundingClientRect().height)
+	document.documentElement.style.setProperty(
+		"--cca-header-offset",
+		`${height}px`,
+	)
+}
+
 const cleanup = (): void => {
 	closeWebSocket()
 	if (reconnectTimeout !== null) {
@@ -571,6 +638,18 @@ const cleanup = (): void => {
 	if (errorTimeout !== null) {
 		clearTimeout(errorTimeout)
 		errorTimeout = null
+	}
+	if (searchDebounceTimeout !== null) {
+		clearTimeout(searchDebounceTimeout)
+		searchDebounceTimeout = null
+	}
+	if (hasWindowResizeListener && typeof window !== "undefined") {
+		window.removeEventListener("resize", updateHeaderOffset)
+		hasWindowResizeListener = false
+	}
+	if (headerResizeObserver !== null) {
+		headerResizeObserver.disconnect()
+		headerResizeObserver = null
 	}
 }
 
@@ -589,10 +668,10 @@ onBeforeUnmount((): void => {
 </script>
 
 <template>
-	<div class="min-h-screen bg-white flex flex-col">
-		<header class="bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+	<div class="min-h-screen bg-surface-solid flex flex-col text-ink">
+		<header ref="headerRef" class="bg-surface-solid sticky top-0 z-50">
 			<div
-				class="flex justify-between items-center px-8 py-5 border-b border-gray-200"
+				class="flex justify-between items-center px-8 py-5 border-b border-subtle bg-surface-solid"
 			>
 				<div class="flex flex-col items-start">
 					<h1 class="text-xl font-light tracking-wide">
@@ -600,16 +679,16 @@ onBeforeUnmount((): void => {
 					</h1>
 					<div
 						v-if="currentGradeInfo"
-						class="flex items-center gap-2 text-xs text-gray-600 mt-1"
+						class="flex items-center gap-2 text-xs text-ink-muted mt-1"
 					>
 						<span>Grade {{ currentGradeInfo.grade }}</span>
-						<span class="text-gray-400">·</span>
+						<span class="text-ink-muted/70">·</span>
 						<span
 							:class="[
 								'font-medium',
 								currentGradeInfo.enabled
-									? 'text-emerald-600'
-									: 'text-red-600',
+									? 'text-primary'
+									: 'text-danger',
 							]"
 						>
 							{{
@@ -618,85 +697,117 @@ onBeforeUnmount((): void => {
 									: "Disabled"
 							}}
 						</span>
-						<span class="text-gray-400">·</span>
+						<span class="text-ink-muted/70">·</span>
 						<span>
 							Max own choices:
 							{{ currentGradeInfo.max_own_choices }}
 						</span>
 					</div>
 				</div>
-				<div class="flex items-center gap-3 text-sm">
-					<span
+				<div class="flex items-center gap-3 text-sm text-ink-muted">
+					<button
 						v-if="isDisconnected"
-						class="px-2 py-1 rounded bg-red-100 text-red-700 font-medium"
+						type="button"
+						class="px-2 py-1 cca-danger rounded cca-bg-danger-soft font-medium transition-colors"
+						@click="handleReconnectClick"
+						aria-label="Reconnect to the server"
+						title="Attempt to reconnect"
 					>
 						Disconnected
-					</span>
+					</button>
 					<template v-if="userInfo">
-						<span class="text-gray-900 font-medium">{{
+						<span class="text-ink font-medium">{{
 							userInfo.name
 						}}</span>
-						<span class="text-gray-400">·</span>
-						<span class="text-gray-600">{{ userInfo.grade }}</span>
-						<span class="text-gray-400">·</span>
-						<span class="text-gray-600">
-							ID: {{ userInfo.id }}
-						</span>
+						<span class="text-ink-muted">·</span>
+						<span>{{ userInfo.grade }}</span>
+						<span class="text-ink-muted">·</span>
+						<span> ID: {{ userInfo.id }} </span>
 					</template>
 				</div>
 			</div>
-			<div class="border-b border-gray-200 bg-white">
+			<div class="border-b border-subtle bg-surface-solid">
 				<div
 					class="flex flex-wrap justify-between items-center px-8 py-4 gap-4"
 				>
 					<div class="flex gap-12">
 						<button
+							type="button"
 							@click="activeTab = 'Selection'"
 							class="text-sm pb-2"
 							:class="
 								activeTab === 'Selection'
-									? 'border-b-2 border-[#5bae31] text-[#5bae31]'
-									: 'text-gray-500 hover:text-gray-900'
+									? 'border-b-2 border-primary text-primary'
+									: 'text-ink-muted hover:text-ink'
+							"
+							:aria-pressed="activeTab === 'Selection'"
+							:aria-current="
+								activeTab === 'Selection' ? 'page' : undefined
 							"
 						>
 							Selection
 						</button>
 						<button
+							type="button"
 							@click="activeTab = 'Review'"
 							class="text-sm pb-2"
 							:class="
 								activeTab === 'Review'
-									? 'border-b-2 border-[#5bae31] text-[#5bae31]'
-									: 'text-gray-500 hover:text-gray-900'
+									? 'border-b-2 border-primary text-primary'
+									: 'text-ink-muted hover:text-ink'
+							"
+							:aria-pressed="activeTab === 'Review'"
+							:aria-current="
+								activeTab === 'Review' ? 'page' : undefined
 							"
 						>
 							Review
 						</button>
 					</div>
-					<div class="flex gap-4 items-center">
-						<label class="label">
+					<div class="flex flex-wrap gap-4 items-center text-ink">
+						<label
+							class="inline-flex items-center gap-2 text-sm"
+							for="disable-client-restriction"
+						>
 							<input
+								id="disable-client-restriction"
 								v-model="disableClientRestriction"
 								type="checkbox"
-								class="toggle toggle-sm checked:border-[#5bae31] checked:text-[#5bae31]"
+								class="toggle toggle-sm toggle-primary"
+								aria-describedby="disable-client-restriction-help"
 							/>
-							Disable Client Restriction
+							<span id="disable-client-restriction-help">
+								Disable client restriction
+							</span>
 						</label>
-						<select
-							v-model="searchScope"
-							class="text-xs border border-gray-300 rounded px-2 py-1.5"
-						>
-							<option value="global">Search globally</option>
-							<option value="period" v-if="currentPeriod">
-								Search in {{ currentPeriod }}
-							</option>
-						</select>
-						<input
-							v-model="searchQuery"
-							type="text"
-							placeholder="Search CCAs..."
-							class="text-sm border border-gray-300 rounded px-3 py-1.5 w-20 sm:w-40"
-						/>
+						<div class="flex items-center gap-2 text-sm">
+							<label class="sr-only" for="search-scope"
+								>Search scope</label
+							>
+							<select
+								id="search-scope"
+								v-model="searchScope"
+								class="text-xs border border-gray-300 rounded px-2 py-1.5 bg-surface"
+								aria-label="Search scope"
+							>
+								<option value="global">Search globally</option>
+								<option value="period" v-if="currentPeriod">
+									Search in {{ currentPeriod }}
+								</option>
+							</select>
+							<label class="sr-only" for="search-input"
+								>Search CCAs</label
+							>
+							<input
+								id="search-input"
+								v-model="searchInput"
+								type="search"
+								placeholder="Search CCAs..."
+								class="border border-gray-300 rounded px-3 py-1.5 w-24 sm:w-52 bg-surface"
+								enterkeyhint="search"
+								autocomplete="off"
+							/>
+						</div>
 					</div>
 				</div>
 			</div>
@@ -705,7 +816,7 @@ onBeforeUnmount((): void => {
 		<div v-if="errorMessage" class="toast toast-top toast-center z-[60]">
 			<div
 				role="alert"
-				class="alert alert-error !bg-red-100 !text-red-900"
+				class="alert alert-error !bg-danger-soft !text-danger !border-danger-soft"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -727,7 +838,7 @@ onBeforeUnmount((): void => {
 		<div v-if="infoMessage" class="toast toast-top toast-center z-[60]">
 			<div
 				role="alert"
-				class="alert alert-info !bg-blue-100 !text-blue-900 !border-blue-100"
+				class="alert alert-success !bg-primary-soft !text-primary !border-primary-soft"
 			>
 				<svg
 					xmlns="http://www.w3.org/2000/svg"
@@ -748,11 +859,11 @@ onBeforeUnmount((): void => {
 
 		<SelectionPage
 			v-if="activeTab === 'Selection' && initialLoadComplete"
+			v-bind="userGradeBinding"
 			ref="selectionPageRef"
 			:ccas="filteredCCAs"
 			:search-active="searchScope === 'global' && !!searchQuery"
 			:grades="grades"
-			v-bind="userGradeBinding"
 			:periods="periods"
 			:initial-period="currentPeriod"
 			:initial-view-mode="viewMode"
@@ -764,14 +875,18 @@ onBeforeUnmount((): void => {
 		/>
 		<ReviewPage
 			v-else-if="activeTab === 'Review' && initialLoadComplete"
+			v-bind="userGradeBinding"
 			:ccas="ccas"
 			:grades="grades"
-			v-bind="userGradeBinding"
 			:periods="periods"
 		/>
 		<div v-else class="flex flex-1">
 			<aside
-				class="w-56 border-r border-gray-200 bg-white p-8 sticky top-[137px] self-start max-h-[calc(100vh-137px)] overflow-y-auto"
+				class="w-56 border-r border-subtle bg-surface p-8 sticky self-start overflow-y-auto"
+				style="
+					top: var(--cca-header-offset);
+					max-height: calc(100vh - var(--cca-header-offset));
+				"
 			>
 				<div class="space-y-2">
 					<div class="skeleton h-6 w-full"></div>
@@ -780,7 +895,7 @@ onBeforeUnmount((): void => {
 					<div class="skeleton h-6 w-full"></div>
 				</div>
 			</aside>
-			<main class="flex-1 p-8 bg-gray-50/30">
+			<main class="flex-1 p-8 bg-subtle">
 				<div class="flex justify-between items-center mb-6">
 					<div class="skeleton h-10 w-64"></div>
 					<div class="flex gap-2">
@@ -799,13 +914,11 @@ onBeforeUnmount((): void => {
 		</div>
 
 		<footer
-			class="px-4 border-t border-gray-200 bg-white py-4 text-sm text-gray-600"
+			class="px-4 border-t border-subtle bg-surface py-4 text-sm text-ink-muted"
 		>
 			<p>
 				Copyright © 2025
-				<a href="https://runxiyu.org" style="color: #5bae31"
-					>Runxi Yu</a
-				>
+				<a href="https://runxiyu.org" class="text-primary">Runxi Yu</a>
 				and Henry Yang.
 			</p>
 
@@ -814,7 +927,7 @@ onBeforeUnmount((): void => {
 				modify it under the terms of the
 				<a
 					href="https://www.gnu.org/licenses/agpl-3.0.en.html"
-					style="color: #5bae31"
+					class="text-primary"
 					>GNU Affero General Public License as published by the Free
 					Software Foundation, version 3</a
 				>
@@ -826,7 +939,7 @@ onBeforeUnmount((): void => {
 
 			<p>
 				The source code is available
-				<a style="color: #5bae31" href="https://sr.ht/~runxiyu/cca/"
+				<a class="text-primary" href="https://sr.ht/~runxiyu/cca/"
 					>on SourceHut</a
 				>.
 			</p>
@@ -840,7 +953,7 @@ onBeforeUnmount((): void => {
 					to continue.
 				</p>
 				<div class="modal-action">
-					<button class="btn" @click="reloadPage">
+					<button class="btn btn-primary" @click="reloadPage">
 						Refresh Page
 					</button>
 				</div>
@@ -856,7 +969,7 @@ onBeforeUnmount((): void => {
 					>?
 				</p>
 				<p
-					class="text-sm text-red-600 mb-4"
+					class="text-sm text-danger mb-4"
 					v-if="
 						pendingAction?.type === 'unselect' &&
 						pendingAction.course.membership === 'invite_only'
@@ -872,7 +985,7 @@ onBeforeUnmount((): void => {
 					>?
 				</p>
 				<p
-					class="text-sm text-red-600 mb-4"
+					class="text-sm text-danger mb-4"
 					v-if="
 						pendingAction?.type === 'replace' &&
 						pendingAction.existing?.membership === 'invite_only'
@@ -894,7 +1007,7 @@ onBeforeUnmount((): void => {
 				>
 					<label
 						class="block text-sm mb-2"
-						:class="{ 'text-red-600': showInputError }"
+						:class="{ 'text-danger': showInputError }"
 						>Type "I am really sure" to confirm:</label
 					>
 					<input
@@ -906,10 +1019,13 @@ onBeforeUnmount((): void => {
 				</div>
 				<div class="modal-action">
 					<form method="dialog">
-						<button class="btn" @click="cancelAction">
+						<button class="btn btn-ghost" @click="cancelAction">
 							Cancel
 						</button>
-						<button class="btn ml-2" @click.prevent="confirmAction">
+						<button
+							class="btn btn-primary ml-2"
+							@click.prevent="confirmAction"
+						>
 							Confirm
 						</button>
 					</form>

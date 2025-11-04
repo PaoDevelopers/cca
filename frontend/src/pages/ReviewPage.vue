@@ -103,27 +103,27 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 </script>
 
 <template>
-	<div class="flex-1 p-8 bg-gray-50/30">
+	<div class="flex-1 p-8 bg-subtle">
 		<div class="max-w-6xl mx-auto">
 			<h2 class="text-2xl font-light mb-6">Your Selections</h2>
 			<div class="grid grid-cols-3 gap-6">
 				<div class="col-span-1">
-					<div class="bg-white border border-gray-200 rounded-lg p-4">
-						<h3 class="text-base font-medium text-gray-700 mb-3">
+					<div class="bg-surface border border-subtle rounded-lg p-4">
+						<h3 class="text-base font-medium text-ink mb-3">
 							Requirements Status
 						</h3>
 						<div class="space-y-2">
 							<div
 								v-for="(req, i) in requirementCounts"
 								:key="i"
-								class="flex items-center justify-between text-base py-2 border-b border-gray-100 last:border-b-0"
+								class="flex items-center justify-between text-base py-2 border-b border-subtle last:border-b-0"
 							>
 								<div class="flex flex-col gap-1">
 									<span
 										:class="
 											req.selected >= req.required
-												? 'text-green-600 font-medium'
-												: 'text-gray-900'
+												? 'text-primary font-medium'
+												: 'text-ink'
 										"
 									>
 										{{ req.selected }} of {{ req.required }}
@@ -131,11 +131,11 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 									</span>
 									<span
 										v-if="req.selected >= req.required"
-										class="text-sm text-green-600"
+										class="text-sm text-primary"
 									>
 										✓ Satisfied
 									</span>
-									<span v-else class="text-sm text-amber-600">
+									<span v-else class="text-sm text-warning">
 										Need
 										{{ req.required - req.selected }} more
 									</span>
@@ -146,45 +146,25 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 				</div>
 
 				<div class="col-span-2">
-					<div
-						role="alert"
-						class="flex items-center gap-3 bg-[#5bae31]/10 border border-[#5bae31]/30 rounded-lg px-4 py-3 mb-4"
-					>
-						<svg
-							xmlns="http://www.w3.org/2000/svg"
-							fill="none"
-							viewBox="0 0 24 24"
-							class="h-5 w-5 shrink-0 stroke-[#5bae31]"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="2"
-								d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-							></path>
-						</svg>
-						<span class="text-[#5bae31]"
-							>If your chosen CCA is in the table, you have
-							successfully chosen your CCA.</span
-						>
-					</div>
+					<p class="mb-4 text-ink-muted">
+						If your chosen CCA appears in the table, you have
+						successfully chosen your CCA.
+					</p>
 
 					<div
-						class="bg-white border-1 border-gray-300 rounded-lg overflow-hidden"
+						class="bg-surface border border-subtle rounded-lg overflow-hidden"
 					>
 						<div
 							v-if="isLoading"
-							class="flex justify-center items-center p-12 text-sm text-gray-600"
+							class="flex justify-center items-center p-12 text-sm text-ink-muted"
 						>
 							<span>Loading...</span>
 						</div>
 						<table v-else class="w-full border-collapse">
-							<thead
-								class="border-b-1 border-gray-300 bg-gray-50"
-							>
+							<thead class="border-b border-subtle bg-subtle">
 								<tr>
 									<th
-										class="text-left p-3 font-medium border-r-1 border-gray-300 w-1/4"
+										class="text-left p-3 font-medium border-r border-subtle w-1/4"
 									>
 										Period
 									</th>
@@ -199,16 +179,18 @@ const selectionRows = computed<Array<{ period: string; cca: string }>>(() => {
 									:key="index"
 									:class="
 										index < selectionRows.length - 1
-											? 'border-b-1 border-gray-300'
+											? 'border-b border-subtle'
 											: ''
 									"
 								>
 									<td
-										class="p-3 font-medium border-r-1 border-gray-300 w-1/4"
+										class="p-3 font-medium border-r border-subtle w-1/4"
 									>
 										{{ row.period }}
 									</td>
-									<td class="p-3 w-3/4">{{ row.cca }}</td>
+									<td class="p-3 w-3/4 text-ink-muted">
+										{{ row.cca }}
+									</td>
 								</tr>
 							</tbody>
 						</table>
