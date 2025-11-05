@@ -12,6 +12,7 @@ const ALL_PERIODS = "__ALL_PERIODS__"
 
 const props = defineProps<{
 	ccas: CourseWithSelection[]
+	allCcas: CourseWithSelection[]
 	searchActive: boolean
 	userGrade?: string
 	grades: GradeRequirement[]
@@ -168,7 +169,7 @@ const requirementCounts = computed<
 >(() => {
 	if (reqGroups.value.length === 0) return []
 	return reqGroups.value.map((group) => {
-		const selected = props.ccas.filter(
+		const selected = props.allCcas.filter(
 			(c) =>
 				c.selected && group.category_ids.indexOf(c.category_id) !== -1,
 		).length

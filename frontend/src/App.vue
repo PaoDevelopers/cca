@@ -750,6 +750,7 @@ onBeforeUnmount((): void => {
 			v-if="activeTab === 'Selection' && initialLoadComplete"
 			ref="selectionPageRef"
 			:ccas="filteredCCAs"
+			:all-ccas="ccas"
 			:search-active="searchScope === 'global' && !!searchQuery"
 			:grades="grades"
 			v-bind="userGradeBinding"
