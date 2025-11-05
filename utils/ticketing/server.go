@@ -535,7 +535,7 @@ func (s *Server) sendIRC(ctx context.Context, details string) {
 	if s.IRCMessages == nil {
 		return
 	}
-	message := fmt.Sprintf("runxiyu: %s", details)
+	message := fmt.Sprintf("runxiyu, rx, henryxiaoyang: %s", details)
 	select {
 	case s.IRCMessages <- message:
 	default:
