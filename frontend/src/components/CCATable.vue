@@ -29,9 +29,9 @@ const groupedCCAs = computed<Record<string, CourseWithSelection[]>>(() => {
 </script>
 
 <template>
-	<div class="bg-surface border border-subtle rounded-lg overflow-hidden">
+	<div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
 		<table class="w-full text-sm">
-			<thead class="border-b border-subtle bg-subtle">
+			<thead class="border-b border-gray-200 bg-gray-50">
 				<tr>
 					<th class="text-left p-4 font-medium w-12"></th>
 					<th class="text-left p-4 font-medium">Name</th>
@@ -47,7 +47,7 @@ const groupedCCAs = computed<Record<string, CourseWithSelection[]>>(() => {
 					v-for="(ccas_, category) in groupedCCAs"
 					:key="category"
 				>
-					<tr class="bg-subtle">
+					<tr class="bg-gray-100">
 						<td colspan="7" class="p-3 font-medium text-sm">
 							{{ category }}
 						</td>
@@ -55,14 +55,14 @@ const groupedCCAs = computed<Record<string, CourseWithSelection[]>>(() => {
 					<tr
 						v-for="cca in ccas_"
 						:key="cca.id"
-						class="border-b border-subtle"
+						class="border-b border-gray-200"
 						:class="
 							(cca.current_students >= cca.max_students ||
 								cca.membership === 'invite_only') &&
 							!cca.selected &&
 							!disableClientRestriction
 								? 'opacity-50'
-								: 'hover:bg-subtle'
+								: 'hover:bg-gray-50'
 						"
 					>
 						<td class="p-4">
@@ -78,11 +78,10 @@ const groupedCCAs = computed<Record<string, CourseWithSelection[]>>(() => {
 													'invite_only') &&
 											!cca.selected)
 								"
-								type="button"
 								class="w-8 h-8 flex items-center justify-center border rounded"
 								:class="
 									cca.selected
-										? 'bg-primary border-primary text-white'
+										? 'bg-[#5bae31] border-[#5bae31] text-white'
 										: (disableClientRestriction
 													? false
 													: cca.current_students >=
@@ -90,25 +89,13 @@ const groupedCCAs = computed<Record<string, CourseWithSelection[]>>(() => {
 														cca.membership ===
 															'invite_only') &&
 											  !cca.selected
-											? 'border-gray-300 text-ink-muted cursor-not-allowed'
-											: 'border-gray-300 text-ink-muted hover:border-primary hover:text-primary'
-								"
-								:aria-label="
-									(cca.selected ? 'Unselect ' : 'Select ') +
-									cca.name
-								"
-								:aria-pressed="cca.selected ? 'true' : 'false'"
-								:aria-busy="
-									updatingCcaId === cca.id ? 'true' : 'false'
-								"
-								:title="
-									(cca.selected ? 'Unselect ' : 'Select ') +
-									cca.name
+											? 'border-gray-300 text-gray-400 cursor-not-allowed'
+											: 'border-gray-300 text-gray-400 hover:border-[#5bae31] hover:text-[#5bae31]'
 								"
 							>
 								<span
 									v-if="updatingCcaId === cca.id"
-									class="text-sm leading-none text-ink-muted"
+									class="text-sm leading-none text-gray-500"
 									>Loading...</span
 								>
 								<svg
@@ -133,30 +120,30 @@ const groupedCCAs = computed<Record<string, CourseWithSelection[]>>(() => {
 								<span>{{ cca.name }}</span>
 								<span
 									v-if="showPeriod"
-									class="text-xs font-medium uppercase tracking-wide text-primary mt-1"
+									class="text-xs font-medium uppercase tracking-wide text-[#5bae31] mt-1"
 									>{{ cca.period }}</span
 								>
 							</div>
 						</td>
-						<td class="p-4 text-ink-muted">
+						<td class="p-4 text-gray-600">
 							{{ cca.current_students }}/{{ cca.max_students }}
 							<span
 								v-if="cca.current_students >= cca.max_students"
-								class="text-danger"
+								class="text-red-500"
 								>(Full!)</span
 							>
 						</td>
-						<td class="p-4 text-ink-muted">{{ cca.id }}</td>
-						<td class="p-4 text-ink-muted">
+						<td class="p-4 text-gray-600">{{ cca.id }}</td>
+						<td class="p-4 text-gray-600">
 							<span
 								v-if="cca.membership === 'invite_only'"
-								class="text-xs font-medium text-warning uppercase"
+								class="text-xs font-medium text-amber-600 uppercase"
 								>Invite Only</span
 							>
 							<span v-else>{{ cca.membership }}</span>
 						</td>
-						<td class="p-4 text-ink-muted">{{ cca.teacher }}</td>
-						<td class="p-4 text-ink-muted">{{ cca.location }}</td>
+						<td class="p-4 text-gray-600">{{ cca.teacher }}</td>
+						<td class="p-4 text-gray-600">{{ cca.location }}</td>
 					</tr>
 				</template>
 			</tbody>

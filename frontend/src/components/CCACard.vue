@@ -30,25 +30,22 @@ const isDisabled = computed(
 			? false
 			: isOutOfCapacity.value || isInviteOnly.value),
 )
-const toggleLabel = computed(
-	() => (props.cca.selected ? "Unselect " : "Select ") + props.cca.name,
-)
 </script>
 
 <template>
 	<div
-		class="bg-surface border border-subtle rounded-lg p-6 relative flex flex-col"
+		class="bg-white border border-gray-200 rounded-lg p-6 relative flex flex-col"
 		:class="
 			(isOutOfCapacity || isInviteOnly) && !disableClientRestriction
 				? 'opacity-50'
-				: 'hover:border-primary'
+				: 'hover:border-[#5bae31]'
 		"
 	>
 		<div class="flex justify-between items-start mb-3">
 			<div class="pr-12">
 				<p
 					v-if="showPeriod"
-					class="text-xs font-medium uppercase tracking-wide text-primary mb-1"
+					class="text-xs font-medium uppercase tracking-wide text-[#5bae31] mb-1"
 				>
 					{{ cca.period }}
 				</p>
@@ -57,23 +54,18 @@ const toggleLabel = computed(
 			<button
 				@click="emit('toggle', cca.id)"
 				:disabled="isDisabled"
-				type="button"
 				class="w-8 h-8 flex items-center justify-center border rounded flex-shrink-0"
 				:class="
 					cca.selected
-						? 'bg-primary border-primary text-white'
+						? 'bg-[#5bae31] border-[#5bae31] text-white'
 						: isDisabled
-							? 'border-subtle text-ink-muted cursor-not-allowed'
-							: 'border-subtle text-ink-muted hover:border-primary hover:text-primary'
+							? 'border-gray-300 text-gray-400 cursor-not-allowed'
+							: 'border-gray-400 text-gray-600 hover:border-[#5bae31] hover:text-[#5bae31]'
 				"
-				:aria-label="toggleLabel"
-				:aria-pressed="cca.selected ? 'true' : 'false'"
-				:aria-busy="isUpdating ? 'true' : 'false'"
-				:title="toggleLabel"
 			>
 				<span
 					v-if="isUpdating"
-					class="text-sm leading-none text-ink-muted"
+					class="text-sm leading-none text-gray-500"
 					>Loading...</span
 				>
 				<svg
@@ -94,13 +86,13 @@ const toggleLabel = computed(
 			</button>
 		</div>
 
-		<p class="text-xs text-ink-muted mb-3">{{ cca.id }}</p>
+		<p class="text-xs text-gray-500 mb-3">{{ cca.id }}</p>
 		<p
 			class="text-sm mb-4 leading-relaxed"
 			:class="
 				(isOutOfCapacity || isInviteOnly) && !disableClientRestriction
-					? 'text-ink-muted'
-					: 'text-ink'
+					? 'text-gray-500'
+					: 'text-gray-700'
 			"
 		>
 			{{ cca.description }}
@@ -108,20 +100,20 @@ const toggleLabel = computed(
 
 		<div class="space-y-1.5 text-sm mt-auto">
 			<div class="flex justify-between">
-				<span class="text-ink-muted">Teacher</span>
+				<span class="text-gray-500">Teacher</span>
 				<span class="font-medium">{{ cca.teacher }}</span>
 			</div>
 			<div class="flex justify-between">
-				<span class="text-ink-muted">Location</span>
+				<span class="text-gray-500">Location</span>
 				<span class="font-medium">{{ cca.location }}</span>
 			</div>
 			<div class="flex justify-between">
-				<span class="text-ink-muted">Capacity</span>
+				<span class="text-gray-500">Capacity</span>
 				<span class="font-medium"
 					>{{ cca.current_students }}/{{ cca.max_students }}
 					<span
 						v-if="cca.current_students >= cca.max_students"
-						class="text-danger"
+						class="text-red-500"
 						>(Full!)</span
 					></span
 				>
@@ -130,8 +122,8 @@ const toggleLabel = computed(
 				v-if="cca.membership === 'invite_only'"
 				class="flex justify-between"
 			>
-				<span class="text-ink-muted">Membership</span>
-				<span class="text-xs font-medium text-warning uppercase"
+				<span class="text-gray-500">Membership</span>
+				<span class="text-xs font-medium text-amber-600 uppercase"
 					>Invite Only</span
 				>
 			</div>

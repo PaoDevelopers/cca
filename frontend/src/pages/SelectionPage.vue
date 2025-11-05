@@ -184,51 +184,35 @@ const requirementCounts = computed<
 <template>
 	<div class="flex flex-1">
 		<aside
-			class="w-56 border-r border-subtle bg-surface p-8 sticky self-start overflow-y-auto"
-			style="
-				top: var(--cca-header-offset);
-				max-height: calc(100vh - var(--cca-header-offset));
-			"
+			class="w-56 border-r border-gray-200 bg-white p-8 sticky top-[137px] self-start max-h-[calc(100vh-137px)] overflow-y-auto"
 		>
-			<ul v-if="!isLoading" class="space-y-2 text-sm text-ink-muted">
-				<li>
-					<button
-						type="button"
-						class="w-full text-left px-2 py-1.5 rounded-md"
-						@click="selectPeriod(ALL_PERIODS)"
-						:class="[
-							isAllPeriods
-								? 'text-primary font-medium bg-primary-soft'
-								: 'hover:text-ink',
-						]"
-						:aria-pressed="isAllPeriods ? 'true' : 'false'"
-						:aria-current="isAllPeriods ? 'true' : undefined"
-					>
-						All periods
-					</button>
+			<ul v-if="!isLoading" class="space-y-2 text-sm text-gray-600">
+				<li
+					@click="selectPeriod(ALL_PERIODS)"
+					class="cursor-pointer"
+					:class="[
+						isAllPeriods
+							? 'text-[#5bae31] font-medium'
+							: 'hover:text-gray-900',
+					]"
+				>
+					All periods
 				</li>
-				<li v-for="period in props.periods" :key="period">
-					<button
-						type="button"
-						class="w-full text-left px-2 py-1.5 rounded-md"
-						@click="selectPeriod(period)"
-						:class="[
-							selectedPeriod === period
-								? 'text-primary font-medium bg-primary-soft'
-								: '',
-							searchActive && !ccasByPeriod[period]?.length
-								? 'text-ink-muted opacity-60'
-								: 'hover:text-ink',
-						]"
-						:aria-pressed="
-							selectedPeriod === period ? 'true' : 'false'
-						"
-						:aria-current="
-							selectedPeriod === period ? 'true' : undefined
-						"
-					>
-						{{ period }}
-					</button>
+				<li
+					v-for="period in props.periods"
+					:key="period"
+					@click="selectPeriod(period)"
+					class="cursor-pointer"
+					:class="[
+						selectedPeriod === period
+							? 'text-[#5bae31] font-medium'
+							: '',
+						searchActive && !ccasByPeriod[period]?.length
+							? 'text-gray-300'
+							: 'hover:text-gray-900',
+					]"
+				>
+					{{ period }}
 				</li>
 			</ul>
 			<div v-else class="space-y-2">
@@ -239,24 +223,19 @@ const requirementCounts = computed<
 			</div>
 		</aside>
 
-		<main class="flex-1 flex flex-col bg-subtle">
+		<main class="flex-1 flex flex-col bg-gray-50/30">
 			<div
-				class="sticky z-20 border-b border-subtle px-8 py-4 flex justify-between items-center bg-surface"
-				style="top: var(--cca-header-offset); min-height: 4.5rem"
+				class="sticky top-[137px] z-10 bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center"
 			>
 				<div v-if="!isLoading" class="flex gap-3 text-base">
 					<template v-for="(req, i) in requirementCounts" :key="i">
-						<span v-if="i > 0" class="text-ink-muted opacity-60"
-							>·</span
-						>
+						<span v-if="i > 0" class="text-gray-300">·</span>
 						<span
-							class="font-medium"
-							:style="{
-								color:
-									req.selected >= req.required
-										? 'rgb(var(--cca-primary))'
-										: 'rgb(var(--cca-danger))',
-							}"
+							:class="
+								req.selected >= req.required
+									? 'text-[#5bae31]'
+									: 'text-red-600'
+							"
 							>{{ req.selected }} of {{ req.required }}
 							{{ req.categories.join("/") }}
 							({{
@@ -270,16 +249,13 @@ const requirementCounts = computed<
 				<div v-else class="skeleton h-10 w-64"></div>
 				<div class="flex gap-2">
 					<button
-						type="button"
 						@click="viewMode = 'grid'"
 						class="p-2 border rounded"
 						:class="
 							viewMode === 'grid'
-								? 'bg-primary text-white border-primary'
-								: 'border-gray-300 text-ink-muted'
+								? 'bg-[#5bae31] text-white border-[#5bae31]'
+								: 'border-gray-300 text-gray-600'
 						"
-						:aria-pressed="viewMode === 'grid' ? 'true' : 'false'"
-						aria-label="Show grid view"
 					>
 						<svg
 							class="w-5 h-5"
@@ -296,16 +272,13 @@ const requirementCounts = computed<
 						</svg>
 					</button>
 					<button
-						type="button"
 						@click="viewMode = 'table'"
 						class="p-2 border rounded"
 						:class="
 							viewMode === 'table'
-								? 'bg-primary text-white border-primary'
-								: 'border-gray-300 text-ink-muted'
+								? 'bg-[#5bae31] text-white border-[#5bae31]'
+								: 'border-gray-300 text-gray-600'
 						"
-						:aria-pressed="viewMode === 'table' ? 'true' : 'false'"
-						aria-label="Show table view"
 					>
 						<svg
 							class="w-5 h-5"
@@ -335,7 +308,7 @@ const requirementCounts = computed<
 				</div>
 				<div
 					v-else-if="hasNoResults"
-					class="flex items-center justify-center h-64 text-ink-muted"
+					class="flex items-center justify-center h-64 text-gray-500"
 				>
 					No result
 				</div>
