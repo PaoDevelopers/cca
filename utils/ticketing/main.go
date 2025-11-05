@@ -71,6 +71,9 @@ func main() {
 		SessionDuration: 24 * time.Hour,
 	}
 
+	ircMessages := make(chan string, 100)
+	go runIRC(ctx, logger, ircMessages)
+
 	server := &Server{
 		Store:        store,
 		Templates:    templates,
@@ -79,6 +82,7 @@ func main() {
 		Attachments:  attachments,
 		InviteCode:   code,
 		StaticDir:    strings.TrimSpace(*staticDir),
+		IRCMessages:  ircMessages,
 	}
 
 	httpServer := newHTTPServer(*listenAddr, server.Handler())

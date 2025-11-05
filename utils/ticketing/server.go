@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"html/template"
@@ -21,6 +22,7 @@ type Server struct {
 	Attachments  *FileStorage
 	InviteCode   string
 	StaticDir    string
+	IRCMessages  chan<- string
 }
 
 type ViewMessage struct {
@@ -340,10 +342,12 @@ func (s *Server) createTicket(w http.ResponseWriter, r *http.Request, user *Sess
 		}
 	}()
 
-	if _, _, err := s.Store.CreateTicketWithMessage(r.Context(), user.ID, title, status, body, attachments); err != nil {
+	ticket, _, err := s.Store.CreateTicketWithMessage(r.Context(), user.ID, title, status, body, attachments)
+	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
+	s.announceUserActivity(r, user, fmt.Sprintf("created ticket #%d %q", ticket.ID, ticket.Title), fmt.Sprintf("/tickets/%d", ticket.ID))
 	success = true
 	http.Redirect(w, r, "/tickets", http.StatusSeeOther)
 }
@@ -414,10 +418,12 @@ func (s *Server) addTicketMessage(w http.ResponseWriter, r *http.Request, user *
 		}
 	}()
 
-	if _, err := s.Store.AddMessage(r.Context(), ticket.ID, user.ID, body, attachments); err != nil {
+	msg, err := s.Store.AddMessage(r.Context(), ticket.ID, user.ID, body, attachments)
+	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
+	s.announceUserActivity(r, user, fmt.Sprintf("replied to ticket #%d %q", ticket.ID, ticket.Title), fmt.Sprintf("/tickets/%d#message-%d", ticket.ID, msg.ID))
 	success = true
 	http.Redirect(w, r, fmt.Sprintf("/tickets/%d", ticket.ID), http.StatusSeeOther)
 }
@@ -445,6 +451,7 @@ func (s *Server) updateTicketStatus(w http.ResponseWriter, r *http.Request, user
 		s.serverError(w, r, err)
 		return
 	}
+	s.announceUserActivity(r, user, fmt.Sprintf("updated ticket #%d %q to %s", ticket.ID, ticket.Title, statusTitle(status)), fmt.Sprintf("/tickets/%d", ticket.ID))
 	http.Redirect(w, r, fmt.Sprintf("/tickets/%d", ticket.ID), http.StatusSeeOther)
 }
 
@@ -514,6 +521,50 @@ func (s *Server) requireUser(w http.ResponseWriter, r *http.Request) (*SessionUs
 		return nil, false
 	}
 	return user, true
+}
+
+func (s *Server) announceUserActivity(r *http.Request, user *SessionUser, action, path string) {
+	if user == nil || user.IsAdmin {
+		return
+	}
+	description := fmt.Sprintf("%s by %s - %s", action, user.Username, buildAbsoluteURL(r, path))
+	s.sendIRC(r.Context(), description)
+}
+
+func (s *Server) sendIRC(ctx context.Context, details string) {
+	if s.IRCMessages == nil {
+		return
+	}
+	message := fmt.Sprintf("runxiyu: %s", details)
+	select {
+	case s.IRCMessages <- message:
+	default:
+		s.Logger.WarnContext(ctx, "dropping irc message", "message", message)
+	}
+}
+
+func buildAbsoluteURL(r *http.Request, path string) string {
+	scheme := "https"
+	if r.TLS == nil {
+		if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+			parts := strings.Split(proto, ",")
+			if len(parts) > 0 {
+				if candidate := strings.TrimSpace(parts[0]); candidate != "" {
+					scheme = candidate
+				}
+			}
+		} else {
+			scheme = "http"
+		}
+	}
+	host := strings.TrimSpace(r.Host)
+	if host == "" {
+		host = "localhost"
+	}
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+	return scheme + "://" + host + path
 }
 
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data any) {
