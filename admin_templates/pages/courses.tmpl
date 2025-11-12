@@ -42,6 +42,7 @@ Courses
 						<span>{{ if gt (len $courseData.AllowedGrades) 0 }}{{ range $i, $grade := $courseData.AllowedGrades }}{{ if $i }}, {{ end }}{{ $grade }}{{ end }}{{ else }}Any{{ end }}</span>
 					</div>
 					<div class="hfill">
+						<span>{{ $course.Membership }}</span>
 						<span>{{ $course.CurrentStudents }}/{{ $course.MaxStudents }}</span>
 					</div>
 					{{ if $course.Description }}
