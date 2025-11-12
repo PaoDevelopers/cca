@@ -233,6 +233,18 @@ JOIN students s ON s.id = ch.student_id
 JOIN courses c ON c.id = ch.course_id
 ORDER BY ch.student_id, ch.period;
 
+-- name: GetSelectionsExport :many
+SELECT
+	student_id,
+	student_name,
+	grade,
+	legal_sex,
+	course_id,
+	course_name,
+	period,
+	selection_type
+FROM v_export_selections;
+
 -- name: NewSelection :exec
 SELECT new_selection($1, $2, $3);
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/csv"
 	"errors"
 	"io"
@@ -54,6 +55,58 @@ func (app *App) handleAdmSelections(w http.ResponseWriter, r *http.Request, aui 
 	}, slog.String("admin_username", aui.Username)); err != nil {
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\nfailed rendering template", err, slog.String("admin_username", aui.Username))
 	}
+}
+
+func (app *App) handleAdmSelectionsExport(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	app.logRequestStart(r, "handleAdmSelectionsExport", slog.String("admin_username", aui.Username))
+	if r.Method != http.MethodGet {
+		app.apiError(r, w, http.StatusMethodNotAllowed, nil, slog.String("admin_username", aui.Username))
+		return
+	}
+
+	rows, err := app.queries.GetSelectionsExport(r.Context())
+	if err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+		return
+	}
+
+	var buf bytes.Buffer
+	csvWriter := csv.NewWriter(&buf)
+	if err := csvWriter.Write([]string{"student_id", "student_name", "grade", "legal_sex", "course_id", "course_name", "period", "selection_type"}); err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+		return
+	}
+
+	for _, row := range rows {
+		record := []string{
+			strconv.FormatInt(row.StudentID, 10),
+			row.StudentName,
+			row.Grade,
+			string(row.LegalSex),
+			row.CourseID,
+			row.CourseName,
+			row.Period,
+			string(row.SelectionType),
+		}
+		if err := csvWriter.Write(record); err != nil {
+			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+			return
+		}
+	}
+	csvWriter.Flush()
+	if err := csvWriter.Error(); err != nil {
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/csv")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"selections.csv\"")
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusOK)
+	if _, err := w.Write(buf.Bytes()); err != nil {
+		app.logWarn(r, logMsgHTTPResponseError, slog.Any("error", err), slog.String("admin_username", aui.Username))
+	}
+	app.logInfo(r, logMsgAdminSelectionsExport, slog.String("admin_username", aui.Username), slog.Int("row_count", len(rows)))
 }
 
 func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {

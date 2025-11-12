@@ -133,6 +133,7 @@ func main() {
 	mux.HandleFunc("/admin/students/delete", app.adminOnly("handleAdmStudentsDelete", app.handleAdmStudentsDelete))
 	mux.HandleFunc("/admin/students/import", app.adminOnly("handleAdmStudentsImport", app.handleAdmStudentsImport))
 	mux.HandleFunc("/admin/selections", app.adminOnly("handleAdmSelections", app.handleAdmSelections))
+	mux.HandleFunc("/admin/selections/export", app.adminOnly("handleAdmSelectionsExport", app.handleAdmSelectionsExport))
 	mux.HandleFunc("/admin/selections/new", app.adminOnly("handleAdmSelectionsNew", app.handleAdmSelectionsNew))
 	mux.HandleFunc("/admin/selections/edit", app.adminOnly("handleAdmSelectionsEdit", app.handleAdmSelectionsEdit))
 	mux.HandleFunc("/admin/selections/delete", app.adminOnly("handleAdmSelectionsDelete", app.handleAdmSelectionsDelete))

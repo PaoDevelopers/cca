@@ -43,6 +43,7 @@ const (
 	logMsgAdminSelectionsUpdate             = "admin.selections.update"
 	logMsgAdminSelectionsDelete             = "admin.selections.delete"
 	logMsgAdminSelectionsImport             = "admin.selections.import"
+	logMsgAdminSelectionsExport             = "admin.selections.export"
 	logMsgStudentPlaceholderWrite           = "student.placeholder.write_error"
 	logMsgStudentInfoEncodeError            = "student.info.encode_error"
 	logMsgStudentSelectionsCreate           = "student.api.selections.create"
