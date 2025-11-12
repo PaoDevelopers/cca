@@ -10,7 +10,6 @@ import (
 )
 
 type Config struct {
-	URL      string `scfgs:"url"`
 	Database struct {
 		URL               string        `scfgs:"url"`
 		MaxConns          int32         `scfgs:"max_conns"`

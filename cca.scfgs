@@ -1,5 +1,3 @@
-url https://cca.runxiyu.org
-
 database {
         url postgres:///cca?host=/var/run/postgresql
         max_conns 80
