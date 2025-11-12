@@ -71,6 +71,10 @@ func (app *App) handleAdmSelectionsExport(w http.ResponseWriter, r *http.Request
 	}
 
 	var buf bytes.Buffer
+	if _, err := buf.WriteString("\uFEFF"); err != nil { // Excel BOM
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+		return
+	}
 	csvWriter := csv.NewWriter(&buf)
 	if err := csvWriter.Write([]string{"student_id", "student_name", "grade", "legal_sex", "course_id", "course_name", "period", "selection_type"}); err != nil {
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
