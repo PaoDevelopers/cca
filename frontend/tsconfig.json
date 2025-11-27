@@ -19,10 +19,17 @@
 		"forceConsistentCasingInFileNames": true,
 		"noFallthroughCasesInSwitch": true,
 		"noEmit": true,
+		"types": ["svelte"],
 		"baseUrl": ".",
 		"paths": {
 			"@/*": ["src/*"]
 		}
 	},
-	"include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.vue"]
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.d.ts",
+		"src/**/*.svelte",
+		"vite.config.ts",
+		"svelte.config.js"
+	]
 }

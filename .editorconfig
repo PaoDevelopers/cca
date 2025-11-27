@@ -7,7 +7,7 @@ indent_style = tab
 indent_size = 8
 tab_size = 8
 
-[*.vue]
+[*.svelte]
 tab_size = 4
 indent_size = 4
 [*.js]
