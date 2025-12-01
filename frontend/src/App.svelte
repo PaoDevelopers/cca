@@ -881,8 +881,8 @@
 				</p>
 				{#if targetCourse?.membership === "invite_only"}
 					<p class="warning-text">
-						This is an invitation-only course. You will
-						need another invitation to rejoin.
+						This is an invitation-only course. You will need another
+						invitation to rejoin.
 					</p>
 				{/if}
 			{:else if isReplacing}
@@ -895,13 +895,13 @@
 					in period {confirmModal.course.period}.
 				</p>
 				<p class="warning-text">
-					If you remove your selection, you may not be able to
-					rejoin if it becomes full.
+					If you remove your selection, you may not be able to rejoin
+					if it becomes full.
 				</p>
 				{#if replacingCourse?.membership === "invite_only"}
 					<p class="warning-text">
-						The course you're removing is invitation-only.
-						You will need another invitation to rejoin.
+						The course you're removing is invitation-only. You will
+						need another invitation to rejoin.
 					</p>
 				{/if}
 			{/if}
