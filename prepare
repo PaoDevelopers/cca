@@ -4,4 +4,4 @@ set -eux
 
 cd frontend
 
-npm install
+bun install

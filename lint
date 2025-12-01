@@ -6,6 +6,6 @@ golangci-lint run ./...
 
 cd frontend
 
-npm run lint:typescript
-npm run lint:eslint
-npm run lint:prettier
+bun run lint:typescript
+bun run lint:eslint
+bun run lint:prettier
