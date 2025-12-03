@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+
+set -eu
+
+shopt -s globstar
+
+code() {
+	lang="$1"
+	tabsize="$2"
+	shift 2
+	for i in "$@"
+	do
+		x="$(realpath -e --relative-to="$(realpath -e -- .)" -- "$i")"
+		printf '\\subsection{%s}\n' "$(sed 's/_/\\_/g' <<< "$x")"
+		printf '\\label{%s}\n' "$(sed 's/_/_/g' <<< "$x")"
+		printf '\\inputminted[breaklines, tabsize=%s]{%s}{%s}\n' "$tabsize" "$lang" ../"$x"
+	done
+}
+
+section() {
+	printf '\\section{%s}\n' "$*"
+}
+
+section SQL schema and queries
+code postgresql 8 *.sql
+code yaml 2 sqlc.yaml
+
+section Backend
+code go 8 *.go
+code text 8 go.mod go.sum
+code text 8 db/.gitignore
+
+section Administrator frontend
+code javascript 4 admin_static/*.js
+code css 8 admin_static/*.css
+code text 8 admin_static/*.csv
+code html 4 admin_templates/**/*.tmpl
+
+section Student frontend
+code json 8 frontend/package.json
+code text 8 frontend/.gitignore
+code html 4 frontend/index.html
+code text 4 frontend/src/App.svelte # no svelte lexer
+code typescript 4 frontend/src/**/*.ts
+code javascript 4 frontend/svelte.config.js
+code typescript 4 frontend/vite.config.ts
+code json 8 frontend/tsconfig.json
+code css 8 frontend/src/app.css
+
+section Control scripts for preparing, building, and linting
+code shell 8 prepare
+code shell 8 build
+code shell 8 lint
+code yaml 2 .build.yml
+code yaml 2 .golangci.yaml
+code ini 8 .editorconfig
+code json 8 frontend/.prettierrc.json
+code javascript 4 frontend/eslint.config.js
+
+section Auxiliary files
+code text 8 .gitattributes
+code text 8 .gitignore
+code text 8 LICENSE
+code markdown 8 README.md
+
+section Example configuration file
+code text 8 cca.scfgs
+
+section Benchmarking utility
+code text 8 utils/bench/.gitignore
+code go 8 utils/bench/main.go
+
+section Ticketing micro-service
+code text 8 utils/ticketing/.gitignore
+code go 8 utils/ticketing/**/*.go
+code css 8 utils/ticketing/**/*.css
+code postgresql 8 utils/ticketing/schema.sql
+code html 4 utils/ticketing/**/*.html
+code text 8 utils/ticketing/go.sum utils/ticketing/go.mod
+
+section IA documentation and relevant build scripts
+code bash 8 iadocs/mksrc
+code shell 8 iadocs/mkdocs
+code latex 8 iadocs/doc.tex
+code text 8 iadocs/.gitignore

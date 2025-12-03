@@ -1,0 +1,8 @@
+#!/bin/sh
+
+set -eux
+
+pdflatex -shell-escape doc
+biber doc
+pdflatex -shell-escape doc
+pdflatex -shell-escape doc
