@@ -8,10 +8,10 @@
 ## Build
 
 You need a recent [Go](https://go.dev) toolchain and
-[Bun](https://bun.com/). [`sqlc`](https://sqlc.dev) is necessary but will
+[npm](https://www.npmjs.com/). [`sqlc`](https://sqlc.dev) is necessary but will
 be downloaded and run automatically if absent from `$PATH`.
 
-To install JS packages, run `./prepare`.
+To install NPM packages, run `./prepare`.
 
 To build, just run `./build`.
 

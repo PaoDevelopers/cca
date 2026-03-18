@@ -8,6 +8,6 @@ go build -o cca
 
 cd frontend
 
-bun run build
+npm run build
 
 cd ..
