@@ -1,5 +1,5 @@
-import svelteParser from "svelte-eslint-parser"
-import sveltePlugin from "eslint-plugin-svelte"
+import vueParser from "vue-eslint-parser"
+import vuePlugin from "eslint-plugin-vue"
 import tsParser from "@typescript-eslint/parser"
 import tsPlugin from "@typescript-eslint/eslint-plugin"
 import prettierPlugin from "eslint-plugin-prettier"
@@ -7,13 +7,13 @@ import globals from "globals"
 
 export default [
 	{
-		files: ["src/**/*.{ts,svelte}"],
+		files: ["src/**/*.{ts,vue}"],
 		ignores: ["dist/**", "node_modules/**"],
 		languageOptions: {
-			parser: svelteParser,
+			parser: vueParser,
 			parserOptions: {
 				parser: tsParser,
-				extraFileExtensions: [".svelte"],
+				extraFileExtensions: [".vue"],
 				ecmaVersion: "latest",
 				sourceType: "module",
 				project: ["./tsconfig.json"],
@@ -26,7 +26,7 @@ export default [
 			},
 		},
 		plugins: {
-			svelte: sveltePlugin,
+			vue: vuePlugin,
 			"@typescript-eslint": tsPlugin,
 			prettier: prettierPlugin,
 		},
@@ -102,14 +102,29 @@ export default [
 			"@typescript-eslint/restrict-plus-operands": "error",
 			"@typescript-eslint/unbound-method": "error",
 
-			"svelte/indent": "off",
-			"svelte/no-unused-svelte-ignore": "error",
-			"svelte/no-at-html-tags": "off",
-			"svelte/no-reactive-functions": "error",
-			"svelte/no-reactive-literals": "error",
-			"svelte/require-optimized-style-attribute": "error",
-			"svelte/valid-compile": "error",
-			"svelte/valid-each-key": "error",
+			"vue/html-indent": "off",
+			"vue/multi-word-component-names": "off",
+			"vue/no-async-in-computed-properties": "error",
+			"vue/no-mutating-props": "error",
+			"vue/no-ref-as-operand": "error",
+			"vue/no-side-effects-in-computed-properties": "error",
+			"vue/no-unused-components": "error",
+			"vue/no-unused-properties": [
+				"error",
+				{ groups: ["props", "data", "computed", "methods"] },
+			],
+			"vue/no-unused-vars": "error",
+			"vue/no-v-html": "off",
+			"vue/no-v-text": "error",
+			"vue/require-default-prop": "error",
+			"vue/require-explicit-emits": "error",
+			"vue/require-prop-types": "error",
+			"vue/script-indent": "off",
+			"vue/no-use-v-if-with-v-for": "error",
+			"vue/no-template-key": "error",
+			"vue/no-useless-template-attributes": "error",
+			"vue/no-reserved-component-names": "error",
+			"vue/require-name-property": "error",
 
 			"no-console": "off",
 			"no-alert": "off",
@@ -135,6 +150,10 @@ export default [
 			],
 			"@typescript-eslint/no-extraneous-class": "error",
 			"@typescript-eslint/no-useless-empty-export": "error",
+			"vue/valid-v-slot": "error",
+			"vue/no-template-shadow": "error",
+			"vue/no-useless-v-bind": "error",
+			"vue/prefer-true-attribute-shorthand": "error",
 		},
 	},
 	{

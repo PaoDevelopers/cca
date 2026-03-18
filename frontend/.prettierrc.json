@@ -5,7 +5,6 @@
 	"singleQuote": false,
 	"semi": false,
 	"endOfLine": "lf",
-	"plugins": ["prettier-plugin-svelte"],
 	"overrides": [
 		{
 			"files": [
@@ -14,7 +13,7 @@
 				"*.ts",
 				"*.tsx",
 				"*.html",
-				"*.svelte"
+				"*.vue"
 			],
 			"options": {
 				"tabWidth": 4
