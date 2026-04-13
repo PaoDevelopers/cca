@@ -4,7 +4,9 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"flag"
+	"fmt"
 	"log"
 	"log/slog"
 	"net"
@@ -39,6 +41,22 @@ func main() {
 	app.config, err = loadConfig(configPath)
 	if err != nil {
 		log.Fatalln(err)
+	}
+
+	if app.config.DP42IK.KeyB64 != "" {
+		app.dp42ikKey, err = base64.StdEncoding.DecodeString(app.config.DP42IK.KeyB64)
+		if err != nil {
+			log.Fatalf("decode dp42ik key: %v", err)
+		}
+		if len(app.dp42ikKey) != 32 {
+			log.Fatalf("decode dp42ik key: got %d bytes, want 32", len(app.dp42ikKey))
+		}
+		if app.config.DP42IK.ServiceID == "" {
+			log.Fatalln("dp42ik service_id is required when key_b64 is set")
+		}
+		if app.config.DP42IK.KeyID < 0 || app.config.DP42IK.KeyID > 255 {
+			log.Fatalln(fmt.Errorf("dp42ik key_id must be between 0 and 255: %d", app.config.DP42IK.KeyID))
+		}
 	}
 
 	// Database
@@ -106,6 +124,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/{$}", app.handleIndex)
 	mux.HandleFunc("/auth", app.handleAuth)
+	mux.HandleFunc("/dp42ik", app.handleDP42IK)
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(http.Dir("admin_static"))))
 	mux.HandleFunc("/admin/{$}", app.adminOnly("handleAdm", app.handleAdm))
 	mux.HandleFunc("/admin/notify", app.adminOnly("handleAdmNotify", app.handleAdmNotify))

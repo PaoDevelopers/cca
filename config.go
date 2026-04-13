@@ -35,6 +35,11 @@ type Config struct {
 		Authorize string `scfgs:"authorize"`
 		JWKS      string `scfgs:"jwks"`
 	} `scfgs:"oidc"`
+	DP42IK struct {
+		ServiceID string `scfgs:"service_id"`
+		KeyID     int    `scfgs:"key_id"`
+		KeyB64    string `scfgs:"key_b64"`
+	} `scfgs:"dp42ik"`
 	Admins map[string]struct{} `scfgs:"admins"`
 	// SSEBuf int                 `scfgs:"sse_buf"` // Not needed anymore
 }

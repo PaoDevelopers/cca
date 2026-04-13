@@ -13,6 +13,7 @@ const (
 	logMsgAuthOIDCRedirect                  = "auth.oidc.redirect_authorize"               //#nosec:G101
 	logMsgAuthStudentBypass                 = "auth.student.bypass"                        //#nosec:G101
 	logMsgAuthStudentLogin                  = "auth.student.login"                         //#nosec:G101
+	logMsgAuthStudentDP42IKLogin            = "auth.student.dp42ik_login"                  //#nosec:G101
 	logMsgAuthAdminLogin                    = "auth.admin.login"                           //#nosec:G101
 	logMsgAuthMiddlewareStudent             = "auth.middleware.student_only.authenticated" //#nosec:G101
 	logMsgAuthMiddlewareAdmin               = "auth.middleware.admin_only.authenticated"   //#nosec:G101

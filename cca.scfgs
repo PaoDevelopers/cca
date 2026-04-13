@@ -27,6 +27,12 @@ oidc {
 	bypass true
 }
 
+dp42ik {
+	service_id paospace
+	key_id 0
+	key_b64 QRD/ASrZDk1D4V4xEe2sWnb1H2tRTm0gUa3Sa2Q5UO0=
+}
+
 admins {
 	s22537
 	ed.chapman

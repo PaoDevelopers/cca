@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"log/slog"
@@ -52,25 +53,9 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 		sid, err := strconv.ParseInt(strings.TrimLeft(r.PostFormValue("bypass"), "sS"), 10, 64)
 		if err != nil {
 			app.respondHTTPError(r, w, http.StatusUnauthorized, "Unauthorized\nInvalid student ID", nil)
+			return
 		}
-		st := rand.Text()
-		tst := "student:" + st
-		cookie := http.Cookie{
-			Name:     "session",
-			Value:    tst,
-			SameSite: http.SameSiteLaxMode,
-			HttpOnly: true,
-			Secure:   true,
-			Expires:  time.Now().Add(72 * time.Hour),
-		}
-		http.SetCookie(w, &cookie)
-		_, err = app.queries.SetStudentSession(
-			r.Context(),
-			db.SetStudentSessionParams{
-				SessionToken: pgtype.Text{String: st, Valid: true},
-				ID:           sid,
-			},
-		)
+		err = app.issueStudentSession(r.Context(), w, sid)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				app.respondHTTPError(
@@ -158,25 +143,18 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 
 	_, isAdmin := app.config.Admins[lp]
 
-	st := rand.Text()
-	tst := ""
 	if isAdmin {
-		tst = "admin:" + st
-	} else {
-		tst = "student:" + st
-	}
+		st := rand.Text()
+		cookie := http.Cookie{
+			Name:     "session",
+			Value:    "admin:" + st,
+			SameSite: http.SameSiteLaxMode,
+			HttpOnly: true,
+			Secure:   true,
+			Expires:  time.Now().Add(72 * time.Hour),
+		}
+		http.SetCookie(w, &cookie)
 
-	cookie := http.Cookie{
-		Name:     "session",
-		Value:    tst,
-		SameSite: http.SameSiteLaxMode,
-		HttpOnly: true,
-		Secure:   true,
-		Expires:  time.Now().Add(72 * time.Hour),
-	}
-	http.SetCookie(w, &cookie)
-
-	if isAdmin {
 		err = app.queries.SetAdminSession(
 			r.Context(),
 			db.SetAdminSessionParams{
@@ -211,13 +189,7 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		_, err = app.queries.SetStudentSession(
-			r.Context(),
-			db.SetStudentSessionParams{
-				SessionToken: pgtype.Text{String: st, Valid: true},
-				ID:           sid,
-			},
-		)
+		err = app.issueStudentSession(r.Context(), w, sid)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				app.respondHTTPError(
@@ -244,4 +216,26 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 		app.logInfo(r, logMsgAuthStudentLogin, slog.Int64("student_id", sid))
 		http.Redirect(w, r, "/student/", http.StatusSeeOther)
 	}
+}
+
+func (app *App) issueStudentSession(ctx context.Context, w http.ResponseWriter, sid int64) error {
+	st := rand.Text()
+	cookie := http.Cookie{
+		Name:     "session",
+		Value:    "student:" + st,
+		SameSite: http.SameSiteLaxMode,
+		HttpOnly: true,
+		Secure:   true,
+		Expires:  time.Now().Add(72 * time.Hour),
+	}
+	http.SetCookie(w, &cookie)
+
+	_, err := app.queries.SetStudentSession(
+		ctx,
+		db.SetStudentSessionParams{
+			SessionToken: pgtype.Text{String: st, Valid: true},
+			ID:           sid,
+		},
+	)
+	return err
 }

@@ -10,10 +10,11 @@ import (
 )
 
 type App struct {
-	config  Config
-	pool    *pgxpool.Pool
-	queries *db.Queries
-	kf      keyfunc.Keyfunc
-	admTmpl map[string]*template.Template
-	wsHub   *WebSocketHub
+	config    Config
+	pool      *pgxpool.Pool
+	queries   *db.Queries
+	kf        keyfunc.Keyfunc
+	dp42ikKey []byte
+	admTmpl   map[string]*template.Template
+	wsHub     *WebSocketHub
 }
