@@ -181,7 +181,7 @@ const requestSelectionUpdate = async (
 
 const loadCourses = async (): Promise<void> => {
 	const [coursesData, selectionsData] = await Promise.all([
-		fetchJson<Course[]>("/student/api/courses", {
+		fetchJson<Course[] | null>("/student/api/courses", {
 			credentials: "include",
 			redirect: "manual",
 		}),
@@ -190,7 +190,7 @@ const loadCourses = async (): Promise<void> => {
 			redirect: "manual",
 		}),
 	])
-	ccas.value = coursesData.map((course: Course) => ({
+	ccas.value = (coursesData ?? []).map((course: Course) => ({
 		...course,
 		current_students:
 			typeof course.current_students === "number"
@@ -215,8 +215,8 @@ const loadGrades = async (): Promise<void> => {
 		}
 		return
 	}
-	const gradeData = (await gradesRes.json()) as GradeRequirement[]
-	grades.value = gradeData
+	const gradeData = (await gradesRes.json()) as GradeRequirement[] | null
+	grades.value = gradeData ?? []
 }
 
 const loadPeriods = async (): Promise<void> => {
@@ -233,7 +233,7 @@ const loadPeriods = async (): Promise<void> => {
 		}
 		return
 	}
-	periods.value = (await periodsRes.json()) as string[]
+	periods.value = ((await periodsRes.json()) as string[] | null) ?? []
 }
 
 const fetchAllData = async (): Promise<void> => {
