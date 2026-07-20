@@ -3,7 +3,8 @@
 		"target": "ESNext",
 		"useDefineForClassFields": true,
 		"module": "ESNext",
-		"moduleResolution": "Node",
+		"moduleResolution": "Bundler",
+		"moduleDetection": "force",
 		"jsx": "react-jsx",
 		"resolveJsonModule": true,
 		"isolatedModules": true,
@@ -19,6 +20,8 @@
 		"forceConsistentCasingInFileNames": true,
 		"noFallthroughCasesInSwitch": true,
 		"noEmit": true,
+		"incremental": true,
+		"tsBuildInfoFile": "./node_modules/.cache/typescript/tsconfig.tsbuildinfo",
 		"baseUrl": ".",
 		"paths": {
 			"@/*": ["src/*"]

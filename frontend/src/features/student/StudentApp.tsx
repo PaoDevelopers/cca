@@ -1,10 +1,4 @@
-import {
-	useCallback,
-	useDeferredValue,
-	useEffect,
-	useMemo,
-	useState,
-} from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
 	BookOpenCheckIcon,
 	CalendarDaysIcon,
@@ -74,6 +68,7 @@ import {
 	CourseTimetable,
 	type CatalogLayout,
 } from "@/features/student/CourseCatalogViews"
+import { useSearchFilter } from "@/hooks/use-search-filter"
 import {
 	CCA_DAYS,
 	CCA_SLOTS_PER_DAY,
@@ -92,9 +87,21 @@ const CCA_SLOT_FILTERS: readonly CCASlotFilter[] = [
 	"all",
 	...CCA_SLOTS_PER_DAY.map((slot) => String(slot) as CCASlotFilter),
 ]
+const EMPTY_COURSES: readonly Course[] = []
+
+function getCourseSearchText(course: Course): string {
+	return [
+		course.name,
+		course.id,
+		course.description,
+		course.teacher,
+		course.location,
+		course.category_id,
+	].join(" ")
+}
 
 function matchesPeriodFilter(
-	periodIDs: string[],
+	periodIDs: readonly string[],
 	day: CCADayFilter,
 	slot: CCASlotFilter,
 ): boolean {
@@ -218,7 +225,6 @@ export default function StudentApp(): React.JSX.Element {
 	const [data, setData] = useState<StudentBootstrap | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [query, setQuery] = useState("")
-	const deferredQuery = useDeferredValue(query)
 	const [layout, setLayout] = useState<CatalogLayout>("cards")
 	const [dayFilter, setDayFilter] = useState<CCADayFilter>("all")
 	const [slotFilter, setSlotFilter] = useState<CCASlotFilter>("all")
@@ -228,6 +234,7 @@ export default function StudentApp(): React.JSX.Element {
 	const [busyCourseID, setBusyCourseID] = useState<string | null>(null)
 	const [removeCourse, setRemoveCourse] = useState<Course | null>(null)
 	const [slotCourse, setSlotCourse] = useState<Course | null>(null)
+	const courses = data?.courses ?? EMPTY_COURSES
 
 	const load = useCallback(async (): Promise<void> => {
 		try {
@@ -297,17 +304,15 @@ export default function StudentApp(): React.JSX.Element {
 	}, [load])
 
 	const selectedCourses = useMemo(
-		() => data?.courses.filter((course) => course.selected) ?? [],
-		[data],
+		() => courses.filter((course) => course.selected),
+		[courses],
 	)
 	const categories = useMemo(
 		() =>
-			data === null
-				? []
-				: [...new Set(data.courses.map((course) => course.category_id))]
-						.filter((category) => category !== "")
-						.sort((left, right) => left.localeCompare(right)),
-		[data],
+			[...new Set(courses.map((course) => course.category_id))]
+				.filter((category) => category !== "")
+				.sort((left, right) => left.localeCompare(right)),
+		[courses],
 	)
 	const categoryItems = useMemo(
 		() => [
@@ -319,25 +324,7 @@ export default function StudentApp(): React.JSX.Element {
 		],
 		[categories],
 	)
-	const searchResults = useMemo(() => {
-		if (data === null) return []
-		const normalizedQuery = deferredQuery.trim().toLowerCase()
-		return data.courses.filter(
-			(course) =>
-				normalizedQuery === "" ||
-				[
-					course.name,
-					course.id,
-					course.description,
-					course.teacher,
-					course.location,
-					course.category_id,
-				]
-					.join(" ")
-					.toLowerCase()
-					.includes(normalizedQuery),
-		)
-	}, [data, deferredQuery])
+	const searchResults = useSearchFilter(courses, query, getCourseSearchText)
 	const visibleCourses = useMemo(() => {
 		return searchResults.filter(
 			(course) =>
@@ -474,10 +461,10 @@ export default function StudentApp(): React.JSX.Element {
 					</div>
 					<div className="flex min-w-0 items-center gap-2 text-sm">
 						<span className="max-w-28 truncate font-medium sm:max-w-64">
-							{student?.name}
+							{student.name}
 						</span>
 						<Badge className="shrink-0" variant="secondary">
-							G{student?.grade}
+							G{student.grade}
 						</Badge>
 					</div>
 				</div>
@@ -825,7 +812,7 @@ export default function StudentApp(): React.JSX.Element {
 							<CardHeader>
 								<CardTitle>Requirements</CardTitle>
 								<CardDescription>
-									Progress for {student?.grade}.
+									Progress for {student.grade}.
 								</CardDescription>
 							</CardHeader>
 							<CardContent className="flex flex-col gap-3">

@@ -10,7 +10,8 @@
 		"format": "prettier . --write",
 		"lint:typescript": "tsc --noEmit",
 		"lint:prettier": "prettier . --check",
-		"lint:eslint": "eslint ."
+		"lint:eslint": "eslint . --cache --cache-strategy content --cache-location node_modules/.cache/eslint/.eslintcache",
+		"lint": "npm run lint:typescript && npm run lint:eslint && npm run lint:prettier"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
@@ -36,8 +37,6 @@
 		"@vitejs/plugin-react": "^5.2.0",
 		"autoprefixer": "^10.4.21",
 		"eslint": "^9.38.0",
-		"eslint-config-prettier": "^10.1.8",
-		"eslint-plugin-prettier": "^5.5.4",
 		"eslint-plugin-react-hooks": "^7.1.1",
 		"eslint-plugin-react-refresh": "^0.5.3",
 		"globals": "^16.4.0",

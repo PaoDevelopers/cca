@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import {
 	BellRingIcon,
 	BookOpenIcon,
@@ -91,6 +91,7 @@ import {
 } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import type { AdminPageProps } from "@/features/admin/AdminApp"
+import { useSearchFilter } from "@/hooks/use-search-filter"
 import {
 	CCA_DAYS,
 	CCA_SLOTS_PER_DAY,
@@ -182,6 +183,57 @@ function NoResults({
 
 function domID(prefix: string, value: string | number): string {
 	return `${prefix}-${encodeURIComponent(String(value)).replaceAll("%", "")}`
+}
+
+function getCourseSearchText(course: Course): string {
+	return `${course.id} ${course.name} ${course.teacher} ${course.location} ${course.category_id}`
+}
+
+function getStudentSearchText(student: Student): string {
+	return `${student.id} ${student.name} ${student.grade}`
+}
+
+function getSelectionSearchText(selection: Selection): string {
+	return `${selection.student_id ?? ""} ${selection.student_name ?? ""} ${selection.course_id} ${selection.course_name ?? ""}`
+}
+
+function incrementCount<Key extends string | number>(
+	counts: Map<Key, number>,
+	key: Key,
+): void {
+	counts.set(key, (counts.get(key) ?? 0) + 1)
+}
+
+function countCoursesByCategory(
+	courses: readonly Course[],
+): ReadonlyMap<string, number> {
+	const counts = new Map<string, number>()
+	for (const course of courses) incrementCount(counts, course.category_id)
+	return counts
+}
+
+function countCoursesByPeriod(
+	courses: readonly Course[],
+): ReadonlyMap<string, number> {
+	const counts = new Map<string, number>()
+	for (const course of courses) {
+		for (const periodID of course.period_ids) {
+			incrementCount(counts, periodID)
+		}
+	}
+	return counts
+}
+
+function countSelectionsByStudent(
+	selections: readonly Selection[],
+): ReadonlyMap<number, number> {
+	const counts = new Map<number, number>()
+	for (const selection of selections) {
+		if (selection.student_id !== undefined) {
+			incrementCount(counts, selection.student_id)
+		}
+	}
+	return counts
 }
 
 async function runMutation(
@@ -453,7 +505,7 @@ interface NamedResourcePageProps extends AdminPageProps {
 	title: string
 	description: string
 	itemLabel: string
-	items: string[]
+	items: readonly string[]
 }
 
 function NamedResourcePage({
@@ -468,6 +520,10 @@ function NamedResourcePage({
 	const [dialogOpen, setDialogOpen] = useState(false)
 	const [value, setValue] = useState("")
 	const [busy, setBusy] = useState(false)
+	const courseUsage = useMemo(
+		() => countCoursesByCategory(data.courses),
+		[data.courses],
+	)
 
 	async function add(event: React.FormEvent<HTMLFormElement>): Promise<void> {
 		event.preventDefault()
@@ -528,9 +584,7 @@ function NamedResourcePage({
 							</TableHeader>
 							<TableBody>
 								{items.map((item) => {
-									const usage = data.courses.filter(
-										(course) => course.category_id === item,
-									).length
+									const usage = courseUsage.get(item) ?? 0
 									return (
 										<TableRow key={item}>
 											<TableCell className="font-medium">
@@ -632,7 +686,14 @@ function NamedResourcePage({
 }
 
 export function PeriodsPage(props: AdminPageProps): React.JSX.Element {
-	const configuredTimeSlots = new Set(props.data.periods)
+	const configuredTimeSlots = useMemo(
+		() => new Set(props.data.periods),
+		[props.data.periods],
+	)
+	const courseUsage = useMemo(
+		() => countCoursesByPeriod(props.data.courses),
+		[props.data.courses],
+	)
 
 	return (
 		<>
@@ -699,12 +760,8 @@ export function PeriodsPage(props: AdminPageProps): React.JSX.Element {
 											day,
 											slot,
 										)
-										const usage = props.data.courses.filter(
-											(course) =>
-												course.period_ids.includes(
-													timeSlot,
-												),
-										).length
+										const usage =
+											courseUsage.get(timeSlot) ?? 0
 
 										return (
 											<TableCell
@@ -892,7 +949,7 @@ function RequirementDialog({
 	refresh,
 }: {
 	grade: string
-	categories: string[]
+	categories: readonly string[]
 	open: boolean
 	onOpenChange: (open: boolean) => void
 	refresh: () => Promise<void>
@@ -1039,7 +1096,7 @@ function GradeCard({
 	refresh,
 }: {
 	grade: Grade
-	categories: string[]
+	categories: readonly string[]
 	refresh: () => Promise<void>
 }): React.JSX.Element {
 	const [limit, setLimit] = useState(String(grade.max_own_choices))
@@ -1295,14 +1352,14 @@ function initialCoursePayload(
 				id: course.id,
 				name: course.name,
 				description: course.description,
-				period_ids: course.period_ids,
+				period_ids: [...course.period_ids],
 				max_students: course.max_students,
 				membership: course.membership,
 				teacher: course.teacher,
 				location: course.location,
 				category_id: course.category_id,
-				allowed_legal_sexes: course.allowed_legal_sexes,
-				allowed_grades: course.allowed_grades,
+				allowed_legal_sexes: [...course.allowed_legal_sexes],
+				allowed_grades: [...course.allowed_grades],
 			}
 }
 
@@ -1690,19 +1747,7 @@ export function CoursesPage({
 	const [query, setQuery] = useState("")
 	const [dialogOpen, setDialogOpen] = useState(false)
 	const [editing, setEditing] = useState<Course | null>(null)
-	const normalized = query.trim().toLowerCase()
-	const courses = data.courses.filter((course) =>
-		[
-			course.id,
-			course.name,
-			course.teacher,
-			course.location,
-			course.category_id,
-		]
-			.join(" ")
-			.toLowerCase()
-			.includes(normalized),
-	)
+	const courses = useSearchFilter(data.courses, query, getCourseSearchText)
 
 	function openCourse(course: Course | null): void {
 		setEditing(course)
@@ -1865,7 +1910,7 @@ function StudentDialog({
 	refresh,
 }: {
 	student: Student | null
-	grades: Grade[]
+	grades: readonly Grade[]
 	open: boolean
 	onOpenChange: (open: boolean) => void
 	refresh: () => Promise<void>
@@ -2035,11 +2080,10 @@ export function StudentsPage({
 	const [query, setQuery] = useState("")
 	const [dialogOpen, setDialogOpen] = useState(false)
 	const [editing, setEditing] = useState<Student | null>(null)
-	const normalized = query.trim().toLowerCase()
-	const students = data.students.filter((student) =>
-		`${student.id} ${student.name} ${student.grade}`
-			.toLowerCase()
-			.includes(normalized),
+	const students = useSearchFilter(data.students, query, getStudentSearchText)
+	const selectionCounts = useMemo(
+		() => countSelectionsByStudent(data.selections),
+		[data.selections],
 	)
 
 	function openStudent(student: Student | null): void {
@@ -2102,11 +2146,7 @@ export function StudentsPage({
 							<TableBody>
 								{students.map((student) => {
 									const selectionCount =
-										data.selections.filter(
-											(selection) =>
-												selection.student_id ===
-												student.id,
-										).length
+										selectionCounts.get(student.id) ?? 0
 									return (
 										<TableRow key={student.id}>
 											<TableCell className="font-mono text-xs">
@@ -2257,6 +2297,27 @@ function SelectionTypeBadge({
 	)
 }
 
+const COURSE_SLOT_SEPARATOR = "\u001f"
+
+interface CourseSlotAssignment {
+	courseID: string
+	periodID: string
+}
+
+function courseSlotValue(courseID: string, periodID: string): string {
+	return `${courseID}${COURSE_SLOT_SEPARATOR}${periodID}`
+}
+
+function parseCourseSlotValue(value: string): CourseSlotAssignment | null {
+	const separatorIndex = value.indexOf(COURSE_SLOT_SEPARATOR)
+	if (separatorIndex <= 0 || separatorIndex === value.length - 1) return null
+
+	return {
+		courseID: value.slice(0, separatorIndex),
+		periodID: value.slice(separatorIndex + COURSE_SLOT_SEPARATOR.length),
+	}
+}
+
 export function SelectionsPage({
 	data,
 	refresh,
@@ -2269,30 +2330,63 @@ export function SelectionsPage({
 	const [selectionType, setSelectionType] = useState<SelectionType>("invite")
 	const [busy, setBusy] = useState(false)
 
-	const students = data.students.filter((student) =>
-		`${student.id} ${student.name} ${student.grade}`
-			.toLowerCase()
-			.includes(studentQuery.trim().toLowerCase()),
+	const students = useSearchFilter(
+		data.students,
+		studentQuery,
+		getStudentSearchText,
 	)
-	const courses = data.courses.filter((course) =>
-		`${course.id} ${course.name} ${course.teacher}`
-			.toLowerCase()
-			.includes(courseQuery.trim().toLowerCase()),
+	const courses = useSearchFilter(
+		data.courses,
+		courseQuery,
+		getCourseSearchText,
 	)
-	const selections = data.selections.filter((selection) =>
-		`${selection.student_id ?? ""} ${selection.student_name ?? ""} ${selection.course_id} ${selection.course_name ?? ""}`
-			.toLowerCase()
-			.includes(tableQuery.trim().toLowerCase()),
+	const selections = useSearchFilter(
+		data.selections,
+		tableQuery,
+		getSelectionSearchText,
+	)
+	const studentItems = useMemo(
+		() =>
+			students.map((student) => ({
+				value: student.id,
+				label: student.name,
+				detail: `${student.id} · ${student.grade}`,
+			})),
+		[students],
+	)
+	const courseItems = useMemo(
+		() =>
+			courses.flatMap((course) =>
+				course.period_ids.map((periodID) => ({
+					value: courseSlotValue(course.id, periodID),
+					label: course.name,
+					detail: periodID,
+				})),
+			),
+		[courses],
+	)
+	const studentNamesByID = useMemo(
+		() =>
+			new Map(data.students.map((student) => [student.id, student.name])),
+		[data.students],
+	)
+	const courseNamesByID = useMemo(
+		() => new Map(data.courses.map((course) => [course.id, course.name])),
+		[data.courses],
 	)
 
 	async function addSelections(
 		event: React.FormEvent<HTMLFormElement>,
 	): Promise<void> {
 		event.preventDefault()
-		const assignments = courseSlotIDs.map((value) => {
-			const [courseID, periodID] = value.split("\u001f")
-			return { courseID, periodID }
+		const assignments = courseSlotIDs.flatMap((value) => {
+			const assignment = parseCourseSlotValue(value)
+			return assignment === null ? [] : [assignment]
 		})
+		if (assignments.length !== courseSlotIDs.length) {
+			toast.error("One or more course time slots are invalid.")
+			return
+		}
 		setBusy(true)
 		const created = await runMutation(
 			() =>
@@ -2368,11 +2462,7 @@ export function SelectionsPage({
 										placeholder="Filter students"
 									/>
 									<MultiChoiceList
-										items={students.map((student) => ({
-											value: student.id,
-											label: student.name,
-											detail: `${student.id} · ${student.grade}`,
-										}))}
+										items={studentItems}
 										selected={studentIDs}
 										onToggle={(id, checked) =>
 											setStudentIDs((current) =>
@@ -2388,9 +2478,8 @@ export function SelectionsPage({
 											`selection-student-${id}`
 										}
 										getLabel={(id) =>
-											data.students.find(
-												(student) => student.id === id,
-											)?.name ?? String(id)
+											studentNamesByID.get(id) ??
+											String(id)
 										}
 										emptyText="No students match the filter."
 									/>
@@ -2403,15 +2492,7 @@ export function SelectionsPage({
 										placeholder="Filter courses"
 									/>
 									<MultiChoiceList
-										items={courses.flatMap((course) =>
-											course.period_ids.map(
-												(periodID) => ({
-													value: `${course.id}\u001f${periodID}`,
-													label: course.name,
-													detail: periodID,
-												}),
-											),
-										)}
+										items={courseItems}
 										selected={courseSlotIDs}
 										onToggle={(id, checked) =>
 											setCourseSlotIDs((current) => {
@@ -2420,13 +2501,15 @@ export function SelectionsPage({
 														(item) => item !== id,
 													)
 												}
-												const [courseID] =
-													id.split("\u001f")
+												const assignment =
+													parseCourseSlotValue(id)
+												if (assignment === null)
+													return current
 												return [
 													...current.filter(
 														(item) =>
 															!item.startsWith(
-																`${courseID}\u001f`,
+																`${assignment.courseID}${COURSE_SLOT_SEPARATOR}`,
 															),
 													),
 													id,
@@ -2435,14 +2518,14 @@ export function SelectionsPage({
 										}
 										getID={(id) => `selection-course-${id}`}
 										getLabel={(id) => {
-											const [courseID, periodID] =
-												id.split("\u001f")
+											const assignment =
+												parseCourseSlotValue(id)
+											if (assignment === null) return id
 											const courseName =
-												data.courses.find(
-													(course) =>
-														course.id === courseID,
-												)?.name ?? courseID
-											return `${courseName} · ${periodID}`
+												courseNamesByID.get(
+													assignment.courseID,
+												) ?? assignment.courseID
+											return `${courseName} · ${assignment.periodID}`
 										}}
 										emptyText="No courses match the filter."
 									/>

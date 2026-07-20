@@ -1,4 +1,11 @@
-import { type DragEvent, type KeyboardEvent, useMemo, useState } from "react"
+import {
+	memo,
+	type DragEvent,
+	type KeyboardEvent,
+	useCallback,
+	useMemo,
+	useState,
+} from "react"
 import { CheckIcon, ClockAlertIcon, XIcon } from "lucide-react"
 
 import { BlockReasonBadges, PeriodBadges } from "@/components/common"
@@ -62,7 +69,7 @@ import type { Course } from "@/types"
 export type CatalogLayout = "cards" | "list" | "timetable"
 
 interface CourseViewProps {
-	courses: Course[]
+	courses: readonly Course[]
 	busyCourseID: string | null
 	onToggle: (course: Course, periodID?: string) => void
 }
@@ -251,17 +258,7 @@ function EnrollmentBadge({ course }: { course: Course }): React.JSX.Element {
 	)
 }
 
-function CourseCard({
-	course,
-	busyCourseID,
-	onToggle,
-	mode = "catalog",
-	isPreviewed = false,
-	onPreview,
-	onHover,
-	onDragStart,
-	onDragEnd,
-}: {
+interface CourseCardProps {
 	course: Course
 	busyCourseID: string | null
 	onToggle: (course: Course, periodID?: string) => void
@@ -271,7 +268,19 @@ function CourseCard({
 	onHover?: (courseID: string | null) => void
 	onDragStart?: (event: DragEvent<HTMLDivElement>, course: Course) => void
 	onDragEnd?: () => void
-}): React.JSX.Element {
+}
+
+const CourseCard = memo(function CourseCard({
+	course,
+	busyCourseID,
+	onToggle,
+	mode = "catalog",
+	isPreviewed = false,
+	onPreview,
+	onHover,
+	onDragStart,
+	onDragEnd,
+}: CourseCardProps): React.JSX.Element {
 	const isTimetableCandidate = mode === "timetable"
 	const displayedPeriodIDs =
 		course.selected && course.selected_period_id
@@ -378,17 +387,19 @@ function CourseCard({
 			</CardFooter>
 		</Card>
 	)
-}
+})
 
-function TimetableSelectedCourse({
-	course,
-	busyCourseID,
-	onToggle,
-}: {
+interface TimetableSelectedCourseProps {
 	course: Course
 	busyCourseID: string | null
 	onToggle: (course: Course, periodID?: string) => void
-}): React.JSX.Element {
+}
+
+const TimetableSelectedCourse = memo(function TimetableSelectedCourse({
+	course,
+	busyCourseID,
+	onToggle,
+}: TimetableSelectedCourseProps): React.JSX.Element {
 	const busy = busyCourseID === course.id
 	const removable = course.removable && course.selection_type !== "force"
 
@@ -443,7 +454,7 @@ function TimetableSelectedCourse({
 			</CardHeader>
 		</Card>
 	)
-}
+})
 
 export function CourseCardGrid({
 	courses,
@@ -577,12 +588,12 @@ const TIMETABLE_SLOT_FILTERS: readonly TimetableSlotFilter[] = [
 ]
 
 interface CourseTimetableProps extends CourseViewProps {
-	selectedCourses: Course[]
+	selectedCourses: readonly Course[]
 	dayFilter: TimetableDayFilter
 	onDayFilterChange: (day: TimetableDayFilter) => void
 	slotFilter: TimetableSlotFilter
 	onSlotFilterChange: (slot: TimetableSlotFilter) => void
-	categoryItems: CategoryItem[]
+	categoryItems: readonly CategoryItem[]
 	categoryFilter: string
 	onCategoryFilterChange: (category: string) => void
 	availableOnly: boolean
@@ -699,26 +710,35 @@ export function CourseTimetable({
 		}
 		return grouped
 	}, [selectedCourses])
+	const coursesByID = useMemo(() => {
+		const indexedCourses = new Map<string, Course>()
+		for (const course of courses) indexedCourses.set(course.id, course)
+		return indexedCourses
+	}, [courses])
 
 	const activeCourseID =
 		draggingCourseID ?? hoveredCourseID ?? previewedCourseID ?? busyCourseID
-	const activeCourse = courses.find((course) => course.id === activeCourseID)
-	const activePeriodIDs = new Set(activeCourse?.available_period_ids ?? [])
+	const activeCourse =
+		activeCourseID === null ? undefined : coursesByID.get(activeCourseID)
+	const activePeriodIDs = useMemo(
+		() => new Set(activeCourse?.available_period_ids ?? []),
+		[activeCourse],
+	)
 
-	const clearDragState = (): void => {
+	const clearDragState = useCallback((): void => {
 		setDraggingCourseID(null)
 		setDragOverTimeSlot(null)
-	}
+	}, [])
 
-	const handleDragStart = (
-		event: DragEvent<HTMLDivElement>,
-		course: Course,
-	): void => {
-		event.dataTransfer.effectAllowed = "copy"
-		event.dataTransfer.setData("text/plain", course.id)
-		setDraggingCourseID(course.id)
-		setPreviewedCourseID(course.id)
-	}
+	const handleDragStart = useCallback(
+		(event: DragEvent<HTMLDivElement>, course: Course): void => {
+			event.dataTransfer.effectAllowed = "copy"
+			event.dataTransfer.setData("text/plain", course.id)
+			setDraggingCourseID(course.id)
+			setPreviewedCourseID(course.id)
+		},
+		[],
+	)
 
 	const handleDrop = (
 		event: DragEvent<HTMLTableCellElement>,
@@ -727,7 +747,7 @@ export function CourseTimetable({
 		event.preventDefault()
 		const courseID =
 			draggingCourseID || event.dataTransfer.getData("text/plain")
-		const course = courses.find((candidate) => candidate.id === courseID)
+		const course = coursesByID.get(courseID)
 		clearDragState()
 
 		if (

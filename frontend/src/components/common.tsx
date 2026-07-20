@@ -14,7 +14,7 @@ import type { CourseBlockReason } from "@/types"
 export function PeriodBadges({
 	periodIDs,
 }: {
-	periodIDs: string[]
+	periodIDs: readonly string[]
 }): React.JSX.Element {
 	if (periodIDs.length === 0) {
 		return <Badge variant="destructive">No timetable</Badge>
@@ -34,7 +34,7 @@ export function PeriodBadges({
 export function BlockReasonBadges({
 	reasons,
 }: {
-	reasons: CourseBlockReason[]
+	reasons: readonly CourseBlockReason[]
 }): React.JSX.Element {
 	return (
 		<div className="flex flex-wrap gap-1.5">

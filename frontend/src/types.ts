@@ -14,16 +14,15 @@ export interface AdminSession {
 	username: string
 }
 
-export interface Session {
-	role: "student" | "admin"
-	student?: Student
-	admin?: AdminSession
+export interface StudentSession {
+	role: "student"
+	student: Student
 }
 
 export interface GradeRequirementGroup {
 	id: number
 	min_count: number
-	category_ids: string[]
+	category_ids: readonly string[]
 }
 
 export interface StudentRequirementProgress extends GradeRequirementGroup {
@@ -34,7 +33,7 @@ export interface Grade {
 	grade: string
 	enabled: boolean
 	max_own_choices: number
-	req_groups: GradeRequirementGroup[]
+	req_groups: readonly GradeRequirementGroup[]
 }
 
 export interface CourseBlockReason {
@@ -48,7 +47,7 @@ export interface CourseBlockReason {
 		| "choice_limit"
 		| "schedule_conflict"
 	message: string
-	period_ids?: string[]
+	period_ids?: readonly string[]
 	conflicting_course_id?: string
 }
 
@@ -56,21 +55,21 @@ export interface Course {
 	id: string
 	name: string
 	description: string
-	period_ids: string[]
+	period_ids: readonly string[]
 	max_students: number
 	current_students: number
 	membership: MembershipType
 	teacher: string
 	location: string
 	category_id: string
-	allowed_legal_sexes: LegalSex[]
-	allowed_grades: string[]
+	allowed_legal_sexes: readonly LegalSex[]
+	allowed_grades: readonly string[]
 	selected: boolean
 	selected_period_id?: string
-	available_period_ids: string[]
+	available_period_ids: readonly string[]
 	selection_type?: SelectionType
 	available: boolean
-	block_reasons: CourseBlockReason[]
+	block_reasons: readonly CourseBlockReason[]
 	removable: boolean
 	removal_block_reason?: string
 }
@@ -87,18 +86,18 @@ export interface Selection {
 
 export interface AdminBootstrap {
 	admin: AdminSession
-	categories: string[]
-	periods: string[]
-	grades: Grade[]
-	courses: Course[]
-	students: Student[]
-	selections: Selection[]
+	categories: readonly string[]
+	periods: readonly string[]
+	grades: readonly Grade[]
+	courses: readonly Course[]
+	students: readonly Student[]
+	selections: readonly Selection[]
 }
 
 export interface StudentBootstrap {
-	session: Session
-	courses: Course[]
-	requirements: StudentRequirementProgress[]
+	session: StudentSession
+	courses: readonly Course[]
+	requirements: readonly StudentRequirementProgress[]
 }
 
 export interface CoursePayload {
