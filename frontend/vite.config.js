@@ -1,14 +1,12 @@
 import { fileURLToPath, URL } from "node:url"
 
 import { defineConfig } from "vite"
-import vue from "@vitejs/plugin-vue"
-import vueDevTools from "vite-plugin-vue-devtools"
+import react from "@vitejs/plugin-react"
 import tailwindcss from "@tailwindcss/vite"
 
-// https://vite.dev/config/
 export default defineConfig({
-	base: "/student/",
-	plugins: [vue(), vueDevTools(), tailwindcss()],
+	base: "/",
+	plugins: [react(), tailwindcss()],
 	resolve: {
 		alias: {
 			"@": fileURLToPath(new URL("./src", import.meta.url)),
@@ -16,10 +14,9 @@ export default defineConfig({
 	},
 	server: {
 		proxy: {
-			"/student/api": {
-				target: "https://paospace.ykpaoschool.cn:8192",
-				changeOrigin: true,
-				secure: false,
+			"/api": {
+				target: process.env.CCA_API_TARGET ?? "http://127.0.0.1:8192",
+				ws: true,
 			},
 		},
 	},

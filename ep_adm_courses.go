@@ -147,9 +147,9 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 
 	description := strings.TrimSpace(r.FormValue("description"))
 
-	period := strings.TrimSpace(r.FormValue("period"))
-	if period == "" {
-		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to add a course without a period, which is not allowed", nil, slog.String("admin_username", aui.Username))
+	periodIDs := coursePeriodIDsFromForm(r)
+	if len(periodIDs) == 0 {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nA course must have at least one period", nil, slog.String("admin_username", aui.Username))
 		return
 	}
 
@@ -224,44 +224,22 @@ func (app *App) handleAdmCoursesNew(w http.ResponseWriter, r *http.Request, aui 
 		allowedGrades = append(allowedGrades, grade)
 	}
 
-	// TODO: transactions!!!
-
-	err = app.queries.NewCourse(r.Context(), db.NewCourseParams{
-		ID:          id,
-		Name:        name,
-		Description: description,
-		Period:      period,
-		MaxStudents: maxStudents,
-		Membership:  membership,
-		Teacher:     teacher,
-		Location:    location,
-		CategoryID:  category,
+	err = app.createCourse(r.Context(), CourseInput{
+		ID:                id,
+		Name:              name,
+		Description:       description,
+		PeriodIDs:         periodIDs,
+		MaxStudents:       maxStudents,
+		Membership:        membership,
+		Teacher:           teacher,
+		Location:          location,
+		CategoryID:        category,
+		AllowedLegalSexes: legalSexes,
+		AllowedGradeIDs:   allowedGrades,
 	})
 	if err != nil {
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
-	}
-
-	for _, ls := range legalSexes {
-		err = app.queries.AddCourseAllowedLegalSex(r.Context(), db.AddCourseAllowedLegalSexParams{
-			CourseID: id,
-			LegalSex: ls,
-		})
-		if err != nil {
-			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
-			return
-		}
-	}
-
-	for _, grade := range allowedGrades {
-		err = app.queries.AddCourseAllowedGrade(r.Context(), db.AddCourseAllowedGradeParams{
-			CourseID: id,
-			Grade:    grade,
-		})
-		if err != nil {
-			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
-			return
-		}
 	}
 
 	app.logInfo(r, logMsgAdminCoursesCreate, slog.String("admin_username", aui.Username), slog.String("course_id", id))
@@ -292,9 +270,9 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 
 	description := strings.TrimSpace(r.FormValue("description"))
 
-	period := strings.TrimSpace(r.FormValue("period"))
-	if period == "" {
-		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to edit a course without a period, which is not allowed", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
+	periodIDs := coursePeriodIDsFromForm(r)
+	if len(periodIDs) == 0 {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nA course must have at least one period", nil, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
 	}
 
@@ -369,68 +347,19 @@ func (app *App) handleAdmCoursesEdit(w http.ResponseWriter, r *http.Request, aui
 		allowedGrades = append(allowedGrades, grade)
 	}
 
-	tx, err := app.pool.Begin(r.Context())
-	if err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
-		return
-	}
-	defer func() {
-		_ = tx.Rollback(r.Context())
-	}()
-
-	qtx := app.queries.WithTx(tx)
-
-	err = qtx.UpdateCourse(r.Context(), db.UpdateCourseParams{
-		ID:          id,
-		Name:        name,
-		Description: description,
-		Period:      period,
-		MaxStudents: maxStudents,
-		Membership:  membership,
-		Teacher:     teacher,
-		Location:    location,
-		CategoryID:  category,
+	err = app.updateCourse(r.Context(), CourseInput{
+		ID:                id,
+		Name:              name,
+		Description:       description,
+		PeriodIDs:         periodIDs,
+		MaxStudents:       maxStudents,
+		Membership:        membership,
+		Teacher:           teacher,
+		Location:          location,
+		CategoryID:        category,
+		AllowedLegalSexes: legalSexes,
+		AllowedGradeIDs:   allowedGrades,
 	})
-	if err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
-		return
-	}
-
-	err = qtx.DeleteCourseAllowedLegalSexes(r.Context(), id)
-	if err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
-		return
-	}
-
-	err = qtx.DeleteCourseAllowedGrades(r.Context(), id)
-	if err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
-		return
-	}
-
-	for _, ls := range legalSexes {
-		err = qtx.AddCourseAllowedLegalSex(r.Context(), db.AddCourseAllowedLegalSexParams{
-			CourseID: id,
-			LegalSex: ls,
-		})
-		if err != nil {
-			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
-			return
-		}
-	}
-
-	for _, grade := range allowedGrades {
-		err = qtx.AddCourseAllowedGrade(r.Context(), db.AddCourseAllowedGradeParams{
-			CourseID: id,
-			Grade:    grade,
-		})
-		if err != nil {
-			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
-			return
-		}
-	}
-
-	err = tx.Commit(r.Context())
 	if err != nil {
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("course_id", id))
 		return
@@ -506,7 +435,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		"id",
 		"name",
 		"description",
-		"period",
+		"periods",
 		"max_students",
 		"membership",
 		"teacher",
@@ -565,9 +494,9 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		}
 
 		description := strings.TrimSpace(record[2])
-		period := strings.TrimSpace(record[3])
-		if period == "" {
-			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nRow has empty period", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
+		periodIDs := normalizeStringSet(strings.Split(record[3], ","))
+		if len(periodIDs) == 0 {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nRow has no periods", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 			return
 		}
 
@@ -630,7 +559,6 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 			ID:          id,
 			Name:        name,
 			Description: description,
-			Period:      period,
 			MaxStudents: maxStudents,
 			Membership:  membership,
 			Teacher:     teacher,
@@ -639,6 +567,15 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		}); err != nil {
 			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error()+"\n"+fmt.Sprintf("%#v", record), err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id))
 			return
+		}
+		for _, periodID := range periodIDs {
+			if err = qtx.AddCoursePeriod(r.Context(), db.AddCoursePeriodParams{
+				CourseID: id,
+				PeriodID: periodID,
+			}); err != nil {
+				app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", id), slog.String("period_id", periodID))
+				return
+			}
 		}
 
 		seenLegalSex := make(map[db.LegalSex]struct{})
@@ -683,4 +620,13 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 	app.wsHub.Broadcast(WSMessage("invalidate_courses"))
 
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)
+}
+
+func coursePeriodIDsFromForm(r *http.Request) []string {
+	values := append([]string{}, r.PostForm["period_ids"]...)
+	values = append(values, r.PostForm["periods"]...)
+	if legacy := strings.TrimSpace(r.FormValue("period")); legacy != "" {
+		values = append(values, legacy)
+	}
+	return normalizeStringSet(values)
 }

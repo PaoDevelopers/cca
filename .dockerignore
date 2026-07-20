@@ -1,0 +1,10 @@
+.git
+.gitignore
+.idea
+.DS_Store
+cca
+frontend/dist
+frontend/node_modules
+node_modules
+*.log
+

@@ -4,6 +4,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,11 +23,11 @@ var (
 	concurrency = 100
 	endpoints   = []string{
 		"/student/",
-		"/student/api/user_info",
-		"/student/api/courses",
-		"/student/api/my_selections",
-		"/student/api/grades",
-		"/student/api/periods",
+		"/api/v1/session",
+		"/api/v1/student/courses",
+		"/api/v1/student/selections",
+		"/api/v1/student/grades",
+		"/api/v1/student/periods",
 	}
 	authTimeout    = 8 * time.Second
 	requestTimeout = 10 * time.Second
@@ -127,18 +128,24 @@ func handleStudent(studentID string, summary *resultSummary) error {
 		Timeout: requestTimeout,
 	}
 
-	authURL := strings.TrimRight(baseURL, "/") + "/auth"
-	form := url.Values{}
-	form.Set("bypass", studentID)
+	authURL := strings.TrimRight(baseURL, "/") + "/api/v1/test-auth"
+	body, err := json.Marshal(map[string]string{
+		"role":       "student",
+		"identifier": studentID,
+		"access_key": os.Getenv("CCA_TEST_AUTH_ACCESS_KEY"),
+	})
+	if err != nil {
+		return fmt.Errorf("encode auth request: %w", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), authTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authURL, strings.NewReader(form.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, authURL, strings.NewReader(string(body)))
 	if err != nil {
 		return fmt.Errorf("creating auth request: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Content-Type", "application/json")
 
 	start := time.Now()
 	resp, err := client.Do(req)

@@ -119,7 +119,7 @@ func (app *App) handleAdmGradesBulkEnabledUpdate(w http.ResponseWriter, r *http.
 
 		_, enabled := enabledSet[grade]
 
-		err = qtx.UpdateGradeSettings(r.Context(), db.UpdateGradeSettingsParams{
+		_, err = qtx.UpdateGradeSettings(r.Context(), db.UpdateGradeSettingsParams{
 			Enabled:       enabled,
 			MaxOwnChoices: maxOwn,
 			Grade:         grade,
@@ -213,9 +213,9 @@ func (app *App) handleAdmGradesNewRequirementGroup(w http.ResponseWriter, r *htt
 	}
 
 	err = app.queries.NewRequirementGroup(r.Context(), db.NewRequirementGroupParams{
-		Grade:    grade,
-		MinCount: minCount,
-		Column3:  categories,
+		Grade:       grade,
+		MinCount:    minCount,
+		CategoryIds: categories,
 	})
 	if err != nil {
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.String("grade", grade))

@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"git.sr.ht/~runxiyu/cca/db"
@@ -96,22 +95,20 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	if version != 1 {
+	if version != 2 {
 		log.Fatalln("Bad schema version")
 	}
 
-	// JWKS
-	slog.Info(logMsgStartupJWKSFetch, slog.String("jwks", app.config.OIDC.JWKS))
-	app.kf, err = keyfunc.NewDefault([]string{app.config.OIDC.JWKS})
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	// Templates
-	slog.Info(logMsgStartupTemplatesLoad)
-	err = app.admLoadTemplates()
-	if err != nil {
-		log.Fatalln(err)
+	// Authentication provider. Test mode intentionally skips the external JWKS
+	// fetch so local development can run completely offline.
+	if app.config.TestAuth.Enabled {
+		slog.Warn("TEST AUTHENTICATION IS ENABLED", slog.Bool("allow_remote", app.config.TestAuth.AllowRemote))
+	} else {
+		slog.Info(logMsgStartupJWKSFetch, slog.String("jwks", app.config.OIDC.JWKS))
+		app.kf, err = keyfunc.NewDefault([]string{app.config.OIDC.JWKS})
+		if err != nil {
+			log.Fatalln(err)
+		}
 	}
 
 	// WebSocket hub
@@ -125,53 +122,51 @@ func main() {
 	mux.HandleFunc("/{$}", app.handleIndex)
 	mux.HandleFunc("/auth", app.handleAuth)
 	mux.HandleFunc("/dp42ik", app.handleDP42IK)
+	mux.Handle("/assets/", frontendAssetsHandler())
+
+	// Versioned JSON API used by both React application areas.
+	mux.HandleFunc("/api/v1/session", app.handleAPISession)
+	mux.HandleFunc("/api/v1/test-auth", app.handleAPITestAuth)
+	mux.HandleFunc("/api/v1/student/bootstrap", app.apiStudentOnly("handleAPIStudentBootstrap", app.handleAPIStudentBootstrap))
+	mux.HandleFunc("/api/v1/student/courses", app.apiStudentOnly("handleAPIStudentCourses", app.handleAPIStudentCourses))
+	mux.HandleFunc("/api/v1/student/periods", app.apiStudentOnly("handleAPIStudentPeriods", app.handleAPIStudentPeriods))
+	mux.HandleFunc("/api/v1/student/grades", app.apiStudentOnly("handleAPIStudentGrades", app.handleAPIStudentGrades))
+	mux.HandleFunc("/api/v1/student/selections", app.apiStudentOnly("handleAPIStudentSelections", app.handleAPIStudentSelections))
+	mux.HandleFunc("/api/v1/student/events", app.apiStudentOnly("handleStuAPIEvents", app.handleStuAPIEvents))
+	mux.HandleFunc("/api/v1/admin/bootstrap", app.apiAdminOnly("handleAPIAdminBootstrap", app.handleAPIAdminBootstrap))
+	mux.HandleFunc("/api/v1/admin/categories", app.apiAdminOnly("handleAPIAdminCategories", app.handleAPIAdminCategories))
+	mux.HandleFunc("/api/v1/admin/categories/{id}", app.apiAdminOnly("handleAPIAdminCategory", app.handleAPIAdminCategory))
+	mux.HandleFunc("/api/v1/admin/periods", app.apiAdminOnly("handleAPIAdminPeriods", app.handleAPIAdminPeriods))
+	mux.HandleFunc("/api/v1/admin/grades", app.apiAdminOnly("handleAPIAdminGrades", app.handleAPIAdminGrades))
+	mux.HandleFunc("/api/v1/admin/grades/{grade}", app.apiAdminOnly("handleAPIAdminGrade", app.handleAPIAdminGrade))
+	mux.HandleFunc("/api/v1/admin/grades/{grade}/requirement-groups", app.apiAdminOnly("handleAPIAdminRequirementGroups", app.handleAPIAdminRequirementGroups))
+	mux.HandleFunc("/api/v1/admin/grades/{grade}/requirement-groups/{id}", app.apiAdminOnly("handleAPIAdminRequirementGroup", app.handleAPIAdminRequirementGroup))
+	mux.HandleFunc("/api/v1/admin/courses", app.apiAdminOnly("handleAPIAdminCourses", app.handleAPIAdminCourses))
+	mux.HandleFunc("/api/v1/admin/courses/{id}", app.apiAdminOnly("handleAPIAdminCourse", app.handleAPIAdminCourse))
+	mux.HandleFunc("/api/v1/admin/students", app.apiAdminOnly("handleAPIAdminStudents", app.handleAPIAdminStudents))
+	mux.HandleFunc("/api/v1/admin/students/{id}", app.apiAdminOnly("handleAPIAdminStudent", app.handleAPIAdminStudent))
+	mux.HandleFunc("/api/v1/admin/selections", app.apiAdminOnly("handleAPIAdminSelections", app.handleAPIAdminSelections))
+	mux.HandleFunc("/api/v1/admin/selections/{student_id}/{course_id}", app.apiAdminOnly("handleAPIAdminSelection", app.handleAPIAdminSelection))
+	mux.HandleFunc("/api/v1/admin/notifications", app.apiAdminOnly("handleAPIAdminNotifications", app.handleAPIAdminNotifications))
+
+	// CSV transfers remain available to the React data-management page. All
+	// mutating uploads use the same authenticated, same-origin guard as the JSON
+	// API. The former template CRUD routes are intentionally not registered.
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(http.Dir("admin_static"))))
-	mux.HandleFunc("/admin/{$}", app.adminOnly("handleAdm", app.handleAdm))
-	mux.HandleFunc("/admin/notify", app.adminOnly("handleAdmNotify", app.handleAdmNotify))
-	mux.HandleFunc("/admin/periods", app.adminOnly("handleAdmPeriods", app.handleAdmPeriods))
-	mux.HandleFunc("/admin/periods/new", app.adminOnly("handleAdmPeriodsNew", app.handleAdmPeriodsNew))
-	mux.HandleFunc("/admin/periods/delete", app.adminOnly("handleAdmPeriodsDelete", app.handleAdmPeriodsDelete))
-	mux.HandleFunc("/admin/categories", app.adminOnly("handleAdmCategories", app.handleAdmCategories))
-	mux.HandleFunc("/admin/categories/new", app.adminOnly("handleAdmCategoriesNew", app.handleAdmCategoriesNew))
-	mux.HandleFunc("/admin/categories/delete", app.adminOnly("handleAdmCategoriesDelete", app.handleAdmCategoriesDelete))
-	mux.HandleFunc("/admin/grades", app.adminOnly("handleAdmGrades", app.handleAdmGrades))
-	mux.HandleFunc("/admin/grades/new", app.adminOnly("handleAdmGradesNew", app.handleAdmGradesNew))
-	mux.HandleFunc("/admin/grades/edit", app.adminOnly("handleAdmGradesEdit", app.handleAdmGradesEdit))
-	mux.HandleFunc("/admin/grades/bulk-enabled-update", app.adminOnly("handleAdmGradesBulkEnabledUpdate", app.handleAdmGradesBulkEnabledUpdate))
-	mux.HandleFunc("/admin/grades/delete", app.adminOnly("handleAdmGradesDelete", app.handleAdmGradesDelete))
-	mux.HandleFunc("/admin/grades/new-requirement-group", app.adminOnly("handleAdmGradesNewRequirementGroup", app.handleAdmGradesNewRequirementGroup))
-	mux.HandleFunc("/admin/grades/delete-requirement-group", app.adminOnly("handleAdmGradesDeleteRequirementGroup", app.handleAdmGradesDeleteRequirementGroup))
-	mux.HandleFunc("/admin/courses", app.adminOnly("handleAdmCourses", app.handleAdmCourses))
-	mux.HandleFunc("/admin/courses/new", app.adminOnly("handleAdmCoursesNew", app.handleAdmCoursesNew))
-	mux.HandleFunc("/admin/courses/edit", app.adminOnly("handleAdmCoursesEdit", app.handleAdmCoursesEdit))
-	mux.HandleFunc("/admin/courses/delete", app.adminOnly("handleAdmCoursesDelete", app.handleAdmCoursesDelete))
-	mux.HandleFunc("/admin/courses/import", app.adminOnly("handleAdmCoursesImport", app.handleAdmCoursesImport))
-	mux.HandleFunc("/admin/students", app.adminOnly("handleAdmStudents", app.handleAdmStudents))
-	mux.HandleFunc("/admin/students/new", app.adminOnly("handleAdmStudentsNew", app.handleAdmStudentsNew))
-	mux.HandleFunc("/admin/students/edit", app.adminOnly("handleAdmStudentsEdit", app.handleAdmStudentsEdit))
-	mux.HandleFunc("/admin/students/delete", app.adminOnly("handleAdmStudentsDelete", app.handleAdmStudentsDelete))
-	mux.HandleFunc("/admin/students/import", app.adminOnly("handleAdmStudentsImport", app.handleAdmStudentsImport))
-	mux.HandleFunc("/admin/selections", app.adminOnly("handleAdmSelections", app.handleAdmSelections))
-	mux.HandleFunc("/admin/selections/export", app.adminOnly("handleAdmSelectionsExport", app.handleAdmSelectionsExport))
-	mux.HandleFunc("/admin/selections/new", app.adminOnly("handleAdmSelectionsNew", app.handleAdmSelectionsNew))
-	mux.HandleFunc("/admin/selections/edit", app.adminOnly("handleAdmSelectionsEdit", app.handleAdmSelectionsEdit))
-	mux.HandleFunc("/admin/selections/delete", app.adminOnly("handleAdmSelectionsDelete", app.handleAdmSelectionsDelete))
-	mux.HandleFunc("/admin/selections/import", app.adminOnly("handleAdmSelectionsImport", app.handleAdmSelectionsImport))
-	mux.HandleFunc("/student", app.studentOnly("handleStu", app.handleStu))
-	mux.Handle("/student/assets/", http.StripPrefix("/student/assets/", http.FileServer(http.Dir("frontend/dist/assets/"))))
-	mux.HandleFunc("/student/", app.studentOnlyPlain("studentFrontend", func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/student/assets/") {
-			http.ServeFile(w, r, "./frontend/dist/index.html")
-			return
-		}
-	}))
-	mux.HandleFunc("/student/api/events", app.studentOnly("handleStuAPIEvents", app.handleStuAPIEvents))
-	mux.HandleFunc("/student/api/user_info", app.studentOnly("handleStuAPIInfo", app.handleStuAPIInfo))
-	mux.HandleFunc("/student/api/courses", app.studentOnly("handleStuAPICourses", app.handleStuAPICourses))
-	mux.HandleFunc("/student/api/periods", app.studentOnly("handleStuAPIPeriods", app.handleStuAPIPeriods))
-	mux.HandleFunc("/student/api/categories", app.studentOnly("handleStuAPICategories", app.handleStuAPICategories))
-	mux.HandleFunc("/student/api/grades", app.studentOnly("handleStuAPIGrades", app.handleStuAPIGrades))
-	mux.HandleFunc("/student/api/my_selections", app.studentOnly("handleStuAPIMySelections", app.handleStuAPIMySelections))
+	mux.HandleFunc("/admin/courses/import", app.apiAdminOnly("handleAdmCoursesImport", app.handleAdmCoursesImport))
+	mux.HandleFunc("/admin/students/import", app.apiAdminOnly("handleAdmStudentsImport", app.handleAdmStudentsImport))
+	mux.HandleFunc("/admin/selections/export", app.apiAdminOnly("handleAdmSelectionsExport", app.handleAdmSelectionsExport))
+	mux.HandleFunc("/admin/selections/import", app.apiAdminOnly("handleAdmSelectionsImport", app.handleAdmSelectionsImport))
+	mux.HandleFunc("/student", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/student/", http.StatusTemporaryRedirect)
+	})
+	mux.HandleFunc("/student/{path...}", app.studentOnlyPlain("studentFrontend", serveFrontendIndex))
+	mux.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admin/", http.StatusTemporaryRedirect)
+	})
+	mux.HandleFunc("/admin/{path...}", app.adminOnlyPlain("adminFrontend", serveFrontendIndex))
+	mux.HandleFunc("/test-login", app.handleTestAuthFrontend)
+	mux.HandleFunc("/test-login/{path...}", app.handleTestAuthFrontend)
 
 	// Listen and serve
 	slog.Info(logMsgStartupListenerStart, slog.String("transport", app.config.Listen.Transport), slog.String("address", app.config.Listen.Address), slog.String("network", app.config.Listen.Network))

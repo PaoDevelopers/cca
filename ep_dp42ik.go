@@ -82,7 +82,7 @@ func (app *App) handleDP42IK(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := app.issueStudentSession(r.Context(), w, sid); err != nil {
+	if err := app.issueStudentSession(r.Context(), w, sid, true); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			app.respondHTTPError(
 				r,

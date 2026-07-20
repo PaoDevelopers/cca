@@ -24,7 +24,15 @@ oidc {
 	client e8101cb5-84a3-49d7-860b-e5a75e63219a
 	authorize https://login.microsoftonline.com/ddd3d26c-b197-4d00-a32d-1ffd84c0c295/oauth2/v2.0/authorize
 	jwks https://login.microsoftonline.com/ddd3d26c-b197-4d00-a32d-1ffd84c0c295/discovery/keys
-	bypass true
+}
+
+test_auth {
+	// Keep disabled in production. When allow_remote is false, the test login
+	// is available only through localhost. A non-empty access_key is required
+	// on every test login, including localhost.
+	enabled true
+	allow_remote false
+	access_key "Abcd1234"
 }
 
 dp42ik {

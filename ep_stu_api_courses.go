@@ -12,7 +12,7 @@ func (app *App) handleStuAPICourses(w http.ResponseWriter, r *http.Request, sui 
 		return
 	}
 
-	courses, err := app.queries.GetCourses(r.Context())
+	courses, err := app.listStudentCourseViews(r.Context(), sui)
 	if err != nil {
 		app.apiError(r, w, http.StatusInternalServerError, err.Error())
 		return

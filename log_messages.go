@@ -11,7 +11,6 @@ const (
 	logMsgHTTPServerTLSHandshake            = "http.server.tls_handshake_error"
 	logMsgHTTPServerServeFailure            = "http.server.serve_failure"
 	logMsgAuthOIDCRedirect                  = "auth.oidc.redirect_authorize"               //#nosec:G101
-	logMsgAuthStudentBypass                 = "auth.student.bypass"                        //#nosec:G101
 	logMsgAuthStudentLogin                  = "auth.student.login"                         //#nosec:G101
 	logMsgAuthStudentDP42IKLogin            = "auth.student.dp42ik_login"                  //#nosec:G101
 	logMsgAuthAdminLogin                    = "auth.admin.login"                           //#nosec:G101
@@ -23,8 +22,6 @@ const (
 	logMsgAdminNotificationsSend            = "admin.notifications.broadcast"
 	logMsgAdminCategoriesCreate             = "admin.categories.create"
 	logMsgAdminCategoriesDelete             = "admin.categories.delete"
-	logMsgAdminPeriodsCreate                = "admin.periods.create"
-	logMsgAdminPeriodsDelete                = "admin.periods.delete"
 	logMsgAdminCoursesCreate                = "admin.courses.create"
 	logMsgAdminCoursesUpdate                = "admin.courses.update"
 	logMsgAdminCoursesDelete                = "admin.courses.delete"

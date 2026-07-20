@@ -9,6 +9,14 @@ import (
 
 func (app *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 	app.logRequestStart(r, "handleIndex")
+	if app.config.TestAuth.Enabled {
+		if !app.testAuthRequestAllowed(r) {
+			http.NotFound(w, r)
+			return
+		}
+		http.Redirect(w, r, "/test-login", http.StatusSeeOther)
+		return
+	}
 	// TODO: Consider rendering a welcome and login page.
 	redirectURI := requestAbsoluteURL(r, "/auth")
 

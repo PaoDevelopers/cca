@@ -54,9 +54,19 @@ func (app *App) handleStuAPIMySelections(w http.ResponseWriter, r *http.Request,
 			app.apiError(r, w, http.StatusBadRequest, err, slog.String("operation", "new_selection"), slog.Int64("student_id", sui.ID))
 			return
 		}
+		periodIDs, err := app.queries.GetCoursePeriodsByCourse(r.Context(), s)
+		if err != nil {
+			app.apiError(r, w, http.StatusInternalServerError, err.Error(), slog.String("operation", "new_selection"), slog.Int64("student_id", sui.ID), slog.String("course_id", s))
+			return
+		}
+		if len(periodIDs) != 1 {
+			app.apiError(r, w, http.StatusBadRequest, "Choose a specific CCA timetable slot in the current student app.", slog.String("operation", "new_selection"), slog.Int64("student_id", sui.ID), slog.String("course_id", s))
+			return
+		}
 		err = app.queries.NewSelection(r.Context(), db.NewSelectionParams{
 			PStudentID:     sui.ID,
 			PCourseID:      s,
+			PPeriodID:      periodIDs[0],
 			PSelectionType: "normal",
 		})
 		if err != nil {

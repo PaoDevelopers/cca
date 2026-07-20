@@ -24,8 +24,16 @@ type Claims struct {
 
 func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 	app.logRequestStart(r, "handleAuth")
+	if app.config.TestAuth.Enabled {
+		http.NotFound(w, r)
+		return
+	}
 	if r.Method != http.MethodPost {
 		app.respondHTTPError(r, w, http.StatusMethodNotAllowed, "Method Not Allowed", nil)
+		return
+	}
+	if app.kf == nil {
+		app.respondHTTPError(r, w, http.StatusServiceUnavailable, "Service Unavailable\nOIDC authentication is not configured", nil)
 		return
 	}
 
@@ -46,42 +54,6 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			slog.String("external_error", e),
 			slog.String("external_description", ed),
 		)
-		return
-	}
-
-	if app.config.OIDC.Bypass && r.PostFormValue("bypass") != "" {
-		sid, err := strconv.ParseInt(strings.TrimLeft(r.PostFormValue("bypass"), "sS"), 10, 64)
-		if err != nil {
-			app.respondHTTPError(r, w, http.StatusUnauthorized, "Unauthorized\nInvalid student ID", nil)
-			return
-		}
-		err = app.issueStudentSession(r.Context(), w, sid)
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				app.respondHTTPError(
-					r,
-					w,
-					http.StatusUnauthorized,
-					"Unauthorized\nStudent ID not found in database",
-					err,
-					slog.Int64("student_id", sid),
-				)
-				return
-			}
-			app.respondHTTPError(
-				r,
-				w,
-				http.StatusInternalServerError,
-				"Internal Server Error\nCannot set student session token",
-				err,
-				slog.Int64("student_id", sid),
-			)
-			return
-		}
-
-		app.logInfo(r, logMsgAuthStudentBypass, slog.Int64("student_id", sid))
-		http.Redirect(w, r, "/student/", http.StatusSeeOther)
-
 		return
 	}
 
@@ -144,24 +116,7 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 	_, isAdmin := app.config.Admins[lp]
 
 	if isAdmin {
-		st := rand.Text()
-		cookie := http.Cookie{
-			Name:     "session",
-			Value:    "admin:" + st,
-			SameSite: http.SameSiteLaxMode,
-			HttpOnly: true,
-			Secure:   true,
-			Expires:  time.Now().Add(72 * time.Hour),
-		}
-		http.SetCookie(w, &cookie)
-
-		err = app.queries.SetAdminSession(
-			r.Context(),
-			db.SetAdminSessionParams{
-				SessionToken: pgtype.Text{String: st, Valid: true},
-				Username:     lp,
-			},
-		)
+		err = app.issueAdminSession(r.Context(), w, lp, true)
 		if err != nil {
 			app.respondHTTPError(
 				r,
@@ -189,7 +144,7 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 			)
 			return
 		}
-		err = app.issueStudentSession(r.Context(), w, sid)
+		err = app.issueStudentSession(r.Context(), w, sid, true)
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {
 				app.respondHTTPError(
@@ -218,18 +173,20 @@ func (app *App) handleAuth(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (app *App) issueStudentSession(ctx context.Context, w http.ResponseWriter, sid int64) error {
-	st := rand.Text()
-	cookie := http.Cookie{
+func sessionCookie(role, token string, secure bool) http.Cookie {
+	return http.Cookie{
 		Name:     "session",
-		Value:    "student:" + st,
+		Value:    role + ":" + token,
+		Path:     "/",
 		SameSite: http.SameSiteLaxMode,
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   secure,
 		Expires:  time.Now().Add(72 * time.Hour),
 	}
-	http.SetCookie(w, &cookie)
+}
 
+func (app *App) issueStudentSession(ctx context.Context, w http.ResponseWriter, sid int64, secure bool) error {
+	st := rand.Text()
 	_, err := app.queries.SetStudentSession(
 		ctx,
 		db.SetStudentSessionParams{
@@ -237,5 +194,23 @@ func (app *App) issueStudentSession(ctx context.Context, w http.ResponseWriter, 
 			ID:           sid,
 		},
 	)
-	return err
+	if err != nil {
+		return err
+	}
+	cookie := sessionCookie("student", st, secure)
+	http.SetCookie(w, &cookie)
+	return nil
+}
+
+func (app *App) issueAdminSession(ctx context.Context, w http.ResponseWriter, username string, secure bool) error {
+	st := rand.Text()
+	if err := app.queries.SetAdminSession(ctx, db.SetAdminSessionParams{
+		SessionToken: pgtype.Text{String: st, Valid: true},
+		Username:     username,
+	}); err != nil {
+		return err
+	}
+	cookie := sessionCookie("admin", st, secure)
+	http.SetCookie(w, &cookie)
+	return nil
 }

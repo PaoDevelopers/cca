@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/PaoDevelopers/go-scfgs"
@@ -30,11 +31,15 @@ type Config struct {
 		} `scfgs:"tls"`
 	} `scfgs:"listen"`
 	OIDC struct {
-		Bypass    bool   `scfgs:"bypass"`
 		Client    string `scfgs:"client"`
 		Authorize string `scfgs:"authorize"`
 		JWKS      string `scfgs:"jwks"`
 	} `scfgs:"oidc"`
+	TestAuth struct {
+		Enabled     bool   `scfgs:"enabled"`
+		AllowRemote bool   `scfgs:"allow_remote"`
+		AccessKey   string `scfgs:"access_key"`
+	} `scfgs:"test_auth"`
 	DP42IK struct {
 		ServiceID string `scfgs:"service_id"`
 		KeyID     int    `scfgs:"key_id"`
@@ -49,6 +54,7 @@ func loadConfig(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("open config: %w", err)
 	}
+	defer func() { _ = f.Close() }()
 
 	var config Config
 	err = scfgs.NewDecoder(bufio.NewReader(f)).Decode(&config)
@@ -56,5 +62,16 @@ func loadConfig(path string) (Config, error) {
 		return config, fmt.Errorf("decode config: %w", err)
 	}
 
+	if err := validateConfig(config); err != nil {
+		return config, err
+	}
+
 	return config, nil
+}
+
+func validateConfig(config Config) error {
+	if config.TestAuth.Enabled && config.TestAuth.AllowRemote && len(strings.TrimSpace(config.TestAuth.AccessKey)) < 16 {
+		return fmt.Errorf("test_auth.access_key must contain at least 16 characters when remote test authentication is allowed")
+	}
+	return nil
 }

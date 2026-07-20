@@ -28,6 +28,9 @@ func (app *App) AbsGrades(ctx context.Context) ([]AbsGradesRow, error) {
 		if err != nil {
 			return grades2, fmt.Errorf("fetch grade requirements: %w", err)
 		}
+		if reqGroups == nil {
+			reqGroups = []db.GetRequirementGroupsByGradeRow{}
+		}
 		grades2 = append(grades2, AbsGradesRow{
 			Grade:         grade.Grade,
 			Enabled:       grade.Enabled,

@@ -79,6 +79,12 @@ func (app *App) studentOnlyPlain(handlerName string, handler func(w http.Respons
 	})
 }
 
+func (app *App) adminOnlyPlain(handlerName string, handler func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
+	return app.adminOnly(handlerName, func(w http.ResponseWriter, r *http.Request, _ *UserInfoAdmin) {
+		handler(w, r)
+	})
+}
+
 func (app *App) studentOnly(handlerName string, handler func(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		app.logRequestStart(r, handlerName, slog.String("middleware", "studentOnly"))

@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -76,7 +77,7 @@ func (app *App) handleAdmSelectionsExport(w http.ResponseWriter, r *http.Request
 		return
 	}
 	csvWriter := csv.NewWriter(&buf)
-	if err := csvWriter.Write([]string{"student_id", "student_name", "grade", "legal_sex", "course_id", "course_name", "period", "selection_type"}); err != nil {
+	if err := csvWriter.Write([]string{"student_id", "student_name", "grade", "legal_sex", "course_id", "course_name", "periods", "selection_type"}); err != nil {
 		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
@@ -89,7 +90,7 @@ func (app *App) handleAdmSelectionsExport(w http.ResponseWriter, r *http.Request
 			string(row.LegalSex),
 			row.CourseID,
 			row.CourseName,
-			row.Period,
+			row.Periods,
 			string(row.SelectionType),
 		}
 		if err := csvWriter.Write(record); err != nil {
@@ -173,6 +174,15 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nNo valid course IDs provided", nil, slog.String("admin_username", aui.Username))
 		return
 	}
+	periodIDs := make([]string, 0, len(courseIDs))
+	for _, courseID := range courseIDs {
+		coursePeriods, queryErr := app.queries.GetCoursePeriodsByCourse(r.Context(), courseID)
+		if queryErr != nil || len(coursePeriods) != 1 {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nChoose a specific timetable slot in the React administrator app", queryErr, slog.String("admin_username", aui.Username), slog.String("course_id", courseID))
+			return
+		}
+		periodIDs = append(periodIDs, coursePeriods[0])
+	}
 
 	selectionType := db.SelectionType(strings.TrimSpace(r.FormValue("selection_type")))
 	switch selectionType {
@@ -182,46 +192,8 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 
-	tx, err := app.pool.Begin(r.Context())
-	if err != nil {
-		app.respondHTTPError(
-			r,
-			w,
-			http.StatusInternalServerError,
-			"Internal Server Error\n"+err.Error(),
-			err,
-			slog.String("admin_username", aui.Username),
-		)
-		return
-	}
-	defer func() {
-		_ = tx.Rollback(r.Context())
-	}()
-
-	qtx := app.queries.WithTx(tx)
-	for _, studentID := range studentIDs {
-		for _, courseID := range courseIDs {
-			if err = qtx.NewSelection(r.Context(), db.NewSelectionParams{
-				PStudentID:     studentID,
-				PCourseID:      courseID,
-				PSelectionType: selectionType,
-			}); err != nil {
-				app.respondHTTPError(
-					r,
-					w,
-					http.StatusInternalServerError,
-					"Internal Server Error\n"+err.Error(),
-					err,
-					slog.String("admin_username", aui.Username),
-					slog.Int64("student_id", studentID),
-					slog.String("course_id", courseID),
-				)
-				return
-			}
-		}
-	}
-
-	if err = tx.Commit(r.Context()); err != nil {
+	batch := cartesianSelectionBatch(studentIDs, courseIDs, periodIDs, selectionType)
+	if _, err = app.queries.NewSelectionsBatch(r.Context(), batch); err != nil {
 		app.respondHTTPError(
 			r,
 			w,
@@ -266,9 +238,9 @@ func (app *App) handleAdmSelectionsEdit(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	period := strings.TrimSpace(r.FormValue("period"))
-	if period == "" {
-		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to edit a selection without a period, which is not allowed", nil, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID))
+	currentCourseID := strings.TrimSpace(r.FormValue("current_course_id"))
+	if currentCourseID == "" {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to edit a selection without its current course ID", nil, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID))
 		return
 	}
 
@@ -277,14 +249,14 @@ func (app *App) handleAdmSelectionsEdit(w http.ResponseWriter, r *http.Request, 
 		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to edit a selection without a course ID, which is not allowed", nil, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID))
 		return
 	}
-
-	currentCourse, err := app.queries.GetSelectionCourseByStudentAndPeriod(r.Context(), db.GetSelectionCourseByStudentAndPeriodParams{
-		StudentID: studentID,
-		Period:    period,
-	})
-	if err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
-		return
+	periodID := strings.TrimSpace(r.FormValue("period_id"))
+	if periodID == "" {
+		coursePeriods, queryErr := app.queries.GetCoursePeriodsByCourse(r.Context(), courseID)
+		if queryErr != nil || len(coursePeriods) != 1 {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nChoose a specific timetable slot in the React administrator app", queryErr, slog.String("admin_username", aui.Username), slog.String("course_id", courseID))
+			return
+		}
+		periodID = coursePeriods[0]
 	}
 
 	selectionType := db.SelectionType(strings.TrimSpace(r.FormValue("selection_type")))
@@ -295,21 +267,22 @@ func (app *App) handleAdmSelectionsEdit(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	if err = app.queries.UpdateSelection(r.Context(), db.UpdateSelectionParams{
-		StudentID:     studentID,
-		CourseID:      courseID,
-		Period:        period,
-		SelectionType: selectionType,
+	if _, err = app.queries.UpdateSelection(r.Context(), db.UpdateSelectionParams{
+		StudentID:       studentID,
+		CurrentCourseID: currentCourseID,
+		NewCourseID:     courseID,
+		NewPeriodID:     periodID,
+		SelectionType:   selectionType,
 	}); err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID), slog.String("period", period))
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID), slog.String("current_course_id", currentCourseID))
 		return
 	}
 
-	app.logInfo(r, logMsgAdminSelectionsUpdate, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID), slog.String("period", period), slog.String("selection_type", string(selectionType)))
+	app.logInfo(r, logMsgAdminSelectionsUpdate, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID), slog.String("current_course_id", currentCourseID), slog.String("selection_type", string(selectionType)))
 	app.wsHub.BroadcastToStudents([]int64{studentID}, WSMessage("invalidate_selections"))
 	courseSet := []string{courseID}
-	if currentCourse != courseID {
-		courseSet = append(courseSet, currentCourse)
+	if currentCourseID != courseID {
+		courseSet = append(courseSet, currentCourseID)
 	}
 	app.broadcastCourseCounts(r, courseSet)
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
@@ -329,32 +302,23 @@ func (app *App) handleAdmSelectionsDelete(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	period := strings.TrimSpace(r.FormValue("period"))
-	if period == "" {
-		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to delete a selection without a period, which is not allowed", nil, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID))
-		return
-	}
-
-	existingCourse, err := app.queries.GetSelectionCourseByStudentAndPeriod(r.Context(), db.GetSelectionCourseByStudentAndPeriodParams{
-		StudentID: studentID,
-		Period:    period,
-	})
-	if err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
+	courseID := strings.TrimSpace(r.FormValue("course_id"))
+	if courseID == "" {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nYou are trying to delete a selection without a course ID", nil, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID))
 		return
 	}
 
 	if err = app.queries.DeleteSelection(r.Context(), db.DeleteSelectionParams{
 		StudentID: studentID,
-		Period:    period,
+		CourseID:  courseID,
 	}); err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
+		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID))
 		return
 	}
 
-	app.logInfo(r, logMsgAdminSelectionsDelete, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("period", period))
+	app.logInfo(r, logMsgAdminSelectionsDelete, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID))
 	app.wsHub.BroadcastToStudents([]int64{studentID}, WSMessage("invalidate_selections"))
-	app.broadcastCourseCounts(r, []string{existingCourse})
+	app.broadcastCourseCounts(r, []string{courseID})
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 
@@ -398,7 +362,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	expected := []string{"course_id", "student_id", "selection_type"}
+	expected := []string{"course_id", "period_id", "student_id", "selection_type"}
 	if len(header) != len(expected) {
 		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nCSV header does not match expected column count", nil, slog.String("admin_username", aui.Username))
 		return
@@ -410,18 +374,17 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	tx, err := app.pool.Begin(r.Context())
-	if err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
-		return
+	type importedSelection struct {
+		studentID     int64
+		courseID      string
+		periodID      string
+		selectionType db.SelectionType
 	}
-	defer func() {
-		_ = tx.Rollback(r.Context())
-	}()
-
-	qtx := app.queries.WithTx(tx)
-	studentSet := make(map[int64]struct{})
-	courseSet := make(map[string]struct{})
+	records := make([]importedSelection, 0)
+	seen := make(map[struct {
+		studentID int64
+		courseID  string
+	}]struct{})
 
 	row := 2
 	for {
@@ -444,14 +407,20 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		studentIDStr := strings.TrimSpace(record[1])
+		periodID := strings.TrimSpace(record[1])
+		if periodID == "" {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nRow has empty period ID", nil, slog.String("admin_username", aui.Username), slog.Int("row", row))
+			return
+		}
+
+		studentIDStr := strings.TrimSpace(record[2])
 		studentID, parseErr := strconv.ParseInt(studentIDStr, 10, 64)
 		if parseErr != nil {
 			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nInvalid student ID "+studentIDStr, parseErr, slog.String("admin_username", aui.Username), slog.Int("row", row))
 			return
 		}
 
-		selectionTypeStr := strings.ToLower(strings.TrimSpace(record[2]))
+		selectionTypeStr := strings.ToLower(strings.TrimSpace(record[3]))
 		var selectionType db.SelectionType
 		switch selectionTypeStr {
 		case string(db.SelectionTypeNormal):
@@ -465,23 +434,41 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		if err = qtx.NewSelection(r.Context(), db.NewSelectionParams{
-			PStudentID:     studentID,
-			PCourseID:      courseID,
-			PSelectionType: selectionType,
-		}); err != nil {
-			app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", courseID), slog.Int64("student_id", studentID))
+		key := struct {
+			studentID int64
+			courseID  string
+		}{studentID: studentID, courseID: courseID}
+		if _, duplicate := seen[key]; duplicate {
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nDuplicate student/course pair in CSV", nil, slog.String("admin_username", aui.Username), slog.Int("row", row), slog.String("course_id", courseID), slog.Int64("student_id", studentID))
 			return
 		}
-
-		studentSet[studentID] = struct{}{}
-		courseSet[courseID] = struct{}{}
+		seen[key] = struct{}{}
+		records = append(records, importedSelection{
+			studentID: studentID, courseID: courseID, periodID: periodID, selectionType: selectionType,
+		})
 
 		row++
 	}
 
-	if err := tx.Commit(r.Context()); err != nil {
-		app.respondHTTPError(r, w, http.StatusInternalServerError, "Internal Server Error\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+	studentSet := make(map[int64]struct{})
+	courseSet := make(map[string]struct{})
+	studentIDs := make([]int64, 0, len(records))
+	courseIDs := make([]string, 0, len(records))
+	periodIDs := make([]string, 0, len(records))
+	selectionTypes := make([]db.SelectionType, 0, len(records))
+	for _, record := range records {
+		studentIDs = append(studentIDs, record.studentID)
+		courseIDs = append(courseIDs, record.courseID)
+		periodIDs = append(periodIDs, record.periodID)
+		selectionTypes = append(selectionTypes, record.selectionType)
+		studentSet[record.studentID] = struct{}{}
+		courseSet[record.courseID] = struct{}{}
+	}
+
+	if _, err := app.queries.NewSelectionsBatch(r.Context(), db.NewSelectionsBatchParams{
+		StudentIds: studentIDs, CourseIds: courseIDs, PeriodIds: periodIDs, SelectionTypes: selectionTypes,
+	}); err != nil {
+		app.writeClassifiedAPIError(r, w, err, slog.String("admin_username", aui.Username))
 		return
 	}
 
@@ -489,11 +476,13 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 	for id := range studentSet {
 		students = append(students, id)
 	}
+	sort.Slice(students, func(i, j int) bool { return students[i] < students[j] })
 	courses := make([]string, 0, len(courseSet))
 	for id := range courseSet {
 		courses = append(courses, id)
 	}
-	app.logInfo(r, logMsgAdminSelectionsImport, slog.String("admin_username", aui.Username), slog.Int("rows", row-2), slog.Int("students_impacted", len(students)), slog.Int("courses_impacted", len(courses)))
+	sort.Strings(courses)
+	app.logInfo(r, logMsgAdminSelectionsImport, slog.String("admin_username", aui.Username), slog.Int("rows", len(records)), slog.Int("students_impacted", len(students)), slog.Int("courses_impacted", len(courses)))
 	if len(students) > 0 {
 		app.wsHub.BroadcastToStudents(students, WSMessage("invalidate_selections"))
 	}

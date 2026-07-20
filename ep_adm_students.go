@@ -139,7 +139,7 @@ func (app *App) handleAdmStudentsEdit(w http.ResponseWriter, r *http.Request, au
 		return
 	}
 
-	if err = app.queries.UpdateStudent(r.Context(), db.UpdateStudentParams{
+	if _, err = app.queries.UpdateStudent(r.Context(), db.UpdateStudentParams{
 		ID:       id,
 		Name:     name,
 		Grade:    grade,
