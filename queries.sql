@@ -280,7 +280,7 @@ WITH student_context AS (
 				'',
 				jsonb_build_object(
 					'code', 'legal_sex_restricted',
-					'message', 'This CCA is not available for selection.'
+					'message', 'This CCA is not available for you.'
 				)
 			WHERE NOT course.selected
 				AND cardinality(course.allowed_legal_sexes) > 0

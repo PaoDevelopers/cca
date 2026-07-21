@@ -2,6 +2,7 @@ import { AlertCircleIcon, CalendarClockIcon } from "lucide-react"
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
 	Tooltip,
@@ -54,14 +55,15 @@ export function BlockReasonBadges({
 					<Tooltip key={key}>
 						<TooltipTrigger
 							render={
-								<button
+								<Button
 									type="button"
-									className="rounded-full outline-none focus-visible:ring-3 focus-visible:ring-ring/80"
+									variant="secondary"
+									size="xs"
 									aria-label={`Clash: ${reason.message}`}
 								/>
 							}
 						>
-							<Badge variant="secondary">Clash</Badge>
+							Clash
 						</TooltipTrigger>
 						<TooltipContent>{reason.message}</TooltipContent>
 					</Tooltip>

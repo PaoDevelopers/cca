@@ -75,7 +75,16 @@ import {
 	InputGroupAddon,
 	InputGroupInput,
 } from "@/components/ui/input-group"
+import {
+	Item,
+	ItemActions,
+	ItemContent,
+	ItemDescription,
+	ItemGroup,
+	ItemTitle,
+} from "@/components/ui/item"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
@@ -121,9 +130,9 @@ function PageHeading({
 	return (
 		<div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 			<div className="flex flex-col gap-1">
-				<h2 className="font-heading text-xl font-semibold tracking-tight">
+				<h1 className="font-heading text-xl font-semibold tracking-tight">
 					{title}
-				</h2>
+				</h1>
 				<p className="max-w-3xl text-sm text-muted-foreground">
 					{description}
 				</p>
@@ -282,12 +291,12 @@ function DeleteButton({
 					<Button
 						variant="ghost"
 						size="icon-sm"
+						aria-label={`Delete ${name}`}
 						disabled={disabled}
 					/>
 				}
 			>
 				<Trash2Icon aria-hidden="true" />
-				<span className="sr-only">Delete {name}</span>
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
@@ -339,9 +348,10 @@ function StatCard({
 				<CardTitle>{label}</CardTitle>
 				<CardDescription>{description}</CardDescription>
 				<CardAction>
-					<div className="flex size-9 items-center justify-center rounded-lg bg-muted">
+					<Badge variant="secondary">
 						<Icon aria-hidden="true" />
-					</div>
+						<span className="sr-only">{label}</span>
+					</Badge>
 				</CardAction>
 			</CardHeader>
 			<CardContent>
@@ -402,54 +412,55 @@ export function DashboardPage({ data }: AdminPageProps): React.JSX.Element {
 							Courses nearest to their configured limit.
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="flex flex-col gap-3">
+					<CardContent>
 						{data.courses.length === 0 ? (
 							<NoResults
 								title="No courses yet"
 								description="Create a course to begin."
 							/>
 						) : (
-							[...data.courses]
-								.sort((a, b) => {
-									const aRatio =
-										a.max_students === 0
-											? 0
-											: a.current_students /
-												a.max_students
-									const bRatio =
-										b.max_students === 0
-											? 0
-											: b.current_students /
-												b.max_students
-									return bRatio - aRatio
-								})
-								.slice(0, 6)
-								.map((course) => (
-									<div
-										key={course.id}
-										className="flex items-center justify-between gap-4"
-									>
-										<div className="min-w-0">
-											<p className="truncate font-medium">
-												{course.name}
-											</p>
-											<p className="truncate text-xs text-muted-foreground">
-												{course.id}
-											</p>
-										</div>
-										<Badge
-											variant={
-												course.current_students >=
-												course.max_students
-													? "destructive"
-													: "outline"
-											}
-										>
-											{course.current_students}/
-											{course.max_students}
-										</Badge>
-									</div>
-								))
+							<ItemGroup>
+								{[...data.courses]
+									.sort((a, b) => {
+										const aRatio =
+											a.max_students === 0
+												? 0
+												: a.current_students /
+													a.max_students
+										const bRatio =
+											b.max_students === 0
+												? 0
+												: b.current_students /
+													b.max_students
+										return bRatio - aRatio
+									})
+									.slice(0, 6)
+									.map((course) => (
+										<Item key={course.id} size="xs">
+											<ItemContent>
+												<ItemTitle>
+													{course.name}
+												</ItemTitle>
+												<ItemDescription>
+													{course.id}
+												</ItemDescription>
+											</ItemContent>
+											<ItemActions>
+												<Badge
+													variant={
+														course.current_students >=
+														course.max_students
+															? "destructive"
+															: "outline"
+													}
+												>
+													{course.current_students}/
+													{course.max_students}
+												</Badge>
+											</ItemActions>
+										</Item>
+									))}
+							</ItemGroup>
 						)}
 					</CardContent>
 				</Card>
@@ -461,37 +472,40 @@ export function DashboardPage({ data }: AdminPageProps): React.JSX.Element {
 							Selection access and own-choice limits by grade.
 						</CardDescription>
 					</CardHeader>
-					<CardContent className="flex flex-col gap-3">
+					<CardContent>
 						{data.grades.length === 0 ? (
 							<NoResults
 								title="No grades yet"
 								description="Add a grade before importing students."
 							/>
 						) : (
-							data.grades.map((grade) => (
-								<div
-									key={grade.grade}
-									className="flex items-center justify-between gap-4"
-								>
-									<span className="font-medium">
-										{grade.grade}
-									</span>
-									<div className="flex items-center gap-2">
-										<Badge variant="outline">
-											Max {grade.max_own_choices}
-										</Badge>
-										<Badge
-											variant={
-												grade.enabled
-													? "secondary"
-													: "outline"
-											}
-										>
-											{grade.enabled ? "Open" : "Closed"}
-										</Badge>
-									</div>
-								</div>
-							))
+							<ItemGroup>
+								{data.grades.map((grade) => (
+									<Item key={grade.grade} size="xs">
+										<ItemContent>
+											<ItemTitle>
+												Grade {grade.grade}
+											</ItemTitle>
+										</ItemContent>
+										<ItemActions>
+											<Badge variant="outline">
+												Max {grade.max_own_choices}
+											</Badge>
+											<Badge
+												variant={
+													grade.enabled
+														? "secondary"
+														: "outline"
+												}
+											>
+												{grade.enabled
+													? "Open"
+													: "Closed"}
+											</Badge>
+										</ItemActions>
+									</Item>
+								))}
+							</ItemGroup>
 						)}
 					</CardContent>
 				</Card>
@@ -1132,24 +1146,25 @@ function GradeCard({
 		<Card>
 			<CardHeader>
 				<CardTitle>{grade.grade}</CardTitle>
-				<CardDescription>
-					{grade.enabled
-						? "Student selections are open."
-						: "Student selections are closed."}
-				</CardDescription>
-				<CardAction>
-					<Switch
-						aria-label={`Enable selections for ${grade.grade}`}
-						checked={grade.enabled}
-						disabled={busy}
-						onCheckedChange={(enabled) =>
-							void save({ enabled, max: grade.max_own_choices })
-						}
-					/>
-				</CardAction>
 			</CardHeader>
 			<CardContent className="flex flex-col gap-4">
 				<FieldGroup>
+					<Field data-disabled={busy || undefined}>
+						<FieldLabel htmlFor={`enabled-${grade.grade}`}>
+							Enable selections
+						</FieldLabel>
+						<Switch
+							id={`enabled-${grade.grade}`}
+							checked={grade.enabled}
+							disabled={busy}
+							onCheckedChange={(enabled) =>
+								void save({
+									enabled,
+									max: grade.max_own_choices,
+								})
+							}
+						/>
+					</Field>
 					<Field>
 						<FieldLabel htmlFor={`limit-${grade.grade}`}>
 							Maximum own choices
@@ -1207,43 +1222,63 @@ function GradeCard({
 						Add
 					</Button>
 				</div>
-				{grade.req_groups.length === 0 ? (
-					<p className="text-sm text-muted-foreground">
-						No requirements configured.
-					</p>
-				) : (
-					<div className="flex flex-col gap-2">
-						{grade.req_groups.map((group) => (
-							<div
-								key={group.id}
-								className="flex items-center justify-between gap-3 rounded-lg bg-muted/50 p-2.5"
-							>
-								<div className="min-w-0">
-									<p className="text-sm font-medium">
-										Choose {group.min_count}
-									</p>
-									<p className="truncate text-xs text-muted-foreground">
+				<Table containerLabel={`${grade.grade} requirement groups`}>
+					<TableCaption className="sr-only">
+						Requirement groups for {grade.grade}
+					</TableCaption>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Categories</TableHead>
+							<TableHead className="w-32">Minimum</TableHead>
+							<TableHead className="w-16">
+								<span className="sr-only">Actions</span>
+							</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{grade.req_groups.length === 0 ? (
+							<TableRow>
+								<TableCell
+									colSpan={3}
+									className="h-20 text-center text-muted-foreground"
+								>
+									No requirements configured.
+								</TableCell>
+							</TableRow>
+						) : (
+							grade.req_groups.map((group) => (
+								<TableRow key={group.id}>
+									<TableCell className="whitespace-normal">
 										{group.category_ids.join(" / ")}
-									</p>
-								</div>
-								<DeleteButton
-									name="requirement group"
-									onDelete={() =>
-										runMutation(
-											() =>
-												apiRequest(
-													`/api/v1/admin/grades/${encodeURIComponent(grade.grade)}/requirement-groups/${group.id}`,
-													{ method: "DELETE" },
-												),
-											refresh,
-											"Requirement group deleted.",
-										)
-									}
-								/>
-							</div>
-						))}
-					</div>
-				)}
+									</TableCell>
+									<TableCell className="font-medium">
+										{group.min_count}
+									</TableCell>
+									<TableCell>
+										<div className="flex justify-end">
+											<DeleteButton
+												name="requirement group"
+												onDelete={() =>
+													runMutation(
+														() =>
+															apiRequest(
+																`/api/v1/admin/grades/${encodeURIComponent(grade.grade)}/requirement-groups/${group.id}`,
+																{
+																	method: "DELETE",
+																},
+															),
+														refresh,
+														"Requirement group deleted.",
+													)
+												}
+											/>
+										</div>
+									</TableCell>
+								</TableRow>
+							))
+						)}
+					</TableBody>
+				</Table>
 			</CardContent>
 			<CardFooter className="justify-end">
 				<DeleteButton
@@ -1380,7 +1415,18 @@ function CourseDialog({
 		initialCoursePayload(course, data),
 	)
 	const [busy, setBusy] = useState(false)
-	const scheduleLocked = course !== null && course.current_students > 0
+	const selectedPeriodCounts = useMemo(() => {
+		const counts = new Map<string, number>()
+		if (course === null) return counts
+		for (const selection of data.selections) {
+			if (selection.course_id !== course.id) continue
+			counts.set(
+				selection.period_id,
+				(counts.get(selection.period_id) ?? 0) + 1,
+			)
+		}
+		return counts
+	}, [course, data.selections])
 
 	function update<K extends keyof CoursePayload>(
 		key: K,
@@ -1414,307 +1460,391 @@ function CourseDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain sm:max-w-3xl">
-				<form onSubmit={(event) => void submit(event)}>
-					<DialogHeader>
+			<DialogContent className="h-[calc(100dvh-2rem)] max-h-[46rem] overflow-hidden p-0 sm:max-w-4xl">
+				<form
+					className="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)_auto]"
+					onSubmit={(event) => void submit(event)}
+				>
+					<DialogHeader className="px-6 pt-6 pb-4 pr-12">
 						<DialogTitle>
 							{course === null
 								? "Create course"
 								: `Edit ${course.name}`}
 						</DialogTitle>
 						<DialogDescription>
-							A course may occupy multiple fixed time slots. Any
-							shared slot will prevent another selection.
+							Update course details, timetable, and student
+							eligibility.
 						</DialogDescription>
 					</DialogHeader>
-					<FieldGroup className="py-5">
-						<FieldGroup className="grid gap-4 sm:grid-cols-2">
-							<Field data-disabled={course !== null}>
-								<FieldLabel htmlFor="course-id">
-									Course ID
-								</FieldLabel>
-								<Input
-									id="course-id"
-									value={form.id}
-									onChange={(event) =>
-										update("id", event.target.value)
-									}
-									disabled={course !== null}
-									required
-								/>
-							</Field>
-							<Field>
-								<FieldLabel htmlFor="course-name">
-									Name
-								</FieldLabel>
-								<Input
-									id="course-name"
-									value={form.name}
-									onChange={(event) =>
-										update("name", event.target.value)
-									}
-									required
-								/>
-							</Field>
-							<Field>
-								<FieldLabel htmlFor="course-teacher">
-									Teacher
-								</FieldLabel>
-								<Input
-									id="course-teacher"
-									value={form.teacher}
-									onChange={(event) =>
-										update("teacher", event.target.value)
-									}
-									required
-								/>
-							</Field>
-							<Field>
-								<FieldLabel htmlFor="course-location">
-									Location
-								</FieldLabel>
-								<Input
-									id="course-location"
-									value={form.location}
-									onChange={(event) =>
-										update("location", event.target.value)
-									}
-									required
-								/>
-							</Field>
-							<Field>
-								<FieldLabel htmlFor="course-category">
-									Category
-								</FieldLabel>
-								<NativeSelect
-									className="w-full"
-									id="course-category"
-									value={form.category_id}
-									onChange={(event) =>
-										update(
-											"category_id",
-											event.target.value,
-										)
-									}
-									required
-								>
-									{data.categories.map((category) => (
-										<NativeSelectOption
-											key={category}
-											value={category}
-										>
-											{category}
-										</NativeSelectOption>
-									))}
-								</NativeSelect>
-							</Field>
-							<Field>
-								<FieldLabel htmlFor="course-membership">
-									Membership
-								</FieldLabel>
-								<NativeSelect
-									className="w-full"
-									id="course-membership"
-									value={form.membership}
-									onChange={(event) =>
-										update(
-											"membership",
-											event.target
-												.value as MembershipType,
-										)
-									}
-								>
-									<NativeSelectOption value="free">
-										Free choice
-									</NativeSelectOption>
-									<NativeSelectOption value="invite_only">
-										Invite only
-									</NativeSelectOption>
-								</NativeSelect>
-							</Field>
-							<Field>
-								<FieldLabel htmlFor="course-capacity">
-									Maximum students
-								</FieldLabel>
-								<Input
-									id="course-capacity"
-									type="number"
-									min="0"
-									value={form.max_students}
-									onChange={(event) =>
-										update(
-											"max_students",
-											Number(event.target.value),
-										)
-									}
-									required
-								/>
+					<ScrollArea className="min-h-0">
+						<FieldGroup className="gap-6 px-6 py-5">
+							<FieldSet>
+								<FieldLegend>Course details</FieldLegend>
 								<FieldDescription>
-									Use 0 to prevent normal student selections.
+									Core information shown in the student
+									catalogue.
 								</FieldDescription>
-							</Field>
-						</FieldGroup>
-						<Field>
-							<FieldLabel htmlFor="course-description">
-								Description
-							</FieldLabel>
-							<Textarea
-								id="course-description"
-								value={form.description}
-								onChange={(event) =>
-									update("description", event.target.value)
-								}
-								rows={4}
-							/>
-						</Field>
-						<FieldSet data-disabled={scheduleLocked}>
-							<FieldLegend>Fixed time slots</FieldLegend>
-							<FieldDescription>
-								{scheduleLocked
-									? "The timetable is locked because students already have this course. Remove those selections before changing it."
-									: "Choose every slot occupied by this course."}
-							</FieldDescription>
-							{scheduleLocked ? (
-								<Badge variant="secondary">
-									<LockKeyholeIcon data-icon="inline-start" />
-									Schedule locked
-								</Badge>
-							) : null}
-							<FieldGroup
-								data-slot="checkbox-group"
-								className="grid sm:grid-cols-2 lg:grid-cols-3"
-							>
-								{data.periods.map((period) => (
+								<FieldGroup className="grid gap-4 md:grid-cols-6">
 									<Field
-										key={period}
-										orientation="horizontal"
-										data-disabled={scheduleLocked}
+										className="md:col-span-2"
+										data-disabled={course !== null}
 									>
-										<Checkbox
-											id={domID("course-period", period)}
-											checked={form.period_ids.includes(
-												period,
-											)}
-											disabled={scheduleLocked}
-											onCheckedChange={(checked) =>
+										<FieldLabel htmlFor="course-id">
+											Course ID
+										</FieldLabel>
+										<Input
+											id="course-id"
+											value={form.id}
+											onChange={(event) =>
+												update("id", event.target.value)
+											}
+											disabled={course !== null}
+											required
+										/>
+									</Field>
+									<Field className="md:col-span-4">
+										<FieldLabel htmlFor="course-name">
+											Name
+										</FieldLabel>
+										<Input
+											id="course-name"
+											value={form.name}
+											onChange={(event) =>
 												update(
-													"period_ids",
-													toggleValue(
-														form.period_ids,
-														period,
-														checked,
-													),
+													"name",
+													event.target.value,
 												)
 											}
+											required
 										/>
-										<FieldLabel
-											htmlFor={domID(
-												"course-period",
-												period,
-											)}
-										>
-											{period}
-										</FieldLabel>
 									</Field>
-								))}
-							</FieldGroup>
-						</FieldSet>
-						<FieldGroup className="grid gap-5 sm:grid-cols-2">
-							<FieldSet>
-								<FieldLegend variant="label">
-									Allowed legal sexes
-								</FieldLegend>
-								<FieldDescription>
-									Leave every option unchecked to allow all.
-								</FieldDescription>
-								<FieldGroup data-slot="checkbox-group">
-									{(["F", "M", "X"] as LegalSex[]).map(
-										(legalSex) => (
-											<Field
-												key={legalSex}
-												orientation="horizontal"
-											>
-												<Checkbox
-													id={domID(
-														"course-sex",
-														legalSex,
-													)}
-													checked={form.allowed_legal_sexes.includes(
-														legalSex,
-													)}
-													onCheckedChange={(
-														checked,
-													) =>
-														update(
-															"allowed_legal_sexes",
-															toggleValue(
-																form.allowed_legal_sexes,
-																legalSex,
-																checked,
-															),
-														)
-													}
-												/>
-												<FieldLabel
-													htmlFor={domID(
-														"course-sex",
-														legalSex,
-													)}
+									<Field className="md:col-span-3">
+										<FieldLabel htmlFor="course-teacher">
+											Teacher
+										</FieldLabel>
+										<Input
+											id="course-teacher"
+											value={form.teacher}
+											onChange={(event) =>
+												update(
+													"teacher",
+													event.target.value,
+												)
+											}
+											required
+										/>
+									</Field>
+									<Field className="md:col-span-3">
+										<FieldLabel htmlFor="course-location">
+											Location
+										</FieldLabel>
+										<Input
+											id="course-location"
+											value={form.location}
+											onChange={(event) =>
+												update(
+													"location",
+													event.target.value,
+												)
+											}
+											required
+										/>
+									</Field>
+									<Field className="md:col-span-2">
+										<FieldLabel htmlFor="course-category">
+											Category
+										</FieldLabel>
+										<NativeSelect
+											className="w-full"
+											id="course-category"
+											value={form.category_id}
+											onChange={(event) =>
+												update(
+													"category_id",
+													event.target.value,
+												)
+											}
+											required
+										>
+											{data.categories.map((category) => (
+												<NativeSelectOption
+													key={category}
+													value={category}
 												>
-													{legalSex}
-												</FieldLabel>
-											</Field>
-										),
-									)}
+													{category}
+												</NativeSelectOption>
+											))}
+										</NativeSelect>
+									</Field>
+									<Field className="md:col-span-2">
+										<FieldLabel htmlFor="course-membership">
+											Membership
+										</FieldLabel>
+										<NativeSelect
+											className="w-full"
+											id="course-membership"
+											value={form.membership}
+											onChange={(event) =>
+												update(
+													"membership",
+													event.target
+														.value as MembershipType,
+												)
+											}
+										>
+											<NativeSelectOption value="free">
+												Free choice
+											</NativeSelectOption>
+											<NativeSelectOption value="invite_only">
+												Invite only
+											</NativeSelectOption>
+										</NativeSelect>
+									</Field>
+									<Field className="md:col-span-2">
+										<FieldLabel htmlFor="course-capacity">
+											Maximum students
+										</FieldLabel>
+										<Input
+											id="course-capacity"
+											type="number"
+											min="0"
+											value={form.max_students}
+											onChange={(event) =>
+												update(
+													"max_students",
+													Number(event.target.value),
+												)
+											}
+											required
+										/>
+										<FieldDescription>
+											Use 0 to prevent normal student
+											selections.
+										</FieldDescription>
+									</Field>
+									<Field className="md:col-span-6">
+										<FieldLabel htmlFor="course-description">
+											Description
+										</FieldLabel>
+										<Textarea
+											id="course-description"
+											value={form.description}
+											onChange={(event) =>
+												update(
+													"description",
+													event.target.value,
+												)
+											}
+											rows={3}
+										/>
+									</Field>
 								</FieldGroup>
 							</FieldSet>
+
+							<Separator />
 							<FieldSet>
-								<FieldLegend variant="label">
-									Allowed grades
-								</FieldLegend>
+								<FieldLegend>Schedule</FieldLegend>
 								<FieldDescription>
-									Leave every option unchecked to allow all.
+									Select one or more fixed CCA slots. Slots
+									with student selections remain locked.
 								</FieldDescription>
-								<FieldGroup data-slot="checkbox-group">
-									{data.grades.map((grade) => (
-										<Field
-											key={grade.grade}
-											orientation="horizontal"
-										>
-											<Checkbox
-												id={domID(
-													"course-grade",
-													grade.grade,
+								<FieldGroup className="grid gap-x-6 gap-y-5 sm:grid-cols-2 md:grid-cols-4">
+									{CCA_DAYS.map((day) => (
+										<FieldSet key={day}>
+											<FieldLegend variant="label">
+												{day}
+											</FieldLegend>
+											<FieldGroup data-slot="checkbox-group">
+												{CCA_SLOTS_PER_DAY.map(
+													(slot) => {
+														const period =
+															ccaTimeSlotID(
+																day,
+																slot,
+															)
+														if (
+															!data.periods.includes(
+																period,
+															)
+														) {
+															return null
+														}
+														const selectionCount =
+															selectedPeriodCounts.get(
+																period,
+															) ?? 0
+														const locked =
+															selectionCount > 0
+
+														return (
+															<Field
+																key={period}
+																orientation="horizontal"
+																data-disabled={
+																	locked ||
+																	undefined
+																}
+															>
+																<Checkbox
+																	id={domID(
+																		"course-period",
+																		period,
+																	)}
+																	aria-label={
+																		period
+																	}
+																	checked={form.period_ids.includes(
+																		period,
+																	)}
+																	disabled={
+																		locked
+																	}
+																	onCheckedChange={(
+																		checked,
+																	) =>
+																		update(
+																			"period_ids",
+																			toggleValue(
+																				form.period_ids,
+																				period,
+																				checked,
+																			),
+																		)
+																	}
+																/>
+																<FieldLabel
+																	htmlFor={domID(
+																		"course-period",
+																		period,
+																	)}
+																>
+																	CCA {slot}
+																</FieldLabel>
+																{locked ? (
+																	<Badge variant="secondary">
+																		{
+																			selectionCount
+																		}{" "}
+																		selected
+																	</Badge>
+																) : null}
+															</Field>
+														)
+													},
 												)}
-												checked={form.allowed_grades.includes(
-													grade.grade,
-												)}
-												onCheckedChange={(checked) =>
-													update(
-														"allowed_grades",
-														toggleValue(
-															form.allowed_grades,
-															grade.grade,
-															checked,
-														),
-													)
-												}
-											/>
-											<FieldLabel
-												htmlFor={domID(
-													"course-grade",
-													grade.grade,
-												)}
-											>
-												{grade.grade}
-											</FieldLabel>
-										</Field>
+											</FieldGroup>
+										</FieldSet>
 									))}
 								</FieldGroup>
 							</FieldSet>
+
+							<Separator />
+							<FieldSet>
+								<FieldLegend>Eligibility</FieldLegend>
+								<FieldDescription>
+									Leave a group empty to allow everyone in
+									that group.
+								</FieldDescription>
+								<FieldGroup className="grid gap-6 sm:grid-cols-2">
+									<FieldSet>
+										<FieldLegend variant="label">
+											Legal sex
+										</FieldLegend>
+										<FieldGroup
+											data-slot="checkbox-group"
+											className="grid grid-cols-3"
+										>
+											{(
+												["F", "M", "X"] as LegalSex[]
+											).map((legalSex) => (
+												<Field
+													key={legalSex}
+													orientation="horizontal"
+												>
+													<Checkbox
+														id={domID(
+															"course-sex",
+															legalSex,
+														)}
+														checked={form.allowed_legal_sexes.includes(
+															legalSex,
+														)}
+														onCheckedChange={(
+															checked,
+														) =>
+															update(
+																"allowed_legal_sexes",
+																toggleValue(
+																	form.allowed_legal_sexes,
+																	legalSex,
+																	checked,
+																),
+															)
+														}
+													/>
+													<FieldLabel
+														htmlFor={domID(
+															"course-sex",
+															legalSex,
+														)}
+													>
+														{legalSex}
+													</FieldLabel>
+												</Field>
+											))}
+										</FieldGroup>
+									</FieldSet>
+									<FieldSet>
+										<FieldLegend variant="label">
+											Grades
+										</FieldLegend>
+										<FieldGroup
+											data-slot="checkbox-group"
+											className="grid grid-cols-3"
+										>
+											{data.grades.map((grade) => (
+												<Field
+													key={grade.grade}
+													orientation="horizontal"
+												>
+													<Checkbox
+														id={domID(
+															"course-grade",
+															grade.grade,
+														)}
+														checked={form.allowed_grades.includes(
+															grade.grade,
+														)}
+														onCheckedChange={(
+															checked,
+														) =>
+															update(
+																"allowed_grades",
+																toggleValue(
+																	form.allowed_grades,
+																	grade.grade,
+																	checked,
+																),
+															)
+														}
+													/>
+													<FieldLabel
+														htmlFor={domID(
+															"course-grade",
+															grade.grade,
+														)}
+													>
+														G{grade.grade}
+													</FieldLabel>
+												</Field>
+											))}
+										</FieldGroup>
+									</FieldSet>
+								</FieldGroup>
+							</FieldSet>
 						</FieldGroup>
-					</FieldGroup>
-					<DialogFooter>
+					</ScrollArea>
+					<DialogFooter className="mx-0 mb-0 rounded-none px-6 py-4">
 						<Button
 							type="button"
 							variant="outline"
@@ -1803,7 +1933,7 @@ export function CoursesPage({
 									<TableHead>Schedule</TableHead>
 									<TableHead>Teacher / location</TableHead>
 									<TableHead>Students</TableHead>
-									<TableHead className="text-right">
+									<TableHead className="sticky right-0 min-w-20 bg-background text-right">
 										Actions
 									</TableHead>
 								</TableRow>
@@ -1839,19 +1969,17 @@ export function CoursesPage({
 												{course.max_students}
 											</Badge>
 										</TableCell>
-										<TableCell>
+										<TableCell className="sticky right-0 bg-background">
 											<div className="flex justify-end gap-1">
 												<Button
 													variant="ghost"
 													size="icon-sm"
+													aria-label={`Edit ${course.name}`}
 													onClick={() =>
 														openCourse(course)
 													}
 												>
 													<PencilIcon />
-													<span className="sr-only">
-														Edit {course.name}
-													</span>
 												</Button>
 												<DeleteButton
 													name={course.name}
@@ -2246,28 +2374,27 @@ function MultiChoiceList<T extends string | number>({
 	if (items.length === 0)
 		return <p className="text-sm text-muted-foreground">{emptyText}</p>
 	return (
-		<FieldGroup
-			data-slot="checkbox-group"
-			className="max-h-52 overflow-y-auto rounded-lg border p-2"
-		>
-			{items.map((item) => (
-				<Field key={String(item.value)} orientation="horizontal">
-					<Checkbox
-						id={getID(item.value)}
-						checked={selected.includes(item.value)}
-						onCheckedChange={(checked) =>
-							onToggle(item.value, checked)
-						}
-					/>
-					<FieldContent>
-						<FieldLabel htmlFor={getID(item.value)}>
-							{getLabel(item.value)}
-						</FieldLabel>
-						<FieldDescription>{item.detail}</FieldDescription>
-					</FieldContent>
-				</Field>
-			))}
-		</FieldGroup>
+		<ScrollArea className="h-52 rounded-lg border">
+			<FieldGroup data-slot="checkbox-group" className="p-2 pr-4">
+				{items.map((item) => (
+					<Field key={String(item.value)} orientation="horizontal">
+						<Checkbox
+							id={getID(item.value)}
+							checked={selected.includes(item.value)}
+							onCheckedChange={(checked) =>
+								onToggle(item.value, checked)
+							}
+						/>
+						<FieldContent>
+							<FieldLabel htmlFor={getID(item.value)}>
+								{getLabel(item.value)}
+							</FieldLabel>
+							<FieldDescription>{item.detail}</FieldDescription>
+						</FieldContent>
+					</Field>
+				))}
+			</FieldGroup>
+		</ScrollArea>
 	)
 }
 

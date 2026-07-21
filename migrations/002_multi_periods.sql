@@ -352,9 +352,9 @@ BEGIN
 			USING ERRCODE = 'foreign_key_violation';
 	END IF;
 
-	-- The lock order for choice mutations is always student, then course.
-	-- Course schedule mutations lock only the course and are rejected once the
-	-- course has choices, so the two workflows cannot race or deadlock.
+	-- The lock order for choice mutations is always student, then course. The
+	-- course-period foreign key and its row locks serialize choices with slot
+	-- removals, without introducing a reverse course-to-student lock order.
 	SELECT c.max_students, c.membership
 	INTO v_max, v_membership
 	FROM courses c
@@ -504,33 +504,40 @@ BEFORE INSERT OR UPDATE OF student_id, course_id, period_id, selection_type ON c
 FOR EACH ROW
 EXECUTE FUNCTION enforce_choice_constraints();
 
--- A selected course's timetable is immutable. This deliberately conservative
--- rule keeps schedule edits race-free: administrators must clear/reconcile the
--- course's choices before changing its occupied periods.
-CREATE FUNCTION enforce_course_period_immutability()
+-- A course may gain slots at any time. Removing or moving a slot is allowed
+-- only while no choice references that exact course-slot pair. The row lock on
+-- course_periods and the choices foreign key serialize concurrent selections.
+CREATE FUNCTION enforce_course_period_usage()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 DECLARE
 	v_course_id TEXT;
+	v_period_id TEXT;
 BEGIN
-	IF TG_OP = 'DELETE' THEN
+	IF TG_OP = 'INSERT' THEN
+		v_course_id := NEW.course_id;
+		v_period_id := NEW.period_id;
+	ELSIF TG_OP = 'DELETE' THEN
 		v_course_id := OLD.course_id;
+		v_period_id := OLD.period_id;
 	ELSIF TG_OP = 'UPDATE' AND OLD.course_id IS DISTINCT FROM NEW.course_id THEN
 		RAISE EXCEPTION 'Move a timetable period by deleting and inserting it in one transaction'
 			USING ERRCODE = 'check_violation';
 	ELSE
-		v_course_id := NEW.course_id;
+		v_course_id := OLD.course_id;
+		v_period_id := OLD.period_id;
 	END IF;
 
-	PERFORM 1
-	FROM courses c
-	WHERE c.id = v_course_id
-	FOR UPDATE;
-
-	IF EXISTS (SELECT 1 FROM choices ch WHERE ch.course_id = v_course_id) THEN
-		RAISE EXCEPTION 'Cannot change timetable periods for selected course %', v_course_id
-			USING ERRCODE = 'check_violation', CONSTRAINT = 'course_periods_immutable';
+	IF TG_OP <> 'INSERT' AND EXISTS (
+		SELECT 1
+		FROM choices ch
+		WHERE ch.course_id = v_course_id
+			AND ch.period_id = v_period_id
+	) THEN
+		RAISE EXCEPTION 'Cannot remove timetable period % from course % while it has selections',
+			v_period_id, v_course_id
+			USING ERRCODE = 'check_violation', CONSTRAINT = 'course_period_in_use';
 	END IF;
 
 	IF TG_OP = 'DELETE' THEN
@@ -539,10 +546,10 @@ BEGIN
 	RETURN NEW;
 END;
 $$;
-CREATE TRIGGER trg_course_periods_immutability
+CREATE TRIGGER trg_course_period_usage
 BEFORE INSERT OR UPDATE OR DELETE ON course_periods
 FOR EACH ROW
-EXECUTE FUNCTION enforce_course_period_immutability();
+EXECUTE FUNCTION enforce_course_period_usage();
 
 CREATE FUNCTION delete_choice(p_student_id BIGINT, p_course_id TEXT)
 RETURNS void

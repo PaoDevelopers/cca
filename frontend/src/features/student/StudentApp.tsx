@@ -453,11 +453,8 @@ export default function StudentApp(): React.JSX.Element {
 				<div className="mx-auto flex h-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
 					<div className="min-w-0">
 						<h1 className="truncate font-heading text-lg font-semibold">
-							CCA Sign-Up
+							YKPaoSchool CCA Sign-Up
 						</h1>
-						<p className="hidden text-sm text-muted-foreground sm:block">
-							Choose activities without timetable clashes.
-						</p>
 					</div>
 					<div className="flex min-w-0 items-center gap-2 text-sm">
 						<span className="max-w-28 truncate font-medium sm:max-w-64">

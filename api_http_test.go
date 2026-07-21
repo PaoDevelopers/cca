@@ -54,6 +54,7 @@ func TestClassifyAPIError(t *testing.T) {
 		{name: "selection window", err: &pgconn.PgError{ConstraintName: "choices_window"}, wantStatus: http.StatusUnprocessableEntity, wantCode: "selections_closed"},
 		{name: "invalid fixed period", err: &pgconn.PgError{ConstraintName: "course_periods_period_id_fkey"}, wantStatus: http.StatusUnprocessableEntity, wantCode: "invalid_period"},
 		{name: "period not offered by course", err: &pgconn.PgError{ConstraintName: "choices_course_period_fkey"}, wantStatus: http.StatusUnprocessableEntity, wantCode: "invalid_course_period"},
+		{name: "course period in use", err: &pgconn.PgError{ConstraintName: "course_period_in_use"}, wantStatus: http.StatusConflict, wantCode: "course_period_in_use"},
 		{name: "immutable period catalogue", err: &pgconn.PgError{ConstraintName: "periods_fixed"}, wantStatus: http.StatusConflict, wantCode: "periods_fixed"},
 	}
 

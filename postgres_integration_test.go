@@ -396,6 +396,219 @@ func TestPostgresConcurrencyIntegration(t *testing.T) {
 		}
 	})
 
+	t.Run("selected course allows unused slot changes and protects its chosen slot", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		const (
+			gradeID    = "IT Slot Edit Grade"
+			categoryID = "IT Slot Edit Category"
+			studentID  = int64(3_600_001)
+			courseID   = "IT-SLOT-EDIT"
+		)
+		seedGradeAndCategory(t, ctx, pool, gradeID, categoryID, 4)
+		seedStudents(t, ctx, pool, studentID-1, 1, gradeID, "Slot Edit")
+		seedCourses(
+			t,
+			ctx,
+			pool,
+			categoryID,
+			20,
+			[]string{courseID},
+			[]string{"Monday CCA 1"},
+		)
+
+		if _, err := pool.Exec(ctx,
+			"SELECT new_selection($1, $2, $3, 'normal'::selection_type)",
+			studentID,
+			courseID,
+			"Monday CCA 1",
+		); err != nil {
+			t.Fatalf("select original course slot: %v", err)
+		}
+
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO course_periods (course_id, period_id)
+			VALUES ($1, 'Tuesday CCA 1')
+		`, courseID); err != nil {
+			t.Fatalf("add slot to selected course: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `
+			UPDATE course_periods
+			SET period_id = 'Wednesday CCA 1'
+			WHERE course_id = $1 AND period_id = 'Tuesday CCA 1'
+		`, courseID); err != nil {
+			t.Fatalf("move unused slot on selected course: %v", err)
+		}
+		if _, err := pool.Exec(ctx, `
+			DELETE FROM course_periods
+			WHERE course_id = $1 AND period_id = 'Wednesday CCA 1'
+		`, courseID); err != nil {
+			t.Fatalf("delete unused slot from selected course: %v", err)
+		}
+
+		_, err := pool.Exec(ctx, `
+			DELETE FROM course_periods
+			WHERE course_id = $1 AND period_id = 'Monday CCA 1'
+		`, courseID)
+		assertPGConstraint(t, err, "23514", "course_period_in_use")
+
+		_, err = pool.Exec(ctx, `
+			UPDATE course_periods
+			SET period_id = 'Thursday CCA 1'
+			WHERE course_id = $1 AND period_id = 'Monday CCA 1'
+		`, courseID)
+		assertPGConstraint(t, err, "23514", "course_period_in_use")
+
+		var periodID, chosenPeriod string
+		if err := pool.QueryRow(ctx, `
+			SELECT cp.period_id, ch.period_id
+			FROM course_periods cp
+			JOIN choices ch
+				ON ch.course_id = cp.course_id
+				AND ch.period_id = cp.period_id
+			WHERE cp.course_id = $1
+		`, courseID).Scan(&periodID, &chosenPeriod); err != nil {
+			t.Fatalf("read protected course slot: %v", err)
+		}
+		if periodID != "Monday CCA 1" || chosenPeriod != periodID {
+			t.Fatalf("protected period=%q choice=%q, want Monday CCA 1", periodID, chosenPeriod)
+		}
+	})
+
+	t.Run("slot deletion serializes with a concurrent selection", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+
+		const (
+			gradeID    = "IT Slot Race Grade"
+			categoryID = "IT Slot Race Category"
+			studentID  = int64(3_700_001)
+			courseID   = "IT-SLOT-RACE"
+			periodID   = "Tuesday CCA 1"
+		)
+		seedGradeAndCategory(t, ctx, pool, gradeID, categoryID, 4)
+		seedStudents(t, ctx, pool, studentID-1, 1, gradeID, "Slot Race")
+		seedCourses(
+			t,
+			ctx,
+			pool,
+			categoryID,
+			20,
+			[]string{courseID},
+			[]string{"Monday CCA 1"},
+		)
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO course_periods (course_id, period_id)
+			VALUES ($1, $2)
+		`, courseID, periodID); err != nil {
+			t.Fatalf("add race target slot: %v", err)
+		}
+
+		type mutationResult struct {
+			operation  string
+			backendPID uint32
+			err        error
+		}
+		start := make(chan struct{})
+		results := make(chan mutationResult, 2)
+		var ready sync.WaitGroup
+		ready.Add(2)
+
+		go func() {
+			conn, err := pool.Acquire(ctx)
+			if err != nil {
+				ready.Done()
+				results <- mutationResult{operation: "delete", err: err}
+				return
+			}
+			defer conn.Release()
+			ready.Done()
+			<-start
+			_, err = conn.Exec(ctx, `
+				DELETE FROM course_periods
+				WHERE course_id = $1 AND period_id = $2
+			`, courseID, periodID)
+			results <- mutationResult{
+				operation:  "delete",
+				backendPID: conn.Conn().PgConn().PID(),
+				err:        err,
+			}
+		}()
+		go func() {
+			conn, err := pool.Acquire(ctx)
+			if err != nil {
+				ready.Done()
+				results <- mutationResult{operation: "select", err: err}
+				return
+			}
+			defer conn.Release()
+			ready.Done()
+			<-start
+			_, err = conn.Exec(ctx,
+				"SELECT new_selection($1, $2, $3, 'normal'::selection_type)",
+				studentID,
+				courseID,
+				periodID,
+			)
+			results <- mutationResult{
+				operation:  "select",
+				backendPID: conn.Conn().PgConn().PID(),
+				err:        err,
+			}
+		}()
+
+		ready.Wait()
+		close(start)
+		outcomes := []mutationResult{<-results, <-results}
+		successes := 0
+		backendPIDs := make(map[uint32]struct{}, 2)
+		for _, outcome := range outcomes {
+			if outcome.backendPID != 0 {
+				backendPIDs[outcome.backendPID] = struct{}{}
+			}
+			if outcome.err == nil {
+				successes++
+				continue
+			}
+			var pgErr *pgconn.PgError
+			if !errors.As(outcome.err, &pgErr) {
+				t.Fatalf("%s race error = %T %v, want PostgreSQL constraint", outcome.operation, outcome.err, outcome.err)
+			}
+			allowedConstraints := []string{"choices_course_period", "choices_course_period_fkey"}
+			if outcome.operation == "delete" {
+				allowedConstraints = []string{"course_period_in_use", "choices_course_period_fkey"}
+			}
+			if !slices.Contains(allowedConstraints, pgErr.ConstraintName) {
+				t.Fatalf("%s race constraint = %q, want one of %v", outcome.operation, pgErr.ConstraintName, allowedConstraints)
+			}
+		}
+		if successes != 1 {
+			t.Fatalf("slot race successes = %d, want exactly 1; outcomes=%v", successes, outcomes)
+		}
+		if len(backendPIDs) != 2 {
+			t.Fatalf("slot race used %d PostgreSQL backends, want 2", len(backendPIDs))
+		}
+
+		var periodExists, choiceExists bool
+		if err := pool.QueryRow(ctx, `
+			SELECT
+				EXISTS (
+					SELECT 1 FROM course_periods
+					WHERE course_id = $1 AND period_id = $2
+				),
+				EXISTS (
+					SELECT 1 FROM choices
+					WHERE student_id = $3 AND course_id = $1 AND period_id = $2
+				)
+		`, courseID, periodID, studentID).Scan(&periodExists, &choiceExists); err != nil {
+			t.Fatalf("inspect slot race result: %v", err)
+		}
+		if periodExists != choiceExists {
+			t.Fatalf("slot race period_exists=%t choice_exists=%t, want matching state", periodExists, choiceExists)
+		}
+	})
+
 	t.Run("fixed periods are complete ordered and immutable", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()

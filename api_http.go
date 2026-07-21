@@ -57,7 +57,7 @@ func classifyAPIError(err error) (int, string, string) {
 		case "choices_membership":
 			return http.StatusUnprocessableEntity, "invite_only", "This CCA is invitation only."
 		case "choices_legal_sex":
-			return http.StatusUnprocessableEntity, "legal_sex_restricted", "This CCA is not available for selection."
+			return http.StatusUnprocessableEntity, "legal_sex_restricted", "This CCA is not available for you."
 		case "choices_grade":
 			return http.StatusUnprocessableEntity, "grade_restricted", "This CCA is not available for this grade."
 		case "choices_window":
@@ -68,8 +68,8 @@ func classifyAPIError(err error) (int, string, string) {
 			return http.StatusUnprocessableEntity, "choice_limit", "The student has reached the own-selection limit."
 		case "choices_capacity":
 			return http.StatusConflict, "course_full", "This CCA is full."
-		case "course_periods_immutable":
-			return http.StatusConflict, "course_schedule_locked", "Remove this course's selections before changing its timetable."
+		case "course_period_in_use", "course_periods_immutable":
+			return http.StatusConflict, "course_period_in_use", "Remove selections from this time slot before changing it."
 		case "course_periods_period_id_fkey":
 			return http.StatusUnprocessableEntity, "invalid_period", "Use one of the fixed Monday-through-Thursday CCA slots."
 		case "choices_course_period", "choices_course_period_fkey":
