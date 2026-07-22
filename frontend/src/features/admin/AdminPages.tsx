@@ -2030,7 +2030,7 @@ export function CoursesPage({
 	)
 }
 
-function StudentDialog({
+export function StudentDialog({
 	student,
 	grades,
 	open,

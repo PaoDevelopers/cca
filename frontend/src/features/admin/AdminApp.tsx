@@ -4,7 +4,6 @@ import {
 	BookOpenIcon,
 	CalendarDaysIcon,
 	ChartNoAxesCombinedIcon,
-	ClipboardListIcon,
 	DatabaseIcon,
 	FolderTreeIcon,
 	GraduationCapIcon,
@@ -43,9 +42,8 @@ import {
 	GradesPage,
 	NotificationsPage,
 	PeriodsPage,
-	SelectionsPage,
-	StudentsPage,
 } from "@/features/admin/AdminPages"
+import { ParticipationPage } from "@/features/admin/ParticipationPage"
 
 interface NavigationItem {
 	path: string
@@ -98,14 +96,9 @@ const navigationSections: readonly NavigationSection[] = [
 		label: "Participation",
 		items: [
 			{
-				path: "/admin/students",
-				label: "Students",
+				path: "/admin/participation",
+				label: "Participation",
 				icon: UsersIcon,
-			},
-			{
-				path: "/admin/selections",
-				label: "Selections",
-				icon: ClipboardListIcon,
 			},
 		],
 	},
@@ -316,12 +309,16 @@ export default function AdminApp(): React.JSX.Element {
 					element={<CoursesPage {...pageProps} />}
 				/>
 				<Route
+					path="participation"
+					element={<ParticipationPage {...pageProps} />}
+				/>
+				<Route
 					path="students"
-					element={<StudentsPage {...pageProps} />}
+					element={<Navigate to="../participation" replace />}
 				/>
 				<Route
 					path="selections"
-					element={<SelectionsPage {...pageProps} />}
+					element={<Navigate to="../participation" replace />}
 				/>
 				<Route
 					path="notifications"
