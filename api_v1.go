@@ -208,13 +208,14 @@ func (app *App) handleAPIStudentSelections(w http.ResponseWriter, r *http.Reques
 }
 
 type adminBootstrapView struct {
-	Admin      adminSessionView            `json:"admin"`
-	Categories []string                    `json:"categories"`
-	Periods    []string                    `json:"periods"`
-	Grades     []AbsGradesRow              `json:"grades"`
-	Courses    []CourseView                `json:"courses"`
-	Students   []db.GetStudentsForAdminRow `json:"students"`
-	Selections []db.GetSelectionsRow       `json:"selections"`
+	Admin          adminSessionView             `json:"admin"`
+	Categories     []string                     `json:"categories"`
+	Periods        []string                     `json:"periods"`
+	Grades         []AbsGradesRow               `json:"grades"`
+	GradeSchedules []gradeSelectionScheduleView `json:"grade_schedules"`
+	Courses        []CourseView                 `json:"courses"`
+	Students       []db.GetStudentsForAdminRow  `json:"students"`
+	Selections     []db.GetSelectionsRow        `json:"selections"`
 }
 
 func (app *App) handleAPIAdminBootstrap(w http.ResponseWriter, r *http.Request, admin *UserInfoAdmin) {
@@ -232,8 +233,26 @@ func (app *App) handleAPIAdminBootstrap(w http.ResponseWriter, r *http.Request, 
 		app.writeClassifiedAPIError(r, w, err)
 		return
 	}
-	grades, err := app.AbsGrades(r.Context())
+	tx, err := app.pool.BeginTx(r.Context(), pgx.TxOptions{
+		IsoLevel:   pgx.RepeatableRead,
+		AccessMode: pgx.ReadOnly,
+	})
 	if err != nil {
+		app.writeClassifiedAPIError(r, w, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	grades, err := absGradesWithQueries(r.Context(), app.queries.WithTx(tx))
+	if err != nil {
+		app.writeClassifiedAPIError(r, w, err)
+		return
+	}
+	gradeSchedules, err := listGradeSelectionSchedulesWithQuerier(r.Context(), tx)
+	if err != nil {
+		app.writeClassifiedAPIError(r, w, err)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
 		app.writeClassifiedAPIError(r, w, err)
 		return
 	}
@@ -271,13 +290,14 @@ func (app *App) handleAPIAdminBootstrap(w http.ResponseWriter, r *http.Request, 
 		selections = []db.GetSelectionsRow{}
 	}
 	app.writeJSON(r, w, http.StatusOK, adminBootstrapView{
-		Admin:      adminSessionView{ID: admin.ID, Username: admin.Username},
-		Categories: categories,
-		Periods:    periods,
-		Grades:     grades,
-		Courses:    courses,
-		Students:   students,
-		Selections: selections,
+		Admin:          adminSessionView{ID: admin.ID, Username: admin.Username},
+		Categories:     categories,
+		Periods:        periods,
+		Grades:         grades,
+		GradeSchedules: gradeSchedules,
+		Courses:        courses,
+		Students:       students,
+		Selections:     selections,
 	})
 }
 

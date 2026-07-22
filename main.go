@@ -115,6 +115,7 @@ func main() {
 	slog.Info(logMsgStartupWebsocketSetup)
 	app.wsHub = NewWebSocketHub()
 	go app.wsHub.Run()
+	go app.runGradeSelectionScheduler(ctx)
 
 	// Router
 	slog.Info(logMsgStartupRoutesRegister)
@@ -139,6 +140,9 @@ func main() {
 	mux.HandleFunc("/api/v1/admin/periods", app.apiAdminOnly("handleAPIAdminPeriods", app.handleAPIAdminPeriods))
 	mux.HandleFunc("/api/v1/admin/grades", app.apiAdminOnly("handleAPIAdminGrades", app.handleAPIAdminGrades))
 	mux.HandleFunc("/api/v1/admin/grades/{grade}", app.apiAdminOnly("handleAPIAdminGrade", app.handleAPIAdminGrade))
+	mux.HandleFunc("/api/v1/admin/grade-access", app.apiAdminOnly("handleAPIAdminGradeAccess", app.handleAPIAdminGradeAccess))
+	mux.HandleFunc("/api/v1/admin/grade-schedules", app.apiAdminOnly("handleAPIAdminGradeSchedules", app.handleAPIAdminGradeSchedules))
+	mux.HandleFunc("/api/v1/admin/grade-schedules/{batch_id}", app.apiAdminOnly("handleAPIAdminGradeSchedule", app.handleAPIAdminGradeSchedule))
 	mux.HandleFunc("/api/v1/admin/grades/{grade}/requirement-groups", app.apiAdminOnly("handleAPIAdminRequirementGroups", app.handleAPIAdminRequirementGroups))
 	mux.HandleFunc("/api/v1/admin/grades/{grade}/requirement-groups/{id}", app.apiAdminOnly("handleAPIAdminRequirementGroup", app.handleAPIAdminRequirementGroup))
 	mux.HandleFunc("/api/v1/admin/courses", app.apiAdminOnly("handleAPIAdminCourses", app.handleAPIAdminCourses))

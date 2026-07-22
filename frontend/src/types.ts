@@ -84,11 +84,20 @@ export interface Selection {
 	selection_type: SelectionType
 }
 
+export interface GradeSelectionSchedule {
+	batch_id: number
+	grade_ids: readonly string[]
+	opens_at: string
+	closes_at?: string
+	opened: boolean
+}
+
 export interface AdminBootstrap {
 	admin: AdminSession
 	categories: readonly string[]
 	periods: readonly string[]
 	grades: readonly Grade[]
+	grade_schedules: readonly GradeSelectionSchedule[]
 	courses: readonly Course[]
 	students: readonly Student[]
 	selections: readonly Selection[]

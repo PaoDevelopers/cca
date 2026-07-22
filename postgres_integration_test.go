@@ -150,12 +150,14 @@ func TestPostgresV1ToV2MigrationIntegration(t *testing.T) {
 			}
 		}
 
-		var batchFunctionExists, resetFunctionExists bool
+		var batchFunctionExists, resetFunctionExists, scheduleFunctionExists, scheduleTableExists bool
 		if err := pool.QueryRow(ctx, `
 			SELECT
 				to_regprocedure('new_selections_batch(bigint[],text[],text[],selection_type[])') IS NOT NULL,
-				to_regprocedure('admin_reset_data(text)') IS NOT NULL
-		`).Scan(&batchFunctionExists, &resetFunctionExists); err != nil {
+				to_regprocedure('admin_reset_data(text)') IS NOT NULL,
+				to_regprocedure('apply_due_grade_selection_schedules(timestamp with time zone)') IS NOT NULL,
+				to_regclass('grade_selection_schedules') IS NOT NULL
+		`).Scan(&batchFunctionExists, &resetFunctionExists, &scheduleFunctionExists, &scheduleTableExists); err != nil {
 			t.Fatalf("inspect migrated database functions: %v", err)
 		}
 		if !batchFunctionExists {
@@ -163,6 +165,9 @@ func TestPostgresV1ToV2MigrationIntegration(t *testing.T) {
 		}
 		if !resetFunctionExists {
 			t.Fatal("admin_reset_data was not installed by migration 002")
+		}
+		if !scheduleFunctionExists || !scheduleTableExists {
+			t.Fatal("grade selection scheduling was not installed by migration 002")
 		}
 	})
 
@@ -189,6 +194,217 @@ func TestPostgresV1ToV2MigrationIntegration(t *testing.T) {
 		assertPGConstraint(t, err, "23514", "choices_period_conflict")
 		assertV1MigrationRollback(t, ctx, pool, 2)
 	})
+}
+
+func TestPostgresGradeSelectionScheduleIntegration(t *testing.T) {
+	databaseURL := strings.TrimSpace(os.Getenv(integrationDatabaseURLEnv))
+	if databaseURL == "" {
+		t.Skipf("set %s to run PostgreSQL integration tests", integrationDatabaseURLEnv)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool := newIsolatedIntegrationPool(t, databaseURL)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO grades (grade, enabled, max_own_choices)
+		VALUES ('Schedule 9', FALSE, 3), ('Schedule 10', FALSE, 3)
+	`); err != nil {
+		t.Fatalf("seed schedule grades: %v", err)
+	}
+
+	opensAt := time.Now().Add(2 * time.Hour).UTC().Truncate(time.Second)
+	closesAt := opensAt.Add(2 * time.Hour)
+	var batchID int64
+	if err := pool.QueryRow(ctx, `
+		SELECT save_grade_selection_schedule(NULL, $1, $2, $3, FALSE)
+	`, []string{"Schedule 9", "Schedule 10"}, opensAt, closesAt).Scan(&batchID); err != nil {
+		t.Fatalf("create schedule: %v", err)
+	}
+
+	assertApplied := func(at time.Time, wantProcessed, wantRevision int64) {
+		t.Helper()
+		var processed, revision int64
+		if err := pool.QueryRow(ctx, `
+			SELECT processed_count, revision
+			FROM apply_due_grade_selection_schedules($1)
+		`, at).Scan(&processed, &revision); err != nil {
+			t.Fatalf("apply schedules at %s: %v", at, err)
+		}
+		if processed != wantProcessed || revision != wantRevision {
+			t.Fatalf("apply at %s = (%d, %d), want (%d, %d)", at, processed, revision, wantProcessed, wantRevision)
+		}
+	}
+	assertApplied(opensAt.Add(-time.Second), 0, 0)
+	assertApplied(opensAt, 2, 2)
+
+	var enabledCount, openedCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM grades WHERE grade LIKE 'Schedule %' AND enabled),
+			(SELECT count(*) FROM grade_selection_schedules WHERE batch_id = $1 AND opened)
+	`, batchID).Scan(&enabledCount, &openedCount); err != nil {
+		t.Fatalf("inspect open schedule: %v", err)
+	}
+	if enabledCount != 2 || openedCount != 2 {
+		t.Fatalf("open state enabled=%d opened=%d, want 2 and 2", enabledCount, openedCount)
+	}
+	var conflictingBatchID int64
+	err := pool.QueryRow(ctx, `
+		SELECT save_grade_selection_schedule(NULL, ARRAY['Schedule 9'], $1, NULL, TRUE)
+	`, closesAt.Add(time.Hour)).Scan(&conflictingBatchID)
+	assertPGConstraint(t, err, "23514", "grade_schedule_opened_conflict")
+
+	assertApplied(closesAt, 2, 4)
+	var remaining, disabledCount int
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM grade_selection_schedules),
+			(SELECT count(*) FROM grades WHERE grade LIKE 'Schedule %' AND NOT enabled)
+	`).Scan(&remaining, &disabledCount); err != nil {
+		t.Fatalf("inspect closed schedule: %v", err)
+	}
+	if remaining != 0 || disabledCount != 2 {
+		t.Fatalf("closed state schedules=%d disabled=%d, want 0 and 2", remaining, disabledCount)
+	}
+
+	openOnlyAt := time.Now().Add(4 * time.Hour).UTC().Truncate(time.Second)
+	if err := pool.QueryRow(ctx, `
+		SELECT save_grade_selection_schedule(NULL, ARRAY['Schedule 9'], $1, NULL, FALSE)
+	`, openOnlyAt).Scan(&batchID); err != nil {
+		t.Fatalf("create open-only schedule: %v", err)
+	}
+	assertApplied(openOnlyAt, 1, 5)
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM grade_selection_schedules`).Scan(&remaining); err != nil {
+		t.Fatalf("count completed open-only schedule: %v", err)
+	}
+	if remaining != 0 {
+		t.Fatalf("open-only schedule rows = %d, want 0", remaining)
+	}
+
+	futureOpen := time.Now().Add(6 * time.Hour).UTC().Truncate(time.Second)
+	if err := pool.QueryRow(ctx, `
+		SELECT save_grade_selection_schedule(NULL, ARRAY['Schedule 10'], $1, NULL, FALSE)
+	`, futureOpen).Scan(&batchID); err != nil {
+		t.Fatalf("create manual-override schedule: %v", err)
+	}
+	var updated, cancelled int64
+	if err := pool.QueryRow(ctx, `
+		SELECT updated_count, cancelled_schedule_count
+		FROM set_grade_selection_access(ARRAY['Schedule 10'], TRUE)
+	`).Scan(&updated, &cancelled); err != nil {
+		t.Fatalf("manually override schedule: %v", err)
+	}
+	if updated != 1 || cancelled != 1 {
+		t.Fatalf("manual override = (%d, %d), want (1, 1)", updated, cancelled)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT save_grade_selection_schedule(NULL, ARRAY['Schedule 10'], $1, NULL, FALSE)
+	`, futureOpen.Add(time.Hour)).Scan(&batchID); err != nil {
+		t.Fatalf("schedule currently open grade: %v", err)
+	}
+	var gradeEnabled bool
+	if err := pool.QueryRow(ctx, `
+		SELECT enabled FROM grades WHERE grade = 'Schedule 10'
+	`).Scan(&gradeEnabled); err != nil {
+		t.Fatalf("inspect scheduled grade access: %v", err)
+	}
+	if gradeEnabled {
+		t.Fatal("scheduling a future opening left the grade open before the opening time")
+	}
+	testApp := &App{pool: pool}
+	settingsUpdated, err := testApp.updateGradeSettings(ctx, "Schedule 10", nil, 7)
+	if err != nil {
+		t.Fatalf("update choice limit without overriding schedule: %v", err)
+	}
+	var maxOwnChoices int64
+	if err := pool.QueryRow(ctx, `
+		SELECT max_own_choices FROM grades WHERE grade = 'Schedule 10'
+	`).Scan(&maxOwnChoices); err != nil {
+		t.Fatalf("inspect scheduled grade choice limit: %v", err)
+	}
+	if !settingsUpdated || maxOwnChoices != 7 {
+		t.Fatalf("choice-limit update result updated=%v max=%d, want true and 7", settingsUpdated, maxOwnChoices)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT count(*) FROM grade_selection_schedules WHERE grade = 'Schedule 10'
+	`).Scan(&remaining); err != nil {
+		t.Fatalf("inspect schedule after choice-limit update: %v", err)
+	}
+	if remaining != 1 {
+		t.Fatalf("choice-limit update left %d schedules, want 1", remaining)
+	}
+}
+
+func TestPostgresGradeSelectionScheduleRunnerIsMultiInstanceSafe(t *testing.T) {
+	databaseURL := strings.TrimSpace(os.Getenv(integrationDatabaseURLEnv))
+	if databaseURL == "" {
+		t.Skipf("set %s to run PostgreSQL integration tests", integrationDatabaseURLEnv)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	pool := newIsolatedIntegrationPool(t, databaseURL)
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO grades (grade, enabled, max_own_choices)
+		VALUES ('Runner 9', FALSE, 3), ('Runner 10', FALSE, 3);
+		SELECT save_grade_selection_schedule(
+			NULL,
+			ARRAY['Runner 9', 'Runner 10'],
+			CURRENT_TIMESTAMP + interval '1 hour',
+			NULL,
+			FALSE
+		)
+	`); err != nil {
+		t.Fatalf("seed runner schedule: %v", err)
+	}
+
+	const runners = 8
+	var wg sync.WaitGroup
+	processed := make(chan int64, runners)
+	errs := make(chan error, runners)
+	for range runners {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			var count, revision int64
+			err := pool.QueryRow(ctx, `
+				SELECT processed_count, revision
+				FROM apply_due_grade_selection_schedules(CURRENT_TIMESTAMP + interval '2 hours')
+			`).Scan(&count, &revision)
+			if err != nil {
+				errs <- err
+				return
+			}
+			processed <- count
+		}()
+	}
+	wg.Wait()
+	close(processed)
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent schedule runner: %v", err)
+		}
+	}
+	var total int64
+	for count := range processed {
+		total += count
+	}
+	if total != 2 {
+		t.Fatalf("total processed schedule rows = %d, want 2", total)
+	}
+
+	var enabled, remaining int
+	if err := pool.QueryRow(ctx, `
+		SELECT
+			(SELECT count(*) FROM grades WHERE grade LIKE 'Runner %' AND enabled),
+			(SELECT count(*) FROM grade_selection_schedules)
+	`).Scan(&enabled, &remaining); err != nil {
+		t.Fatalf("inspect concurrent runner result: %v", err)
+	}
+	if enabled != 2 || remaining != 0 {
+		t.Fatalf("runner result enabled=%d remaining=%d, want 2 and 0", enabled, remaining)
+	}
 }
 
 func TestPostgresAdminResetIntegration(t *testing.T) {

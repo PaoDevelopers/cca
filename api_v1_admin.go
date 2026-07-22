@@ -17,6 +17,12 @@ type gradePayload struct {
 	MaxOwnChoices int64  `json:"max_own_choices"`
 }
 
+type gradeUpdatePayload struct {
+	Grade         string `json:"grade"`
+	Enabled       *bool  `json:"enabled"`
+	MaxOwnChoices int64  `json:"max_own_choices"`
+}
+
 func (app *App) handleAPIAdminGrades(w http.ResponseWriter, r *http.Request, _ *UserInfoAdmin) {
 	switch r.Method {
 	case http.MethodGet:
@@ -78,7 +84,7 @@ func (app *App) handleAPIAdminGrade(w http.ResponseWriter, r *http.Request, _ *U
 	}
 	switch r.Method {
 	case http.MethodPut:
-		var payload gradePayload
+		var payload gradeUpdatePayload
 		if err := decodeAPIJSON(w, r, &payload); err != nil {
 			app.writeAPIError(r, w, http.StatusBadRequest, "invalid_json", err.Error(), err)
 			return
@@ -87,14 +93,12 @@ func (app *App) handleAPIAdminGrade(w http.ResponseWriter, r *http.Request, _ *U
 			app.writeAPIError(r, w, http.StatusUnprocessableEntity, "validation_error", "The selection limit cannot be negative.", nil)
 			return
 		}
-		rowsAffected, err := app.queries.UpdateGradeSettings(r.Context(), db.UpdateGradeSettingsParams{
-			Grade: grade, Enabled: payload.Enabled, MaxOwnChoices: payload.MaxOwnChoices,
-		})
+		updated, err := app.updateGradeSettings(r.Context(), grade, payload.Enabled, payload.MaxOwnChoices)
 		if err != nil {
 			app.writeClassifiedAPIError(r, w, err)
 			return
 		}
-		if rowsAffected == 0 {
+		if !updated {
 			app.writeClassifiedAPIError(r, w, pgx.ErrNoRows)
 			return
 		}

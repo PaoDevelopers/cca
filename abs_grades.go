@@ -15,16 +15,19 @@ type AbsGradesRow struct {
 }
 
 func (app *App) AbsGrades(ctx context.Context) ([]AbsGradesRow, error) {
-	// TODO: Transactions! And maybe get db queries thing from caller? I think maybe all abstract functions should do so
+	return absGradesWithQueries(ctx, app.queries)
+}
+
+func absGradesWithQueries(ctx context.Context, queries *db.Queries) ([]AbsGradesRow, error) {
 	grades2 := []AbsGradesRow{}
 
-	grades, err := app.queries.GetGrades(ctx)
+	grades, err := queries.GetGrades(ctx)
 	if err != nil {
 		return grades2, fmt.Errorf("fetch grades: %w", err)
 	}
 
 	for _, grade := range grades {
-		reqGroups, err := app.queries.GetRequirementGroupsByGrade(ctx, grade.Grade)
+		reqGroups, err := queries.GetRequirementGroupsByGrade(ctx, grade.Grade)
 		if err != nil {
 			return grades2, fmt.Errorf("fetch grade requirements: %w", err)
 		}

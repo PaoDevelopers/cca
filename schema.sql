@@ -50,6 +50,54 @@ CREATE TABLE grades (
 	max_own_choices BIGINT NOT NULL DEFAULT 65535 CHECK (max_own_choices >= 0)
 );
 
+-- One future selection-access window may be configured per grade. Rows that
+-- share a batch_id were created together and are presented as one schedule in
+-- the admin UI. Completed and cancelled rows are deleted; this table stores
+-- operational state, not an audit history.
+CREATE SEQUENCE grade_selection_schedule_batch_id_seq;
+CREATE TABLE grade_selection_schedules (
+	grade TEXT PRIMARY KEY REFERENCES grades(grade) ON UPDATE CASCADE ON DELETE CASCADE,
+	batch_id BIGINT NOT NULL,
+	opens_at TIMESTAMPTZ NOT NULL,
+	closes_at TIMESTAMPTZ,
+	opened BOOLEAN NOT NULL DEFAULT FALSE,
+	CONSTRAINT grade_selection_schedule_range
+		CHECK (closes_at IS NULL OR closes_at > opens_at),
+	CONSTRAINT grade_selection_schedule_open_state
+		CHECK (NOT opened OR closes_at IS NOT NULL)
+);
+CREATE INDEX idx_grade_selection_schedules_batch
+	ON grade_selection_schedules (batch_id, grade);
+CREATE INDEX idx_grade_selection_schedules_due
+	ON grade_selection_schedules (opened, opens_at, closes_at);
+
+-- Each application instance polls this revision so scheduled access changes
+-- are propagated to WebSocket clients even when another instance performed
+-- the database update.
+CREATE TABLE selection_access_state (
+	singleton BOOLEAN PRIMARY KEY DEFAULT TRUE CHECK (singleton),
+	revision BIGINT NOT NULL DEFAULT 0 CHECK (revision >= 0)
+);
+INSERT INTO selection_access_state (singleton, revision) VALUES (TRUE, 0);
+
+CREATE FUNCTION bump_selection_access_revision()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+	IF OLD.enabled IS DISTINCT FROM NEW.enabled THEN
+		UPDATE selection_access_state
+		SET revision = revision + 1
+		WHERE singleton = TRUE;
+	END IF;
+	RETURN NEW;
+END;
+$$;
+CREATE TRIGGER trg_grades_selection_access_revision
+AFTER UPDATE OF enabled ON grades
+FOR EACH ROW
+EXECUTE FUNCTION bump_selection_access_revision();
+
 -- Course categories such as 'Sport', 'Enrichment', 'Art', and 'Culture'
 -- at the SJ campus.
 CREATE TABLE categories (
@@ -381,7 +429,8 @@ BEGIN
 	SELECT enabled, max_own_choices
 	INTO v_grade_enabled, v_max_own_choices
 	FROM grades
-	WHERE grade = v_student_grade;
+	WHERE grade = v_student_grade
+	FOR SHARE;
 
 	IF NOT FOUND THEN
 		RAISE EXCEPTION 'Grade % not found', v_student_grade
@@ -508,7 +557,8 @@ BEGIN
 	INTO v_grade, v_grade_enabled
 	FROM students s
 	JOIN grades g ON g.grade = s.grade
-	WHERE s.id = p_student_id;
+	WHERE s.id = p_student_id
+	FOR SHARE OF g;
 
 	IF NOT FOUND THEN
 		RAISE EXCEPTION 'Student % not found', p_student_id
@@ -670,6 +720,391 @@ BEGIN
 END;
 $$;
 
+-- Immediate access changes and scheduled changes share one advisory lock. This
+-- keeps manual overrides, schedule edits, and the background runner atomic
+-- without requiring pg_cron or any database extension.
+CREATE FUNCTION set_grade_selection_access(
+	p_grades TEXT[],
+	p_enabled BOOLEAN
+)
+RETURNS TABLE (
+	updated_count BIGINT,
+	cancelled_schedule_count BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_grades TEXT[];
+	v_found BIGINT;
+	v_updated BIGINT := 0;
+	v_cancelled BIGINT := 0;
+BEGIN
+	IF p_grades IS NULL
+		OR cardinality(p_grades) = 0
+		OR EXISTS (
+			SELECT 1
+			FROM unnest(p_grades) requested(grade)
+			WHERE requested.grade IS NULL OR btrim(requested.grade) = ''
+		) THEN
+		RAISE EXCEPTION 'Choose at least one valid grade'
+			USING ERRCODE = 'invalid_parameter_value', CONSTRAINT = 'grade_access_grades';
+	END IF;
+
+	SELECT array_agg(DISTINCT btrim(requested.grade) ORDER BY btrim(requested.grade))
+	INTO v_grades
+	FROM unnest(p_grades) requested(grade);
+
+	PERFORM pg_advisory_xact_lock(
+		hashtextextended(current_schema() || ':grade-selection-schedules', 0)
+	);
+
+	SELECT count(*)
+	INTO v_found
+	FROM grades g
+	WHERE g.grade = ANY(v_grades);
+	IF v_found <> cardinality(v_grades) THEN
+		RAISE EXCEPTION 'One or more grades do not exist'
+			USING ERRCODE = 'foreign_key_violation', CONSTRAINT = 'grade_access_grade';
+	END IF;
+
+	PERFORM 1
+	FROM grades g
+	WHERE g.grade = ANY(v_grades)
+	ORDER BY g.grade
+	FOR UPDATE;
+
+	WITH cancelled AS (
+		DELETE FROM grade_selection_schedules schedule
+		WHERE schedule.grade = ANY(v_grades)
+		RETURNING 1
+	)
+	SELECT count(*) INTO v_cancelled FROM cancelled;
+
+	UPDATE grades g
+	SET enabled = p_enabled
+	WHERE g.grade = ANY(v_grades);
+	GET DIAGNOSTICS v_updated = ROW_COUNT;
+
+	RETURN QUERY SELECT v_updated, v_cancelled;
+END;
+$$;
+
+-- Updating a single grade's limit remains compatible with the existing API.
+-- A real access-state change is a manual override and therefore cancels that
+-- grade's pending or active schedule; changing only the limit does not.
+CREATE FUNCTION update_grade_settings_with_schedule(
+	p_grade TEXT,
+	p_enabled BOOLEAN,
+	p_max_own_choices BIGINT
+)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_enabled BOOLEAN;
+BEGIN
+	IF p_grade IS NULL OR btrim(p_grade) = '' OR p_max_own_choices < 0 THEN
+		RAISE EXCEPTION 'A grade and a non-negative selection limit are required'
+			USING ERRCODE = 'invalid_parameter_value', CONSTRAINT = 'grade_settings';
+	END IF;
+
+	PERFORM pg_advisory_xact_lock(
+		hashtextextended(current_schema() || ':grade-selection-schedules', 0)
+	);
+	SELECT grade.enabled
+	INTO v_enabled
+	FROM grades grade
+	WHERE grade.grade = btrim(p_grade)
+	FOR UPDATE;
+	IF NOT FOUND THEN
+		RETURN FALSE;
+	END IF;
+
+	IF p_enabled IS NOT NULL AND v_enabled IS DISTINCT FROM p_enabled THEN
+		DELETE FROM grade_selection_schedules schedule
+		WHERE schedule.grade = btrim(p_grade);
+	END IF;
+	UPDATE grades grade
+	SET enabled = COALESCE(p_enabled, v_enabled),
+		max_own_choices = p_max_own_choices
+	WHERE grade.grade = btrim(p_grade);
+	RETURN TRUE;
+END;
+$$;
+
+CREATE FUNCTION save_grade_selection_schedule(
+	p_batch_id BIGINT,
+	p_grades TEXT[],
+	p_opens_at TIMESTAMPTZ,
+	p_closes_at TIMESTAMPTZ,
+	p_replace_existing BOOLEAN
+)
+RETURNS BIGINT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_grades TEXT[];
+	v_existing_grades TEXT[];
+	v_conflicting_grades TEXT[];
+	v_existing_opens_at TIMESTAMPTZ;
+	v_existing_opened BOOLEAN := FALSE;
+	v_conflicting_opened BOOLEAN := FALSE;
+	v_found BIGINT;
+	v_batch_id BIGINT;
+BEGIN
+	IF p_grades IS NULL
+		OR cardinality(p_grades) = 0
+		OR EXISTS (
+			SELECT 1
+			FROM unnest(p_grades) requested(grade)
+			WHERE requested.grade IS NULL OR btrim(requested.grade) = ''
+		) THEN
+		RAISE EXCEPTION 'Choose at least one valid grade'
+			USING ERRCODE = 'invalid_parameter_value', CONSTRAINT = 'grade_schedule_grades';
+	END IF;
+	IF p_opens_at IS NULL THEN
+		RAISE EXCEPTION 'Choose an opening date and time'
+			USING ERRCODE = 'invalid_parameter_value', CONSTRAINT = 'grade_schedule_opens_at';
+	END IF;
+	IF p_closes_at IS NOT NULL AND p_closes_at <= p_opens_at THEN
+		RAISE EXCEPTION 'Closing time must be after opening time'
+			USING ERRCODE = 'check_violation', CONSTRAINT = 'grade_selection_schedule_range';
+	END IF;
+
+	SELECT array_agg(DISTINCT btrim(requested.grade) ORDER BY btrim(requested.grade))
+	INTO v_grades
+	FROM unnest(p_grades) requested(grade);
+
+	PERFORM pg_advisory_xact_lock(
+		hashtextextended(current_schema() || ':grade-selection-schedules', 0)
+	);
+
+	SELECT count(*)
+	INTO v_found
+	FROM grades g
+	WHERE g.grade = ANY(v_grades);
+	IF v_found <> cardinality(v_grades) THEN
+		RAISE EXCEPTION 'One or more grades do not exist'
+			USING ERRCODE = 'foreign_key_violation', CONSTRAINT = 'grade_schedule_grade';
+	END IF;
+
+	PERFORM 1
+	FROM grades g
+	WHERE g.grade = ANY(v_grades)
+	ORDER BY g.grade
+	FOR UPDATE;
+
+	IF p_batch_id IS NOT NULL THEN
+		SELECT
+			array_agg(schedule.grade ORDER BY schedule.grade),
+			bool_and(schedule.opened),
+			min(schedule.opens_at)
+		INTO v_existing_grades, v_existing_opened, v_existing_opens_at
+		FROM grade_selection_schedules schedule
+		WHERE schedule.batch_id = p_batch_id;
+
+		IF v_existing_grades IS NULL THEN
+			RAISE EXCEPTION 'Selection schedule % not found', p_batch_id
+				USING ERRCODE = 'no_data_found', CONSTRAINT = 'grade_schedule_batch';
+		END IF;
+
+		-- Once a window has opened, editing may only move its closing time. This
+		-- prevents an edit from silently closing or re-opening active grades.
+		IF v_existing_opened THEN
+			IF v_grades IS DISTINCT FROM v_existing_grades
+				OR p_opens_at IS DISTINCT FROM v_existing_opens_at
+				OR p_closes_at IS NULL
+				OR p_closes_at <= CURRENT_TIMESTAMP THEN
+				RAISE EXCEPTION 'An open selection window may only change to a future closing time'
+					USING ERRCODE = 'check_violation', CONSTRAINT = 'grade_schedule_opened';
+			END IF;
+
+			UPDATE grade_selection_schedules
+			SET closes_at = p_closes_at
+			WHERE batch_id = p_batch_id;
+			RETURN p_batch_id;
+		END IF;
+	END IF;
+
+	IF p_opens_at <= CURRENT_TIMESTAMP THEN
+		RAISE EXCEPTION 'Opening time must be in the future'
+			USING ERRCODE = 'check_violation', CONSTRAINT = 'grade_schedule_in_past';
+	END IF;
+
+	SELECT array_agg(schedule.grade ORDER BY schedule.grade)
+	INTO v_conflicting_grades
+	FROM grade_selection_schedules schedule
+	WHERE schedule.grade = ANY(v_grades)
+		AND (p_batch_id IS NULL OR schedule.batch_id <> p_batch_id);
+	SELECT EXISTS (
+		SELECT 1
+		FROM grade_selection_schedules schedule
+		WHERE schedule.grade = ANY(v_grades)
+			AND schedule.opened
+			AND (p_batch_id IS NULL OR schedule.batch_id <> p_batch_id)
+	)
+	INTO v_conflicting_opened;
+
+	IF v_conflicting_opened THEN
+		RAISE EXCEPTION 'An open selection window must be edited or manually overridden'
+			USING ERRCODE = 'check_violation', CONSTRAINT = 'grade_schedule_opened_conflict';
+	END IF;
+
+	IF v_conflicting_grades IS NOT NULL AND NOT p_replace_existing THEN
+		RAISE EXCEPTION 'Grades already have a selection schedule: %', array_to_string(v_conflicting_grades, ', ')
+			USING ERRCODE = 'unique_violation', CONSTRAINT = 'grade_schedule_exists';
+	END IF;
+
+	IF p_batch_id IS NOT NULL THEN
+		DELETE FROM grade_selection_schedules
+		WHERE batch_id = p_batch_id;
+	END IF;
+	IF p_replace_existing THEN
+		DELETE FROM grade_selection_schedules
+		WHERE grade = ANY(v_grades);
+	END IF;
+
+	v_batch_id := COALESCE(
+		p_batch_id,
+		nextval('grade_selection_schedule_batch_id_seq')
+	);
+	INSERT INTO grade_selection_schedules (
+		grade,
+		batch_id,
+		opens_at,
+		closes_at,
+		opened
+	)
+	SELECT
+		requested.grade,
+		v_batch_id,
+		p_opens_at,
+		p_closes_at,
+		FALSE
+	FROM unnest(v_grades) requested(grade);
+
+	-- A future opening must represent a real closed-before-open window. Saving
+	-- the schedule closes any currently open selected grades immediately.
+	UPDATE grades grade
+	SET enabled = FALSE
+	WHERE grade.grade = ANY(v_grades)
+		AND grade.enabled;
+
+	RETURN v_batch_id;
+END;
+$$;
+
+CREATE FUNCTION cancel_grade_selection_schedule(p_batch_id BIGINT)
+RETURNS BIGINT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_deleted BIGINT := 0;
+BEGIN
+	PERFORM pg_advisory_xact_lock(
+		hashtextextended(current_schema() || ':grade-selection-schedules', 0)
+	);
+	DELETE FROM grade_selection_schedules
+	WHERE batch_id = p_batch_id;
+	GET DIAGNOSTICS v_deleted = ROW_COUNT;
+	IF v_deleted = 0 THEN
+		RAISE EXCEPTION 'Selection schedule % not found', p_batch_id
+			USING ERRCODE = 'no_data_found', CONSTRAINT = 'grade_schedule_batch';
+	END IF;
+	RETURN v_deleted;
+END;
+$$;
+
+CREATE FUNCTION apply_due_grade_selection_schedules(
+	p_now TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+)
+RETURNS TABLE (
+	processed_count BIGINT,
+	revision BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_processed BIGINT := 0;
+	v_step BIGINT := 0;
+	v_revision BIGINT := 0;
+BEGIN
+	IF p_now IS NULL THEN
+		RAISE EXCEPTION 'A scheduler timestamp is required'
+			USING ERRCODE = 'invalid_parameter_value', CONSTRAINT = 'grade_schedule_now';
+	END IF;
+
+	IF NOT pg_try_advisory_xact_lock(
+		hashtextextended(current_schema() || ':grade-selection-schedules', 0)
+	) THEN
+		SELECT state.revision
+		INTO v_revision
+		FROM selection_access_state state
+		WHERE state.singleton = TRUE;
+		RETURN QUERY SELECT 0::BIGINT, v_revision;
+		RETURN;
+	END IF;
+
+	-- If both boundaries passed while the service was offline, closing wins.
+	WITH due AS (
+		DELETE FROM grade_selection_schedules schedule
+		WHERE schedule.closes_at IS NOT NULL
+			AND schedule.closes_at <= p_now
+		RETURNING schedule.grade
+	), changed AS (
+		UPDATE grades grade
+		SET enabled = FALSE
+		FROM due
+		WHERE grade.grade = due.grade
+		RETURNING grade.grade
+	)
+	SELECT count(*) INTO v_step FROM due;
+	v_processed := v_processed + v_step;
+
+	-- Open-only schedules complete as soon as access is enabled.
+	WITH due AS (
+		DELETE FROM grade_selection_schedules schedule
+		WHERE NOT schedule.opened
+			AND schedule.opens_at <= p_now
+			AND schedule.closes_at IS NULL
+		RETURNING schedule.grade
+	), changed AS (
+		UPDATE grades grade
+		SET enabled = TRUE
+		FROM due
+		WHERE grade.grade = due.grade
+		RETURNING grade.grade
+	)
+	SELECT count(*) INTO v_step FROM due;
+	v_processed := v_processed + v_step;
+
+	-- Windows with a closing time remain present so the same runner can close
+	-- them later. opened is operational state and is deleted with the schedule.
+	WITH due AS (
+		UPDATE grade_selection_schedules schedule
+		SET opened = TRUE
+		WHERE NOT schedule.opened
+			AND schedule.opens_at <= p_now
+			AND schedule.closes_at > p_now
+		RETURNING schedule.grade
+	), changed AS (
+		UPDATE grades grade
+		SET enabled = TRUE
+		FROM due
+		WHERE grade.grade = due.grade
+		RETURNING grade.grade
+	)
+	SELECT count(*) INTO v_step FROM due;
+	v_processed := v_processed + v_step;
+
+	SELECT state.revision
+	INTO v_revision
+	FROM selection_access_state state
+	WHERE state.singleton = TRUE;
+	RETURN QUERY SELECT v_processed, v_revision;
+END;
+$$;
+
 -- Destructive admin maintenance is kept in one database transaction so that
 -- concurrent selection requests cannot race a dependency check. Courses and
 -- students must be reset explicitly after selections; this function never
@@ -690,6 +1125,11 @@ BEGIN
 		RAISE EXCEPTION 'Unknown reset scope %', p_scope
 			USING ERRCODE = 'invalid_parameter_value', CONSTRAINT = 'reset_scope';
 	END IF;
+
+	PERFORM pg_advisory_xact_lock(
+		hashtextextended(current_schema() || ':grade-selection-schedules', 0)
+	);
+	DELETE FROM grade_selection_schedules;
 
 	-- Block choice writes while still allowing the read locks used by the
 	-- course-period and foreign-key checks. ACCESS EXCLUSIVE here can deadlock

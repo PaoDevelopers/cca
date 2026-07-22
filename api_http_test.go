@@ -56,6 +56,9 @@ func TestClassifyAPIError(t *testing.T) {
 		{name: "period not offered by course", err: &pgconn.PgError{ConstraintName: "choices_course_period_fkey"}, wantStatus: http.StatusUnprocessableEntity, wantCode: "invalid_course_period"},
 		{name: "course period in use", err: &pgconn.PgError{ConstraintName: "course_period_in_use"}, wantStatus: http.StatusConflict, wantCode: "course_period_in_use"},
 		{name: "immutable period catalogue", err: &pgconn.PgError{ConstraintName: "periods_fixed"}, wantStatus: http.StatusConflict, wantCode: "periods_fixed"},
+		{name: "grade schedule conflict", err: &pgconn.PgError{ConstraintName: "grade_schedule_exists"}, wantStatus: http.StatusConflict, wantCode: "grade_schedule_exists"},
+		{name: "active grade schedule", err: &pgconn.PgError{ConstraintName: "grade_schedule_opened_conflict"}, wantStatus: http.StatusConflict, wantCode: "grade_schedule_opened"},
+		{name: "invalid grade schedule range", err: &pgconn.PgError{ConstraintName: "grade_selection_schedule_range"}, wantStatus: http.StatusUnprocessableEntity, wantCode: "invalid_schedule_range"},
 	}
 
 	for _, tt := range tests {

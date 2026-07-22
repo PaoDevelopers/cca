@@ -80,6 +80,18 @@ func classifyAPIError(err error) (int, string, string) {
 			return http.StatusConflict, "reset_selections_required", "Reset selections before resetting courses or students."
 		case "reset_scope":
 			return http.StatusUnprocessableEntity, "invalid_reset_scope", "Choose selections, courses, or students."
+		case "grade_schedule_exists":
+			return http.StatusConflict, "grade_schedule_exists", "One or more grades already have a selection schedule."
+		case "grade_schedule_opened", "grade_schedule_opened_conflict":
+			return http.StatusConflict, "grade_schedule_opened", "An open selection window can only change its future closing time."
+		case "grade_selection_schedule_range":
+			return http.StatusUnprocessableEntity, "invalid_schedule_range", "Closing time must be after opening time."
+		case "grade_schedule_in_past":
+			return http.StatusUnprocessableEntity, "schedule_in_past", "Opening time must be in the future."
+		case "grade_access_grades", "grade_schedule_grades", "grade_schedule_opens_at", "grade_schedule_now", "grade_settings":
+			return http.StatusUnprocessableEntity, "validation_error", "Complete the required grade schedule fields."
+		case "grade_schedule_batch":
+			return http.StatusNotFound, "not_found", "The selection schedule no longer exists."
 		}
 		switch pgErr.Code {
 		case "P0002":
