@@ -148,11 +148,13 @@ func main() {
 	mux.HandleFunc("/api/v1/admin/selections", app.apiAdminOnly("handleAPIAdminSelections", app.handleAPIAdminSelections))
 	mux.HandleFunc("/api/v1/admin/selections/{student_id}/{course_id}", app.apiAdminOnly("handleAPIAdminSelection", app.handleAPIAdminSelection))
 	mux.HandleFunc("/api/v1/admin/notifications", app.apiAdminOnly("handleAPIAdminNotifications", app.handleAPIAdminNotifications))
+	mux.HandleFunc("/api/v1/admin/reset", app.apiAdminOnly("handleAPIAdminReset", app.handleAPIAdminReset))
 
-	// CSV transfers remain available to the React data-management page. All
+	// Tabular transfers remain available to the React data-management page. All
 	// mutating uploads use the same authenticated, same-origin guard as the JSON
 	// API. The former template CRUD routes are intentionally not registered.
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/static/", http.FileServer(http.Dir("admin_static"))))
+	mux.HandleFunc("/admin/data/examples/{kind}", app.apiAdminOnly("handleAdmDataExample", app.handleAdmDataExample))
 	mux.HandleFunc("/admin/courses/import", app.apiAdminOnly("handleAdmCoursesImport", app.handleAdmCoursesImport))
 	mux.HandleFunc("/admin/students/import", app.apiAdminOnly("handleAdmStudentsImport", app.handleAdmStudentsImport))
 	mux.HandleFunc("/admin/selections/export", app.apiAdminOnly("handleAdmSelectionsExport", app.handleAdmSelectionsExport))

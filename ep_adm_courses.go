@@ -1,8 +1,6 @@
 package main
 
 import (
-	"bufio"
-	"encoding/csv"
 	"errors"
 	"fmt"
 	"io"
@@ -403,28 +401,27 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 
-	f, _, err := r.FormFile("csv")
+	format, f, _, err := openTabularUpload(r)
 	if err != nil {
-		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nCSV file required", err, slog.String("admin_username", aui.Username))
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
 	}
 	defer func() {
 		_ = f.Close()
 	}()
 
-	br := bufio.NewReader(f)
-	if b, _ := br.Peek(3); len(b) >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF {
-		if _, err := br.Discard(3); err != nil {
-			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
-			return
-		}
+	reader, err := newTabularRowReader(format, f)
+	if err != nil {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
+		return
 	}
-
-	reader := csv.NewReader(br)
+	defer func() {
+		_ = reader.Close()
+	}()
 	header, err := reader.Read()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
-			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nEmpty CSV", err, slog.String("admin_username", aui.Username))
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nEmpty data file", err, slog.String("admin_username", aui.Username))
 			return
 		}
 		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
@@ -444,15 +441,10 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		"allowed_legal_sexes",
 		"allowed_grades",
 	}
-	if len(header) != len(expected) {
-		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nCSV header does not match expected column count", nil, slog.String("admin_username", aui.Username))
+	header = normalizeTabularRecord(format, header, len(expected))
+	if err := validateTabularHeader(header, expected); err != nil {
+		app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username))
 		return
-	}
-	for i, col := range header {
-		if strings.TrimSpace(col) != expected[i] {
-			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnexpected header column: "+col, nil, slog.String("admin_username", aui.Username))
-			return
-		}
 	}
 
 	tx, err := app.pool.Begin(r.Context())
@@ -476,8 +468,9 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\n"+err.Error(), err, slog.String("admin_username", aui.Username), slog.Int("row", row))
 			return
 		}
+		record = normalizeTabularRecord(format, record, len(expected))
 		if len(record) != len(expected) {
-			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnexpected column count in CSV row", nil, slog.String("admin_username", aui.Username), slog.Int("row", row))
+			app.respondHTTPError(r, w, http.StatusBadRequest, "Bad Request\nUnexpected column count in row", nil, slog.String("admin_username", aui.Username), slog.Int("row", row))
 			return
 		}
 
@@ -616,7 +609,7 @@ func (app *App) handleAdmCoursesImport(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 
-	app.logInfo(r, logMsgAdminCoursesImport, slog.String("admin_username", aui.Username))
+	app.logInfo(r, logMsgAdminCoursesImport, slog.String("admin_username", aui.Username), slog.String("format", string(format)))
 	app.wsHub.Broadcast(WSMessage("invalidate_courses"))
 
 	http.Redirect(w, r, "/admin/courses", http.StatusSeeOther)

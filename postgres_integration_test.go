@@ -150,14 +150,19 @@ func TestPostgresV1ToV2MigrationIntegration(t *testing.T) {
 			}
 		}
 
-		var batchFunctionExists bool
+		var batchFunctionExists, resetFunctionExists bool
 		if err := pool.QueryRow(ctx, `
-			SELECT to_regprocedure('new_selections_batch(bigint[],text[],text[],selection_type[])') IS NOT NULL
-		`).Scan(&batchFunctionExists); err != nil {
-			t.Fatalf("inspect migrated batch function: %v", err)
+			SELECT
+				to_regprocedure('new_selections_batch(bigint[],text[],text[],selection_type[])') IS NOT NULL,
+				to_regprocedure('admin_reset_data(text)') IS NOT NULL
+		`).Scan(&batchFunctionExists, &resetFunctionExists); err != nil {
+			t.Fatalf("inspect migrated database functions: %v", err)
 		}
 		if !batchFunctionExists {
 			t.Fatal("new_selections_batch was not installed by migration 002")
+		}
+		if !resetFunctionExists {
+			t.Fatal("admin_reset_data was not installed by migration 002")
 		}
 	})
 
@@ -183,6 +188,241 @@ func TestPostgresV1ToV2MigrationIntegration(t *testing.T) {
 		err := execIntegrationSQLFile(t, ctx, pool, "migrations/002_multi_periods.sql")
 		assertPGConstraint(t, err, "23514", "choices_period_conflict")
 		assertV1MigrationRollback(t, ctx, pool, 2)
+	})
+}
+
+func TestPostgresAdminResetIntegration(t *testing.T) {
+	databaseURL := strings.TrimSpace(os.Getenv(integrationDatabaseURLEnv))
+	if databaseURL == "" {
+		t.Skipf("set %s to run PostgreSQL integration tests", integrationDatabaseURLEnv)
+	}
+
+	t.Run("selections reset closes windows and preserves configuration", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		pool := newIsolatedIntegrationPool(t, databaseURL)
+
+		seedGradeAndCategory(t, ctx, pool, "Reset Grade", "Reset Category", 4)
+		seedCourses(t, ctx, pool, "Reset Category", 10, []string{"RESET-COURSE"}, []string{"Monday CCA 1"})
+		seedStudents(t, ctx, pool, 8_000, 1, "Reset Grade", "Reset Student")
+		if _, err := pool.Exec(ctx, `
+			SELECT new_selection(8001, 'RESET-COURSE', 'Monday CCA 1', 'normal')
+		`); err != nil {
+			t.Fatalf("seed reset selection: %v", err)
+		}
+
+		var scope string
+		var deleted, closed int64
+		if err := pool.QueryRow(ctx, `
+			SELECT reset_scope, deleted_count, closed_grade_count
+			FROM admin_reset_data('selections')
+		`).Scan(&scope, &deleted, &closed); err != nil {
+			t.Fatalf("reset selections: %v", err)
+		}
+		if scope != "selections" || deleted != 1 || closed != 1 {
+			t.Fatalf("selection reset result = %q, %d, %d; want selections, 1, 1", scope, deleted, closed)
+		}
+
+		var choices, courses, students, grades, categories int
+		var enabled bool
+		if err := pool.QueryRow(ctx, `
+			SELECT
+				(SELECT count(*) FROM choices),
+				(SELECT count(*) FROM courses),
+				(SELECT count(*) FROM students),
+				(SELECT count(*) FROM grades),
+				(SELECT count(*) FROM categories),
+				(SELECT enabled FROM grades WHERE grade = 'Reset Grade')
+		`).Scan(&choices, &courses, &students, &grades, &categories, &enabled); err != nil {
+			t.Fatalf("inspect selection reset: %v", err)
+		}
+		if choices != 0 || courses != 1 || students != 1 || grades != 1 || categories != 1 || enabled {
+			t.Fatalf(
+				"selection reset state choices=%d courses=%d students=%d grades=%d categories=%d enabled=%v",
+				choices, courses, students, grades, categories, enabled,
+			)
+		}
+	})
+
+	for _, scope := range []string{"courses", "students"} {
+		scope := scope
+		t.Run(scope+" require selections to be reset first", func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			pool := newIsolatedIntegrationPool(t, databaseURL)
+
+			seedGradeAndCategory(t, ctx, pool, "Dependency Grade", "Dependency Category", 4)
+			seedCourses(t, ctx, pool, "Dependency Category", 10, []string{"DEPENDENCY-COURSE"}, []string{"Tuesday CCA 2"})
+			seedStudents(t, ctx, pool, 8_100, 1, "Dependency Grade", "Dependency Student")
+			if _, err := pool.Exec(ctx, `
+				SELECT new_selection(8101, 'DEPENDENCY-COURSE', 'Tuesday CCA 2', 'normal')
+			`); err != nil {
+				t.Fatalf("seed dependency selection: %v", err)
+			}
+
+			_, err := pool.Exec(ctx, "SELECT * FROM admin_reset_data($1)", scope)
+			assertPGConstraint(t, err, "23514", "reset_selections_required")
+
+			var choices int
+			var enabled bool
+			if err := pool.QueryRow(ctx, `
+				SELECT
+					(SELECT count(*) FROM choices),
+					(SELECT enabled FROM grades WHERE grade = 'Dependency Grade')
+			`).Scan(&choices, &enabled); err != nil {
+				t.Fatalf("inspect rejected %s reset: %v", scope, err)
+			}
+			if choices != 1 || !enabled {
+				t.Fatalf("rejected %s reset choices=%d enabled=%v; want 1, true", scope, choices, enabled)
+			}
+		})
+	}
+
+	t.Run("courses and students reset independently", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		pool := newIsolatedIntegrationPool(t, databaseURL)
+
+		seedGradeAndCategory(t, ctx, pool, "Independent Grade", "Independent Category", 4)
+		seedCourses(t, ctx, pool, "Independent Category", 10, []string{"INDEPENDENT-COURSE"}, []string{"Wednesday CCA 3"})
+		seedStudents(t, ctx, pool, 8_200, 1, "Independent Grade", "Independent Student")
+
+		var deleted, closed int64
+		if err := pool.QueryRow(ctx, `
+			SELECT deleted_count, closed_grade_count FROM admin_reset_data('courses')
+		`).Scan(&deleted, &closed); err != nil {
+			t.Fatalf("reset courses: %v", err)
+		}
+		if deleted != 1 || closed != 1 {
+			t.Fatalf("course reset result = %d, %d; want 1, 1", deleted, closed)
+		}
+
+		if err := pool.QueryRow(ctx, `
+			SELECT deleted_count, closed_grade_count FROM admin_reset_data('students')
+		`).Scan(&deleted, &closed); err != nil {
+			t.Fatalf("reset students: %v", err)
+		}
+		if deleted != 1 || closed != 0 {
+			t.Fatalf("student reset result = %d, %d; want 1, 0", deleted, closed)
+		}
+
+		var courses, students, grades, categories, periods int
+		if err := pool.QueryRow(ctx, `
+			SELECT
+				(SELECT count(*) FROM courses),
+				(SELECT count(*) FROM students),
+				(SELECT count(*) FROM grades),
+				(SELECT count(*) FROM categories),
+				(SELECT count(*) FROM periods)
+		`).Scan(&courses, &students, &grades, &categories, &periods); err != nil {
+			t.Fatalf("inspect independent resets: %v", err)
+		}
+		if courses != 0 || students != 0 || grades != 1 || categories != 1 || periods != 16 {
+			t.Fatalf(
+				"independent reset state courses=%d students=%d grades=%d categories=%d periods=%d",
+				courses, students, grades, categories, periods,
+			)
+		}
+	})
+
+	t.Run("course reset does not deadlock with a concurrent course delete", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		pool := newIsolatedIntegrationPool(t, databaseURL)
+
+		seedGradeAndCategory(t, ctx, pool, "Reset Lock Grade", "Reset Lock Category", 4)
+		seedCourses(
+			t,
+			ctx,
+			pool,
+			"Reset Lock Category",
+			10,
+			[]string{"RESET-LOCK-DELETE", "RESET-LOCK-REMAINING"},
+			[]string{"Monday CCA 2", "Tuesday CCA 2"},
+		)
+
+		deleteTx, err := pool.Begin(ctx)
+		if err != nil {
+			t.Fatalf("begin concurrent course delete: %v", err)
+		}
+		defer func() { _ = deleteTx.Rollback(ctx) }()
+		if _, err := deleteTx.Exec(ctx, "LOCK TABLE courses IN ROW EXCLUSIVE MODE"); err != nil {
+			t.Fatalf("lock courses for concurrent delete: %v", err)
+		}
+
+		type resetResult struct {
+			deleted int64
+			err     error
+		}
+		resetDone := make(chan resetResult, 1)
+		go func() {
+			var deleted int64
+			err := pool.QueryRow(ctx, `
+				SELECT deleted_count
+				FROM admin_reset_data('courses')
+			`).Scan(&deleted)
+			resetDone <- resetResult{deleted: deleted, err: err}
+		}()
+
+		lockDeadline := time.NewTimer(5 * time.Second)
+		defer lockDeadline.Stop()
+		lockPoll := time.NewTicker(10 * time.Millisecond)
+		defer lockPoll.Stop()
+		resetIsWaiting := false
+		for !resetIsWaiting {
+			select {
+			case <-lockPoll.C:
+				var choicesLocked, coursesWaiting bool
+				if err := deleteTx.QueryRow(ctx, `
+					SELECT
+						EXISTS (
+							SELECT 1
+							FROM pg_locks
+							WHERE pid <> pg_backend_pid()
+								AND relation = 'choices'::regclass
+								AND mode IN ('ShareRowExclusiveLock', 'AccessExclusiveLock')
+								AND granted
+						),
+						EXISTS (
+							SELECT 1
+							FROM pg_locks
+							WHERE pid <> pg_backend_pid()
+								AND relation = 'courses'::regclass
+								AND mode = 'AccessExclusiveLock'
+								AND NOT granted
+						)
+				`).Scan(&choicesLocked, &coursesWaiting); err != nil {
+					t.Fatalf("inspect reset locks: %v", err)
+				}
+				resetIsWaiting = choicesLocked && coursesWaiting
+			case <-lockDeadline.C:
+				t.Fatal("reset did not reach the expected lock wait")
+			}
+		}
+
+		if _, err := deleteTx.Exec(ctx, "DELETE FROM courses WHERE id = 'RESET-LOCK-DELETE'"); err != nil {
+			t.Fatalf("delete course while reset waits: %v", err)
+		}
+		if err := deleteTx.Commit(ctx); err != nil {
+			t.Fatalf("commit concurrent course delete: %v", err)
+		}
+
+		result := <-resetDone
+		if result.err != nil {
+			t.Fatalf("reset courses after concurrent delete: %v", result.err)
+		}
+		if result.deleted != 1 {
+			t.Fatalf("reset deleted %d courses, want 1", result.deleted)
+		}
+	})
+
+	t.Run("unknown scope is rejected", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		pool := newIsolatedIntegrationPool(t, databaseURL)
+
+		_, err := pool.Exec(ctx, "SELECT * FROM admin_reset_data('all')")
+		assertPGConstraint(t, err, "22023", "reset_scope")
 	})
 }
 

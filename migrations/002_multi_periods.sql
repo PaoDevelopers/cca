@@ -738,6 +738,63 @@ BEGIN
 END;
 $$;
 
+-- Destructive admin maintenance is kept in one database transaction so that
+-- concurrent selection requests cannot race a dependency check. Courses and
+-- students must be reset explicitly after selections; this function never
+-- performs an implicit cascading reset.
+CREATE FUNCTION admin_reset_data(p_scope TEXT)
+RETURNS TABLE (
+	reset_scope TEXT,
+	deleted_count BIGINT,
+	closed_grade_count BIGINT
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+	v_deleted BIGINT := 0;
+	v_closed_grades BIGINT := 0;
+BEGIN
+	IF p_scope NOT IN ('selections', 'courses', 'students') THEN
+		RAISE EXCEPTION 'Unknown reset scope %', p_scope
+			USING ERRCODE = 'invalid_parameter_value', CONSTRAINT = 'reset_scope';
+	END IF;
+
+	-- Block choice writes while still allowing the read locks used by the
+	-- course-period and foreign-key checks. ACCESS EXCLUSIVE here can deadlock
+	-- with a parent-table mutation that already holds its table lock and then
+	-- reads choices from a trigger.
+	LOCK TABLE choices IN SHARE ROW EXCLUSIVE MODE;
+
+	IF p_scope = 'courses' THEN
+		LOCK TABLE courses IN ACCESS EXCLUSIVE MODE;
+	ELSIF p_scope = 'students' THEN
+		LOCK TABLE students IN ACCESS EXCLUSIVE MODE;
+	END IF;
+
+	IF p_scope IN ('courses', 'students')
+		AND EXISTS (SELECT 1 FROM choices) THEN
+		RAISE EXCEPTION 'Reset selections before resetting %', p_scope
+			USING ERRCODE = 'check_violation', CONSTRAINT = 'reset_selections_required';
+	END IF;
+
+	UPDATE grades
+	SET enabled = FALSE
+	WHERE enabled;
+	GET DIAGNOSTICS v_closed_grades = ROW_COUNT;
+
+	IF p_scope = 'selections' THEN
+		DELETE FROM choices;
+	ELSIF p_scope = 'courses' THEN
+		DELETE FROM courses;
+	ELSE
+		DELETE FROM students;
+	END IF;
+	GET DIAGNOSTICS v_deleted = ROW_COUNT;
+
+	RETURN QUERY SELECT p_scope, v_deleted, v_closed_grades;
+END;
+$$;
+
 CREATE VIEW v_export_selections AS
 SELECT
 	s.id AS student_id,

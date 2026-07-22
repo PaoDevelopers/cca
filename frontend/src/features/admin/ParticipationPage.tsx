@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
 	BookOpenIcon,
 	FilterIcon,
@@ -29,6 +29,14 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+	Combobox,
+	ComboboxContent,
+	ComboboxEmpty,
+	ComboboxInput,
+	ComboboxItem,
+	ComboboxList,
+} from "@/components/ui/combobox"
 import {
 	Dialog,
 	DialogContent,
@@ -85,6 +93,11 @@ import {
 	PopoverTitle,
 	PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+	ResizableHandle,
+	ResizablePanel,
+	ResizablePanelGroup,
+} from "@/components/ui/resizable"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -138,6 +151,14 @@ type DetailTarget =
 	| null
 
 const PAGE_SIZE = 50
+const ASSIGNMENT_STUDENT_WINDOW_SIZE = 50
+const PARTICIPATION_MAIN_PANEL_ID = "participation-main"
+const PARTICIPATION_DETAILS_PANEL_ID = "participation-details"
+const PARTICIPATION_LAYOUT_STORAGE_KEY = "cca-admin-participation-layout"
+const DEFAULT_PARTICIPATION_LAYOUT: Record<string, number> = {
+	[PARTICIPATION_MAIN_PANEL_ID]: 70,
+	[PARTICIPATION_DETAILS_PANEL_ID]: 30,
+}
 
 const EMPTY_FILTERS: ParticipationFilters = {
 	query: "",
@@ -146,6 +167,51 @@ const EMPTY_FILTERS: ParticipationFilters = {
 	type: "all",
 	status: "all",
 	course: "",
+}
+
+function loadParticipationLayout(): Record<string, number> {
+	try {
+		const raw = window.localStorage.getItem(
+			PARTICIPATION_LAYOUT_STORAGE_KEY,
+		)
+		if (raw === null) return DEFAULT_PARTICIPATION_LAYOUT
+		const parsed: unknown = JSON.parse(raw)
+		if (typeof parsed !== "object" || parsed === null)
+			return DEFAULT_PARTICIPATION_LAYOUT
+		const layout = parsed as Record<string, unknown>
+		const main = layout[PARTICIPATION_MAIN_PANEL_ID]
+		const details = layout[PARTICIPATION_DETAILS_PANEL_ID]
+		if (
+			typeof main !== "number" ||
+			typeof details !== "number" ||
+			!Number.isFinite(main) ||
+			!Number.isFinite(details) ||
+			main < 55 ||
+			main > 100 ||
+			details < 0 ||
+			details > 45 ||
+			Math.abs(main + details - 100) > 0.5
+		) {
+			return DEFAULT_PARTICIPATION_LAYOUT
+		}
+		return {
+			[PARTICIPATION_MAIN_PANEL_ID]: main,
+			[PARTICIPATION_DETAILS_PANEL_ID]: details,
+		}
+	} catch {
+		return DEFAULT_PARTICIPATION_LAYOUT
+	}
+}
+
+function saveParticipationLayout(layout: Record<string, number>): void {
+	try {
+		window.localStorage.setItem(
+			PARTICIPATION_LAYOUT_STORAGE_KEY,
+			JSON.stringify(layout),
+		)
+	} catch {
+		// The layout still works when browser storage is unavailable.
+	}
 }
 
 function textMatches(value: string, query: string): boolean {
@@ -1235,14 +1301,29 @@ function AssignmentDialog({
 	const [selectionType, setSelectionType] = useState<SelectionType>("invite")
 	const [busy, setBusy] = useState(false)
 	const course = data.courses.find((item) => item.id === courseID)
-	const matchingStudents = data.students
-		.filter((student) =>
+	const matchingStudents = useMemo(() => {
+		const matches = data.students.filter((student) =>
 			textMatches(
 				`${student.id} ${student.name} ${student.grade}`,
 				studentQuery,
 			),
 		)
-		.slice(0, 50)
+		if (matches.length <= ASSIGNMENT_STUDENT_WINDOW_SIZE) return matches
+
+		const selectedIndex = matches.findIndex(
+			(student) => student.id === initialStudentID,
+		)
+		if (selectedIndex < 0)
+			return matches.slice(0, ASSIGNMENT_STUDENT_WINDOW_SIZE)
+
+		const centeredStart =
+			selectedIndex - Math.floor(ASSIGNMENT_STUDENT_WINDOW_SIZE / 2)
+		const start = Math.min(
+			Math.max(centeredStart, 0),
+			matches.length - ASSIGNMENT_STUDENT_WINDOW_SIZE,
+		)
+		return matches.slice(start, start + ASSIGNMENT_STUDENT_WINDOW_SIZE)
+	}, [data.students, initialStudentID, studentQuery])
 	const remainingNormalCapacity =
 		course === undefined
 			? 0
@@ -1277,6 +1358,47 @@ function AssignmentDialog({
 				: item.issue,
 	}))
 	const invalidCount = review.filter((item) => item.issue !== null).length
+
+	useEffect(() => {
+		if (!open || initialStudentID === undefined) return
+		const frame = window.requestAnimationFrame(() => {
+			const checkbox = document.querySelector<HTMLElement>(
+				`[data-slot="checkbox"][data-assignment-student-id="${initialStudentID}"]`,
+			)
+			const studentRow = checkbox?.closest<HTMLElement>(
+				'[data-slot="field"]',
+			)
+			const studentViewport = checkbox?.closest<HTMLElement>(
+				'[data-slot="scroll-area-viewport"]',
+			)
+			const dialogViewport =
+				studentViewport?.parentElement?.closest<HTMLElement>(
+					'[data-slot="scroll-area-viewport"]',
+				)
+
+			dialogViewport?.scrollTo({ top: 0, behavior: "auto" })
+			if (
+				studentRow !== undefined &&
+				studentRow !== null &&
+				studentViewport !== undefined &&
+				studentViewport !== null
+			) {
+				const rowRect = studentRow.getBoundingClientRect()
+				const viewportRect = studentViewport.getBoundingClientRect()
+				const centeredTop =
+					studentViewport.scrollTop +
+					rowRect.top -
+					viewportRect.top -
+					(studentViewport.clientHeight - rowRect.height) / 2
+				studentViewport.scrollTo({
+					top: Math.max(0, centeredTop),
+					behavior: "auto",
+				})
+			}
+			checkbox?.focus({ preventScroll: true })
+		})
+		return () => window.cancelAnimationFrame(frame)
+	}, [initialStudentID, open])
 
 	function chooseCourse(nextCourseID: string): void {
 		setCourseID(nextCourseID)
@@ -1334,26 +1456,71 @@ function AssignmentDialog({
 								<FieldLabel htmlFor="assignment-course">
 									Course
 								</FieldLabel>
-								<NativeSelect
-									id="assignment-course"
-									value={courseID}
-									onChange={(event) =>
-										chooseCourse(event.target.value)
+								<Combobox
+									items={data.courses}
+									value={course ?? null}
+									onValueChange={(nextCourse) =>
+										chooseCourse(nextCourse?.id ?? "")
 									}
-									required
+									itemToStringLabel={(item) => item.name}
+									itemToStringValue={(item) => item.id}
+									isItemEqualToValue={(item, value) =>
+										item.id === value.id
+									}
+									filter={(item, query) =>
+										textMatches(
+											[
+												item.id,
+												item.name,
+												item.category_id,
+												item.teacher,
+												item.location,
+												...item.period_ids,
+											].join(" "),
+											query,
+										)
+									}
+									autoHighlight
 								>
-									<NativeSelectOption value="">
-										Choose a course
-									</NativeSelectOption>
-									{data.courses.map((item) => (
-										<NativeSelectOption
-											key={item.id}
-											value={item.id}
-										>
-											{item.name}
-										</NativeSelectOption>
-									))}
-								</NativeSelect>
+									<ComboboxInput
+										id="assignment-course"
+										placeholder="Search CCAs..."
+										showClear
+									/>
+									<ComboboxContent>
+										<ComboboxEmpty>
+											No CCAs found.
+										</ComboboxEmpty>
+										<ComboboxList>
+											{(item) => (
+												<ComboboxItem
+													key={item.id}
+													value={item}
+												>
+													<div className="flex min-w-0 flex-col gap-0.5">
+														<span className="truncate font-medium">
+															{item.name}
+														</span>
+														<span className="truncate text-xs text-muted-foreground">
+															{item.id} ·{" "}
+															{item.category_id} ·{" "}
+															{item.teacher}
+														</span>
+														<span className="truncate text-xs text-muted-foreground">
+															{item.period_ids.join(
+																" · ",
+															)}
+														</span>
+													</div>
+												</ComboboxItem>
+											)}
+										</ComboboxList>
+									</ComboboxContent>
+								</Combobox>
+								<FieldDescription>
+									Search by name, ID, category, teacher,
+									location, or slot.
+								</FieldDescription>
 							</Field>
 							<FieldSet>
 								<FieldLegend variant="label">
@@ -1407,6 +1574,9 @@ function AssignmentDialog({
 											>
 												<Checkbox
 													id={`assignment-student-${student.id}`}
+													data-assignment-student-id={
+														student.id
+													}
 													checked={studentIDs.includes(
 														student.id,
 													)}
@@ -1584,6 +1754,7 @@ export function ParticipationPage({
 	const [selectedAssignments, setSelectedAssignments] = useState<string[]>([])
 	const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
 	const [bulkBusy, setBulkBusy] = useState(false)
+	const [desktopLayout] = useState(loadParticipationLayout)
 	const isWideDetailLayout = useMediaQuery("(min-width: 1024px)")
 
 	const studentRows = useMemo(() => {
@@ -1870,414 +2041,461 @@ export function ParticipationPage({
 		currentAssignmentKeys.length > 0 &&
 		currentAssignmentKeys.every((key) => selectedAssignments.includes(key))
 
-	return (
-		<>
-			<div className="lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
-				<div className="min-w-0 lg:pr-6">
-					<div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-						<div className="flex flex-col gap-1">
-							<h1 className="font-heading text-xl font-semibold tracking-tight">
-								Participation
-							</h1>
-							<p className="max-w-3xl text-sm text-muted-foreground">
-								Manage student progress, course rosters, and
-								every active assignment.
-							</p>
-						</div>
-						<Button onClick={() => openAssignment()}>
-							<PlusIcon data-icon="inline-start" />
-							Assign students
-						</Button>
+	const mainContent = (
+		<div className="min-w-0">
+			<div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+				<div className="flex flex-col gap-1">
+					<h1 className="font-heading text-xl font-semibold tracking-tight">
+						Participation
+					</h1>
+					<p className="max-w-3xl text-sm text-muted-foreground">
+						Manage student progress, course rosters, and every
+						active assignment.
+					</p>
+				</div>
+				<Button onClick={() => openAssignment()}>
+					<PlusIcon data-icon="inline-start" />
+					Assign students
+				</Button>
+			</div>
+
+			<Tabs
+				value={tab}
+				onValueChange={changeTab}
+				className="min-w-0 gap-0"
+			>
+				<div className="relative">
+					<Separator
+						aria-hidden="true"
+						className="absolute bottom-1 left-0"
+					/>
+					<div className="overflow-x-auto overflow-y-hidden pb-2">
+						<TabsList
+							variant="line"
+							className="h-10 min-w-max justify-start"
+						>
+							<TabsTrigger value="students">Students</TabsTrigger>
+							<TabsTrigger value="courses">Courses</TabsTrigger>
+							<TabsTrigger value="assignments">
+								All assignments
+							</TabsTrigger>
+						</TabsList>
 					</div>
+				</div>
 
-					<Tabs
-						value={tab}
-						onValueChange={changeTab}
-						className="min-w-0 gap-0"
-					>
-						<div className="relative">
-							<Separator
-								aria-hidden="true"
-								className="absolute bottom-1 left-0"
-							/>
-							<div className="overflow-x-auto overflow-y-hidden pb-2">
-								<TabsList
-									variant="line"
-									className="h-10 min-w-max justify-start"
-								>
-									<TabsTrigger value="students">
-										Students
-									</TabsTrigger>
-									<TabsTrigger value="courses">
-										Courses
-									</TabsTrigger>
-									<TabsTrigger value="assignments">
-										All assignments
-									</TabsTrigger>
-								</TabsList>
-							</div>
-						</div>
-
-						<TabsContent value="students">
-							<TableToolbar
-								data={data}
-								filters={filters}
-								onChange={changeFilters}
-								tab="students"
-							/>
-							{currentStudents.length === 0 ? (
-								<EmptyTable
-									title="No matching students"
-									description="Change the search or filters."
-								/>
-							) : (
-								<Table containerLabel="Student participation table">
-									<TableCaption className="sr-only">
-										Students matching the participation
-										filters.
-									</TableCaption>
-									<TableHeader>
-										<TableRow>
-											<TableHead>Student</TableHead>
-											<TableHead>Grade</TableHead>
-											<TableHead>Progress</TableHead>
-											<TableHead>
-												Selected slots
-											</TableHead>
-											<TableHead>Status</TableHead>
-											<TableHead className="text-right">
-												Actions
-											</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{currentStudents.map((row) => {
-											const grade = data.grades.find(
-												(item) =>
-													item.grade ===
-													row.student.grade,
-											)
-											return (
-												<TableRow
-													key={row.student.id}
-													data-state={
-														detail?.kind ===
-															"student" &&
-														detail.id ===
-															row.student.id
-															? "selected"
-															: undefined
-													}
-													tabIndex={0}
-													onClick={() =>
-														setDetail({
-															kind: "student",
-															id: row.student.id,
-														})
-													}
-													onKeyDown={(event) =>
-														openRow(event, () =>
+				<TabsContent value="students">
+					<TableToolbar
+						data={data}
+						filters={filters}
+						onChange={changeFilters}
+						tab="students"
+					/>
+					{currentStudents.length === 0 ? (
+						<EmptyTable
+							title="No matching students"
+							description="Change the search or filters."
+						/>
+					) : (
+						<Table containerLabel="Student participation table">
+							<TableCaption className="sr-only">
+								Students matching the participation filters.
+							</TableCaption>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Student</TableHead>
+									<TableHead>Grade</TableHead>
+									<TableHead>Progress</TableHead>
+									<TableHead>Selected slots</TableHead>
+									<TableHead>Status</TableHead>
+									<TableHead className="text-right">
+										Actions
+									</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{currentStudents.map((row) => {
+									const grade = data.grades.find(
+										(item) =>
+											item.grade === row.student.grade,
+									)
+									return (
+										<TableRow
+											key={row.student.id}
+											data-state={
+												detail?.kind === "student" &&
+												detail.id === row.student.id
+													? "selected"
+													: undefined
+											}
+											tabIndex={0}
+											onClick={() =>
+												setDetail({
+													kind: "student",
+													id: row.student.id,
+												})
+											}
+											onKeyDown={(event) =>
+												openRow(event, () =>
+													setDetail({
+														kind: "student",
+														id: row.student.id,
+													}),
+												)
+											}
+										>
+											<TableCell>
+												<p className="font-medium">
+													{row.student.name}
+												</p>
+												<p className="font-mono text-xs text-muted-foreground">
+													{row.student.id}
+												</p>
+											</TableCell>
+											<TableCell>
+												<Badge variant="outline">
+													G{row.student.grade}
+												</Badge>
+											</TableCell>
+											<TableCell>
+												{row.selections.length}/
+												{grade?.max_own_choices ?? 0}
+											</TableCell>
+											<TableCell className="whitespace-normal">
+												<PeriodBadges
+													periodIDs={row.selections.map(
+														(selection) =>
+															selection.period_id,
+													)}
+												/>
+											</TableCell>
+											<TableCell>
+												<CompletionBadge
+													status={row.status}
+												/>
+											</TableCell>
+											<TableCell>
+												<div className="flex justify-end">
+													<StudentActions
+														student={row.student}
+														onOpen={() =>
 															setDetail({
 																kind: "student",
 																id: row.student
 																	.id,
-															}),
-														)
+															})
+														}
+														onEdit={() =>
+															editStudent(
+																row.student,
+															)
+														}
+														onAssign={() =>
+															openAssignment(
+																row.student.id,
+															)
+														}
+													/>
+												</div>
+											</TableCell>
+										</TableRow>
+									)
+								})}
+							</TableBody>
+						</Table>
+					)}
+					<PaginationControls
+						page={page}
+						total={studentRows.length}
+						onPageChange={setPage}
+					/>
+				</TabsContent>
+
+				<TabsContent value="courses">
+					<TableToolbar
+						data={data}
+						filters={filters}
+						onChange={changeFilters}
+						tab="courses"
+					/>
+					{currentCourses.length === 0 ? (
+						<EmptyTable
+							title="No matching courses"
+							description="Change the search or filters."
+						/>
+					) : (
+						<Table containerLabel="Course participation table">
+							<TableCaption className="sr-only">
+								Courses matching the participation filters.
+							</TableCaption>
+							<TableHeader>
+								<TableRow>
+									<TableHead>Course</TableHead>
+									<TableHead>Schedule</TableHead>
+									<TableHead>Capacity</TableHead>
+									<TableHead>Participants</TableHead>
+									<TableHead>Availability</TableHead>
+									<TableHead className="text-right">
+										Actions
+									</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{currentCourses.map((course) => {
+									const closed = course.max_students === 0
+									const full =
+										!closed &&
+										course.current_students >=
+											course.max_students
+									return (
+										<TableRow
+											key={course.id}
+											data-state={
+												detail?.kind === "course" &&
+												detail.id === course.id
+													? "selected"
+													: undefined
+											}
+											tabIndex={0}
+											onClick={() =>
+												setDetail({
+													kind: "course",
+													id: course.id,
+												})
+											}
+											onKeyDown={(event) =>
+												openRow(event, () =>
+													setDetail({
+														kind: "course",
+														id: course.id,
+													}),
+												)
+											}
+										>
+											<TableCell>
+												<p className="font-medium">
+													{course.name}
+												</p>
+												<p className="text-xs text-muted-foreground">
+													{course.id} ·{" "}
+													{course.category_id}
+												</p>
+											</TableCell>
+											<TableCell className="whitespace-normal">
+												<PeriodBadges
+													periodIDs={
+														course.period_ids
+													}
+												/>
+											</TableCell>
+											<TableCell>
+												{course.current_students}/
+												{course.max_students}
+											</TableCell>
+											<TableCell>
+												{
+													selectionsForCourse(
+														data.selections,
+														course.id,
+													).length
+												}
+											</TableCell>
+											<TableCell>
+												<Badge
+													variant={
+														closed || full
+															? "destructive"
+															: "secondary"
 													}
 												>
-													<TableCell>
-														<p className="font-medium">
-															{row.student.name}
-														</p>
-														<p className="font-mono text-xs text-muted-foreground">
-															{row.student.id}
-														</p>
-													</TableCell>
-													<TableCell>
-														<Badge variant="outline">
-															G{row.student.grade}
-														</Badge>
-													</TableCell>
-													<TableCell>
-														{row.selections.length}/
-														{grade?.max_own_choices ??
-															0}
-													</TableCell>
-													<TableCell className="whitespace-normal">
-														<PeriodBadges
-															periodIDs={row.selections.map(
-																(selection) =>
-																	selection.period_id,
-															)}
-														/>
-													</TableCell>
-													<TableCell>
-														<CompletionBadge
-															status={row.status}
-														/>
-													</TableCell>
-													<TableCell>
-														<div className="flex justify-end">
-															<StudentActions
-																student={
-																	row.student
-																}
-																onOpen={() =>
-																	setDetail({
-																		kind: "student",
-																		id: row
-																			.student
-																			.id,
-																	})
-																}
-																onEdit={() =>
-																	editStudent(
-																		row.student,
-																	)
-																}
-																onAssign={() =>
-																	openAssignment(
-																		row
-																			.student
-																			.id,
-																	)
-																}
-															/>
-														</div>
-													</TableCell>
-												</TableRow>
-											)
-										})}
-									</TableBody>
-								</Table>
-							)}
-							<PaginationControls
-								page={page}
-								total={studentRows.length}
-								onPageChange={setPage}
-							/>
-						</TabsContent>
-
-						<TabsContent value="courses">
-							<TableToolbar
-								data={data}
-								filters={filters}
-								onChange={changeFilters}
-								tab="courses"
-							/>
-							{currentCourses.length === 0 ? (
-								<EmptyTable
-									title="No matching courses"
-									description="Change the search or filters."
-								/>
-							) : (
-								<Table containerLabel="Course participation table">
-									<TableCaption className="sr-only">
-										Courses matching the participation
-										filters.
-									</TableCaption>
-									<TableHeader>
-										<TableRow>
-											<TableHead>Course</TableHead>
-											<TableHead>Schedule</TableHead>
-											<TableHead>Capacity</TableHead>
-											<TableHead>Participants</TableHead>
-											<TableHead>Availability</TableHead>
-											<TableHead className="text-right">
-												Actions
-											</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{currentCourses.map((course) => {
-											const closed =
-												course.max_students === 0
-											const full =
-												!closed &&
-												course.current_students >=
-													course.max_students
-											return (
-												<TableRow
-													key={course.id}
-													data-state={
-														detail?.kind ===
-															"course" &&
-														detail.id === course.id
-															? "selected"
-															: undefined
-													}
-													tabIndex={0}
-													onClick={() =>
-														setDetail({
-															kind: "course",
-															id: course.id,
-														})
-													}
-													onKeyDown={(event) =>
-														openRow(event, () =>
+													{closed
+														? "Closed"
+														: full
+															? "Full"
+															: "Open"}
+												</Badge>
+											</TableCell>
+											<TableCell>
+												<div className="flex justify-end">
+													<CourseActions
+														course={course}
+														onOpen={() =>
 															setDetail({
 																kind: "course",
 																id: course.id,
-															}),
-														)
-													}
-												>
-													<TableCell>
-														<p className="font-medium">
-															{course.name}
-														</p>
-														<p className="text-xs text-muted-foreground">
-															{course.id} ·{" "}
-															{course.category_id}
-														</p>
-													</TableCell>
-													<TableCell className="whitespace-normal">
-														<PeriodBadges
-															periodIDs={
-																course.period_ids
-															}
-														/>
-													</TableCell>
-													<TableCell>
-														{
-															course.current_students
+															})
 														}
-														/{course.max_students}
-													</TableCell>
-													<TableCell>
-														{
-															selectionsForCourse(
-																data.selections,
+														onAssign={() =>
+															openAssignment(
+																undefined,
 																course.id,
-															).length
+															)
 														}
-													</TableCell>
-													<TableCell>
-														<Badge
-															variant={
-																closed || full
-																	? "destructive"
-																	: "secondary"
-															}
-														>
-															{closed
-																? "Closed"
-																: full
-																	? "Full"
-																	: "Open"}
-														</Badge>
-													</TableCell>
-													<TableCell>
-														<div className="flex justify-end">
-															<CourseActions
-																course={course}
-																onOpen={() =>
-																	setDetail({
-																		kind: "course",
-																		id: course.id,
-																	})
-																}
-																onAssign={() =>
-																	openAssignment(
-																		undefined,
-																		course.id,
-																	)
-																}
-															/>
-														</div>
-													</TableCell>
-												</TableRow>
-											)
-										})}
-									</TableBody>
-								</Table>
-							)}
-							<PaginationControls
-								page={page}
-								total={courseRows.length}
-								onPageChange={setPage}
-							/>
-						</TabsContent>
+													/>
+												</div>
+											</TableCell>
+										</TableRow>
+									)
+								})}
+							</TableBody>
+						</Table>
+					)}
+					<PaginationControls
+						page={page}
+						total={courseRows.length}
+						onPageChange={setPage}
+					/>
+				</TabsContent>
 
-						<TabsContent value="assignments">
-							<TableToolbar
-								data={data}
-								filters={filters}
-								onChange={changeFilters}
-								tab="assignments"
-							>
-								{selectedAssignments.length > 0 ? (
-									<>
-										<DropdownMenu>
-											<DropdownMenuTrigger
-												render={
-													<Button variant="outline">
-														Change type
-													</Button>
+				<TabsContent value="assignments">
+					<TableToolbar
+						data={data}
+						filters={filters}
+						onChange={changeFilters}
+						tab="assignments"
+					>
+						{selectedAssignments.length > 0 ? (
+							<>
+								<DropdownMenu>
+									<DropdownMenuTrigger
+										render={
+											<Button variant="outline">
+												Change type
+											</Button>
+										}
+									/>
+									<DropdownMenuContent align="end">
+										<DropdownMenuGroup>
+											<DropdownMenuItem
+												onClick={() =>
+													void bulkUpdate("normal")
 												}
-											/>
-											<DropdownMenuContent align="end">
-												<DropdownMenuGroup>
-													<DropdownMenuItem
-														onClick={() =>
-															void bulkUpdate(
-																"normal",
-															)
-														}
-													>
-														Student choice
-													</DropdownMenuItem>
-													<DropdownMenuItem
-														onClick={() =>
-															void bulkUpdate(
-																"invite",
-															)
-														}
-													>
-														Invitation
-													</DropdownMenuItem>
-													<DropdownMenuItem
-														onClick={() =>
-															void bulkUpdate(
-																"force",
-															)
-														}
-													>
-														Forced
-													</DropdownMenuItem>
-												</DropdownMenuGroup>
-											</DropdownMenuContent>
-										</DropdownMenu>
-										<Button
-											variant="destructive"
-											onClick={() =>
-												setBulkDeleteOpen(true)
+											>
+												Student choice
+											</DropdownMenuItem>
+											<DropdownMenuItem
+												onClick={() =>
+													void bulkUpdate("invite")
+												}
+											>
+												Invitation
+											</DropdownMenuItem>
+											<DropdownMenuItem
+												onClick={() =>
+													void bulkUpdate("force")
+												}
+											>
+												Forced
+											</DropdownMenuItem>
+										</DropdownMenuGroup>
+									</DropdownMenuContent>
+								</DropdownMenu>
+								<Button
+									variant="destructive"
+									onClick={() => setBulkDeleteOpen(true)}
+								>
+									<Trash2Icon data-icon="inline-start" />
+									Remove {selectedAssignments.length}
+								</Button>
+							</>
+						) : null}
+					</TableToolbar>
+					{currentAssignments.length === 0 ? (
+						<EmptyTable
+							title="No matching assignments"
+							description="Change the search or filters."
+						/>
+					) : (
+						<Table containerLabel="All assignments table">
+							<TableCaption className="sr-only">
+								Assignments matching the participation filters.
+							</TableCaption>
+							<TableHeader>
+								<TableRow>
+									<TableHead>
+										<Checkbox
+											aria-label="Select all assignments on this page"
+											checked={
+												allCurrentAssignmentsSelected
+											}
+											onCheckedChange={(checked) =>
+												setSelectedAssignments(
+													(current) =>
+														checked
+															? [
+																	...new Set([
+																		...current,
+																		...currentAssignmentKeys,
+																	]),
+																]
+															: current.filter(
+																	(key) =>
+																		!currentAssignmentKeys.includes(
+																			key,
+																		),
+																),
+												)
+											}
+										/>
+									</TableHead>
+									<TableHead>Student</TableHead>
+									<TableHead>Course</TableHead>
+									<TableHead>Schedule</TableHead>
+									<TableHead>Type</TableHead>
+									<TableHead className="text-right">
+										Actions
+									</TableHead>
+								</TableRow>
+							</TableHeader>
+							<TableBody>
+								{currentAssignments.map((selection) => {
+									const key = `${selection.student_id}-${selection.course_id}`
+									return (
+										<TableRow
+											key={key}
+											tabIndex={0}
+											onClick={() => {
+												if (
+													selection.student_id !==
+													undefined
+												) {
+													setDetail({
+														kind: "student",
+														id: selection.student_id,
+													})
+												}
+											}}
+											onKeyDown={(event) =>
+												openRow(event, () => {
+													if (
+														selection.student_id !==
+														undefined
+													) {
+														setDetail({
+															kind: "student",
+															id: selection.student_id,
+														})
+													}
+												})
+											}
+											data-state={
+												selectedAssignments.includes(
+													key,
+												) ||
+												(detail?.kind === "student" &&
+													detail.id ===
+														selection.student_id)
+													? "selected"
+													: undefined
 											}
 										>
-											<Trash2Icon data-icon="inline-start" />
-											Remove {selectedAssignments.length}
-										</Button>
-									</>
-								) : null}
-							</TableToolbar>
-							{currentAssignments.length === 0 ? (
-								<EmptyTable
-									title="No matching assignments"
-									description="Change the search or filters."
-								/>
-							) : (
-								<Table containerLabel="All assignments table">
-									<TableCaption className="sr-only">
-										Assignments matching the participation
-										filters.
-									</TableCaption>
-									<TableHeader>
-										<TableRow>
-											<TableHead>
+											<TableCell>
 												<Checkbox
-													aria-label="Select all assignments on this page"
-													checked={
-														allCurrentAssignmentsSelected
+													aria-label={`Select ${selection.student_name ?? selection.student_id} in ${selection.course_name ?? selection.course_id}`}
+													checked={selectedAssignments.includes(
+														key,
+													)}
+													onClick={(event) =>
+														event.stopPropagation()
 													}
 													onCheckedChange={(
 														checked,
@@ -2286,195 +2504,134 @@ export function ParticipationPage({
 															(current) =>
 																checked
 																	? [
-																			...new Set(
-																				[
-																					...current,
-																					...currentAssignmentKeys,
-																				],
-																			),
+																			...current,
+																			key,
 																		]
 																	: current.filter(
 																			(
-																				key,
+																				item,
 																			) =>
-																				!currentAssignmentKeys.includes(
-																					key,
-																				),
+																				item !==
+																				key,
 																		),
 														)
 													}
 												/>
-											</TableHead>
-											<TableHead>Student</TableHead>
-											<TableHead>Course</TableHead>
-											<TableHead>Schedule</TableHead>
-											<TableHead>Type</TableHead>
-											<TableHead className="text-right">
-												Actions
-											</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{currentAssignments.map((selection) => {
-											const key = `${selection.student_id}-${selection.course_id}`
-											return (
-												<TableRow
-													key={key}
-													tabIndex={0}
-													onClick={() => {
-														if (
-															selection.student_id !==
-															undefined
-														) {
-															setDetail({
-																kind: "student",
-																id: selection.student_id,
-															})
+											</TableCell>
+											<TableCell>
+												<p className="font-medium">
+													{selection.student_name ??
+														selection.student_id}
+												</p>
+												<p className="text-xs text-muted-foreground">
+													G{selection.student_grade}
+												</p>
+											</TableCell>
+											<TableCell>
+												<p className="font-medium">
+													{selection.course_name ??
+														selection.course_id}
+												</p>
+												<p className="text-xs text-muted-foreground">
+													{selection.course_id}
+												</p>
+											</TableCell>
+											<TableCell>
+												<PeriodBadges
+													periodIDs={[
+														selection.period_id,
+													]}
+												/>
+											</TableCell>
+											<TableCell>
+												<SelectionTypeBadge
+													type={
+														selection.selection_type
+													}
+												/>
+											</TableCell>
+											<TableCell>
+												<div className="flex justify-end">
+													<SelectionActions
+														selection={selection}
+														onUpdateType={
+															updateSelectionType
 														}
-													}}
-													onKeyDown={(event) =>
-														openRow(event, () => {
-															if (
-																selection.student_id !==
-																undefined
-															) {
-																setDetail({
-																	kind: "student",
-																	id: selection.student_id,
-																})
-															}
-														})
-													}
-													data-state={
-														selectedAssignments.includes(
-															key,
-														) ||
-														(detail?.kind ===
-															"student" &&
-															detail.id ===
-																selection.student_id)
-															? "selected"
-															: undefined
-													}
-												>
-													<TableCell>
-														<Checkbox
-															aria-label={`Select ${selection.student_name ?? selection.student_id} in ${selection.course_name ?? selection.course_id}`}
-															checked={selectedAssignments.includes(
-																key,
-															)}
-															onClick={(event) =>
-																event.stopPropagation()
-															}
-															onCheckedChange={(
-																checked,
-															) =>
-																setSelectedAssignments(
-																	(
-																		current,
-																	) =>
-																		checked
-																			? [
-																					...current,
-																					key,
-																				]
-																			: current.filter(
-																					(
-																						item,
-																					) =>
-																						item !==
-																						key,
-																				),
-																)
-															}
-														/>
-													</TableCell>
-													<TableCell>
-														<p className="font-medium">
-															{selection.student_name ??
-																selection.student_id}
-														</p>
-														<p className="text-xs text-muted-foreground">
-															G
-															{
-																selection.student_grade
-															}
-														</p>
-													</TableCell>
-													<TableCell>
-														<p className="font-medium">
-															{selection.course_name ??
-																selection.course_id}
-														</p>
-														<p className="text-xs text-muted-foreground">
-															{
-																selection.course_id
-															}
-														</p>
-													</TableCell>
-													<TableCell>
-														<PeriodBadges
-															periodIDs={[
-																selection.period_id,
-															]}
-														/>
-													</TableCell>
-													<TableCell>
-														<SelectionTypeBadge
-															type={
-																selection.selection_type
-															}
-														/>
-													</TableCell>
-													<TableCell>
-														<div className="flex justify-end">
-															<SelectionActions
-																selection={
-																	selection
-																}
-																onUpdateType={
-																	updateSelectionType
-																}
-																onDelete={
-																	deleteSelection
-																}
-															/>
-														</div>
-													</TableCell>
-												</TableRow>
-											)
-										})}
-									</TableBody>
-								</Table>
-							)}
-							<PaginationControls
-								page={page}
-								total={assignmentRows.length}
-								onPageChange={setPage}
-							/>
-						</TabsContent>
-					</Tabs>
-				</div>
-				<aside
-					aria-label="Participation details"
-					className="hidden border-l pl-6 lg:sticky lg:top-6 lg:block lg:h-[calc(100dvh-3rem)]"
-				>
-					<ParticipationDetailPanel
-						target={detail}
-						data={data}
-						onClose={() => setDetail(null)}
-						onAssignStudent={(studentID) =>
-							openAssignment(studentID)
-						}
-						onAssignCourse={(courseID) =>
-							openAssignment(undefined, courseID)
-						}
-						onEditStudent={editStudent}
-						onUpdateType={updateSelectionType}
-						onDeleteSelection={deleteSelection}
+														onDelete={
+															deleteSelection
+														}
+													/>
+												</div>
+											</TableCell>
+										</TableRow>
+									)
+								})}
+							</TableBody>
+						</Table>
+					)}
+					<PaginationControls
+						page={page}
+						total={assignmentRows.length}
+						onPageChange={setPage}
 					/>
-				</aside>
-			</div>
+				</TabsContent>
+			</Tabs>
+		</div>
+	)
+
+	return (
+		<>
+			{isWideDetailLayout ? (
+				<ResizablePanelGroup
+					orientation="horizontal"
+					defaultLayout={desktopLayout}
+					onLayoutChanged={(layout, meta) => {
+						if (meta.isUserInteraction)
+							saveParticipationLayout(layout)
+					}}
+					className="h-[calc(100dvh-3rem)] min-h-[32rem]"
+				>
+					<ResizablePanel
+						id={PARTICIPATION_MAIN_PANEL_ID}
+						minSize="55%"
+					>
+						<ScrollArea className="h-full">
+							<div className="pr-6 pb-6">{mainContent}</div>
+						</ScrollArea>
+					</ResizablePanel>
+					<ResizableHandle
+						withHandle
+						aria-label="Resize participation details"
+					/>
+					<ResizablePanel
+						id={PARTICIPATION_DETAILS_PANEL_ID}
+						minSize="280px"
+						maxSize="45%"
+					>
+						<aside
+							aria-label="Participation details"
+							className="h-full pl-6"
+						>
+							<ParticipationDetailPanel
+								target={detail}
+								data={data}
+								onClose={() => setDetail(null)}
+								onAssignStudent={(studentID) =>
+									openAssignment(studentID)
+								}
+								onAssignCourse={(courseID) =>
+									openAssignment(undefined, courseID)
+								}
+								onEditStudent={editStudent}
+								onUpdateType={updateSelectionType}
+								onDeleteSelection={deleteSelection}
+							/>
+						</aside>
+					</ResizablePanel>
+				</ResizablePanelGroup>
+			) : (
+				mainContent
+			)}
 
 			<ParticipationSheet
 				open={detail !== null && !isWideDetailLayout}

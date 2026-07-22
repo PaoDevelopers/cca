@@ -11,7 +11,7 @@ COPY frontend/ ./
 RUN npm run build
 
 
-FROM golang:1.24-alpine AS backend-build
+FROM golang:1.25-alpine AS backend-build
 
 WORKDIR /src
 
@@ -38,4 +38,3 @@ RUN chmod 0755 /usr/local/bin/cca-docker-entrypoint
 EXPOSE 8192
 
 ENTRYPOINT ["/usr/local/bin/cca-docker-entrypoint"]
-

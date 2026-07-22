@@ -46,6 +46,14 @@ import {
 } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
+	Combobox,
+	ComboboxContent,
+	ComboboxEmpty,
+	ComboboxInput,
+	ComboboxItem,
+	ComboboxList,
+} from "@/components/ui/combobox"
+import {
 	Dialog,
 	DialogContent,
 	DialogDescription,
@@ -89,6 +97,7 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
 	Table,
 	TableBody,
@@ -2927,6 +2936,70 @@ export function NotificationsPage({
 	)
 }
 
+type DataFileFormat = "csv" | "xlsx"
+
+type DataFormatOption = {
+	value: DataFileFormat
+	label: string
+	accept: string
+}
+
+const CSV_DATA_FORMAT: DataFormatOption = {
+	value: "csv",
+	label: "CSV (.csv)",
+	accept: ".csv,text/csv",
+}
+
+const EXCEL_DATA_FORMAT: DataFormatOption = {
+	value: "xlsx",
+	label: "Excel (.xlsx)",
+	accept: ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+}
+
+const DATA_FORMAT_OPTIONS: DataFormatOption[] = [
+	CSV_DATA_FORMAT,
+	EXCEL_DATA_FORMAT,
+]
+
+const DEFAULT_DATA_FORMAT = CSV_DATA_FORMAT
+
+function DataFormatCombobox({
+	id,
+	value,
+	onValueChange,
+}: {
+	id: string
+	value: DataFormatOption
+	onValueChange: (value: DataFormatOption) => void
+}): React.JSX.Element {
+	return (
+		<Combobox
+			items={DATA_FORMAT_OPTIONS}
+			value={value}
+			onValueChange={(nextValue) => {
+				if (nextValue !== null) onValueChange(nextValue)
+			}}
+			itemToStringLabel={(item) => item.label}
+			itemToStringValue={(item) => item.value}
+			isItemEqualToValue={(item, selected) =>
+				item.value === selected.value
+			}
+		>
+			<ComboboxInput id={id} placeholder="Choose a format" />
+			<ComboboxContent>
+				<ComboboxEmpty>No formats found.</ComboboxEmpty>
+				<ComboboxList>
+					{(item) => (
+						<ComboboxItem key={item.value} value={item}>
+							{item.label}
+						</ComboboxItem>
+					)}
+				</ComboboxList>
+			</ComboboxContent>
+		</Combobox>
+	)
+}
+
 function ImportCard({
 	title,
 	description,
@@ -2938,6 +3011,11 @@ function ImportCard({
 	action: string
 	example: string
 }): React.JSX.Element {
+	const [format, setFormat] = useState(DEFAULT_DATA_FORMAT)
+	const formID = domID("import-form", title)
+	const formatID = domID("format", title)
+	const fileID = domID("import", title)
+
 	return (
 		<Card>
 			<CardHeader>
@@ -2946,110 +3024,358 @@ function ImportCard({
 			</CardHeader>
 			<CardContent>
 				<form
+					id={formID}
 					action={action}
 					method="post"
 					encType="multipart/form-data"
 				>
 					<FieldGroup>
 						<Field>
-							<FieldLabel htmlFor={domID("import", title)}>
-								CSV file
+							<FieldLabel htmlFor={formatID}>Format</FieldLabel>
+							<DataFormatCombobox
+								id={formatID}
+								value={format}
+								onValueChange={setFormat}
+							/>
+						</Field>
+						<Field>
+							<FieldLabel htmlFor={fileID}>
+								{format.label} file
 							</FieldLabel>
 							<Input
-								id={domID("import", title)}
+								key={format.value}
+								id={fileID}
 								type="file"
-								name="csv"
-								accept=".csv,text/csv"
+								name="file"
+								accept={format.accept}
 								required
 							/>
 						</Field>
-						<Button type="submit" variant="outline">
-							<UploadIcon data-icon="inline-start" />
-							Import CSV
-						</Button>
-						<Button
-							variant="link"
-							render={<a href={example} />}
-							nativeButton={false}
-						>
-							<DownloadIcon data-icon="inline-start" />
-							Download example
-						</Button>
+						<input
+							type="hidden"
+							name="format"
+							value={format.value}
+						/>
 					</FieldGroup>
 				</form>
 			</CardContent>
+			<CardFooter className="flex-wrap gap-2">
+				<Button type="submit" form={formID} variant="outline">
+					<UploadIcon data-icon="inline-start" />
+					Import {format.value === "csv" ? "CSV" : "Excel"}
+				</Button>
+				<Button
+					variant="link"
+					render={<a href={`${example}?format=${format.value}`} />}
+					nativeButton={false}
+				>
+					<DownloadIcon data-icon="inline-start" />
+					Download {format.value === "csv" ? "CSV" : "Excel"} example
+				</Button>
+			</CardFooter>
+		</Card>
+	)
+}
+
+function SelectionExportCard({ count }: { count: number }): React.JSX.Element {
+	const [format, setFormat] = useState(DEFAULT_DATA_FORMAT)
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>Selection export</CardTitle>
+				<CardDescription>
+					Download all {count} selection{count === 1 ? "" : "s"},
+					including every fixed time slot for each course.
+				</CardDescription>
+			</CardHeader>
+			<CardContent>
+				<FieldGroup>
+					<Field>
+						<FieldLabel htmlFor="selection-export-format">
+							Format
+						</FieldLabel>
+						<DataFormatCombobox
+							id="selection-export-format"
+							value={format}
+							onValueChange={setFormat}
+						/>
+					</Field>
+				</FieldGroup>
+			</CardContent>
+			<CardFooter>
+				<Button
+					render={
+						<a
+							href={`/admin/selections/export?format=${format.value}`}
+						/>
+					}
+					nativeButton={false}
+				>
+					<DownloadIcon data-icon="inline-start" />
+					Download {format.value === "csv" ? "CSV" : "Excel"}
+				</Button>
+			</CardFooter>
+		</Card>
+	)
+}
+
+type DataResetScope = "selections" | "courses" | "students"
+
+type DataResetDefinition = {
+	scope: DataResetScope
+	title: string
+	description: string
+	confirmation: string
+	count: number
+	blocked: boolean
+	blockedReason: string | undefined
+}
+
+type AdminResetResult = {
+	scope: DataResetScope
+	deleted_count: number
+	closed_grade_count: number
+}
+
+function DataResetCard({
+	definition,
+	refresh,
+}: {
+	definition: DataResetDefinition
+	refresh: () => Promise<void>
+}): React.JSX.Element {
+	const [open, setOpen] = useState(false)
+	const [confirmation, setConfirmation] = useState("")
+	const [busy, setBusy] = useState(false)
+	const confirmationMatches = confirmation === definition.confirmation
+	const confirmationInvalid = confirmation.length > 0 && !confirmationMatches
+	const confirmationID = `reset-${definition.scope}-confirmation`
+
+	function changeOpen(nextOpen: boolean): void {
+		if (busy) return
+		setOpen(nextOpen)
+		if (!nextOpen) setConfirmation("")
+	}
+
+	async function resetData(): Promise<void> {
+		if (definition.blocked || !confirmationMatches || busy) {
+			return
+		}
+
+		setBusy(true)
+		try {
+			const result = await apiRequest<AdminResetResult>(
+				"/api/v1/admin/reset",
+				{
+					method: "POST",
+					body: jsonBody({
+						scope: definition.scope,
+						confirmation,
+					}),
+				},
+			)
+			await refresh()
+			toast.success(
+				`${result.deleted_count} ${result.scope} reset. Selection windows closed for ${result.closed_grade_count} grade${result.closed_grade_count === 1 ? "" : "s"}.`,
+			)
+			setOpen(false)
+			setConfirmation("")
+		} catch (caught) {
+			toast.error(
+				caught instanceof Error ? caught.message : "The reset failed.",
+			)
+		} finally {
+			setBusy(false)
+		}
+	}
+
+	return (
+		<Card>
+			<CardHeader>
+				<CardTitle>{definition.title}</CardTitle>
+				<CardDescription>{definition.description}</CardDescription>
+				<CardAction>
+					<Badge variant="secondary">
+						{definition.count.toLocaleString()}
+					</Badge>
+				</CardAction>
+			</CardHeader>
+			<CardContent className="flex-1">
+				<p className="text-sm text-muted-foreground">
+					This also closes selection for every grade. Grades,
+					categories, requirements, fixed time slots, and admin
+					accounts are preserved.
+				</p>
+				{definition.blockedReason ? (
+					<p className="mt-3 text-sm font-medium">
+						{definition.blockedReason}
+					</p>
+				) : null}
+			</CardContent>
+			<CardFooter>
+				<AlertDialog open={open} onOpenChange={changeOpen}>
+					<AlertDialogTrigger
+						render={
+							<Button
+								variant="destructive"
+								disabled={definition.blocked}
+							/>
+						}
+					>
+						<Trash2Icon data-icon="inline-start" />
+						{definition.title}
+					</AlertDialogTrigger>
+					<AlertDialogContent>
+						<AlertDialogHeader>
+							<AlertDialogMedia>
+								<Trash2Icon aria-hidden="true" />
+							</AlertDialogMedia>
+							<AlertDialogTitle>
+								{definition.title}?
+							</AlertDialogTitle>
+							<AlertDialogDescription>
+								This permanently deletes{" "}
+								{definition.count.toLocaleString()}{" "}
+								{definition.scope}. It cannot be undone and no
+								backup is created.
+							</AlertDialogDescription>
+						</AlertDialogHeader>
+						<Field data-invalid={confirmationInvalid || undefined}>
+							<FieldLabel htmlFor={confirmationID}>
+								Type {definition.confirmation} to confirm
+							</FieldLabel>
+							<Input
+								id={confirmationID}
+								value={confirmation}
+								onChange={(event) =>
+									setConfirmation(event.target.value)
+								}
+								autoComplete="off"
+								spellCheck={false}
+								aria-invalid={confirmationInvalid || undefined}
+								disabled={busy}
+							/>
+							<FieldDescription>
+								The phrase is case-sensitive and must match
+								exactly.
+							</FieldDescription>
+						</Field>
+						<AlertDialogFooter>
+							<AlertDialogCancel disabled={busy}>
+								Cancel
+							</AlertDialogCancel>
+							<AlertDialogAction
+								variant="destructive"
+								disabled={!confirmationMatches || busy}
+								onClick={() => void resetData()}
+							>
+								{busy ? (
+									<Spinner data-icon="inline-start" />
+								) : (
+									<Trash2Icon data-icon="inline-start" />
+								)}
+								Reset
+							</AlertDialogAction>
+						</AlertDialogFooter>
+					</AlertDialogContent>
+				</AlertDialog>
+			</CardFooter>
 		</Card>
 	)
 }
 
 export function DataManagementPage({
 	data,
+	refresh,
 }: AdminPageProps): React.JSX.Element {
+	const hasSelections = data.selections.length > 0
+	const resetDefinitions: DataResetDefinition[] = [
+		{
+			scope: "selections",
+			title: "Reset selections",
+			description:
+				"Delete all normal, invited, and forced student selections.",
+			confirmation: "RESET SELECTIONS",
+			count: data.selections.length,
+			blocked: false,
+			blockedReason: undefined,
+		},
+		{
+			scope: "courses",
+			title: "Reset courses",
+			description:
+				"Delete every CCA and its timetable and eligibility settings.",
+			confirmation: "RESET COURSES",
+			count: data.courses.length,
+			blocked: hasSelections,
+			blockedReason: hasSelections
+				? `Reset all ${data.selections.length.toLocaleString()} selections first.`
+				: undefined,
+		},
+		{
+			scope: "students",
+			title: "Reset students",
+			description:
+				"Delete every student profile and invalidate all student sessions.",
+			confirmation: "RESET STUDENTS",
+			count: data.students.length,
+			blocked: hasSelections,
+			blockedReason: hasSelections
+				? `Reset all ${data.selections.length.toLocaleString()} selections first.`
+				: undefined,
+		},
+	]
+
 	return (
 		<>
 			<PageHeading
 				title="Data management"
-				description="Import courses, students, or selections in bulk and export the current selection list."
+				description="Import, export, or reset operational data."
 			/>
-			<div className="grid gap-4 lg:grid-cols-3">
-				<Card>
-					<CardHeader>
-						<CardTitle>Selection export</CardTitle>
-						<CardDescription>
-							Download all {data.selections.length} selection
-							{data.selections.length === 1 ? "" : "s"}, including
-							every fixed time slot for each course.
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						<Button
-							render={<a href="/admin/selections/export" />}
-							nativeButton={false}
-						>
-							<DownloadIcon data-icon="inline-start" />
-							Download CSV
-						</Button>
-					</CardContent>
-				</Card>
-				<ImportCard
-					title="Course import"
-					description="Bulk-create courses from a compatible CSV. Existing IDs are rejected."
-					action="/admin/courses/import"
-					example="/admin/static/courses_example.csv"
-				/>
-				<ImportCard
-					title="Student import"
-					description="Bulk-create student profiles from a compatible CSV. Existing IDs are rejected."
-					action="/admin/students/import"
-					example="/admin/static/students_example.csv"
-				/>
-				<ImportCard
-					title="Selection import"
-					description="Bulk-create normal, invited, or forced selections from CSV. The entire file is transactional."
-					action="/admin/selections/import"
-					example="/admin/static/selections_example.csv"
-				/>
-			</div>
-			<Card className="mt-4">
-				<CardHeader>
-					<CardTitle>Import notes</CardTitle>
-					<CardDescription>
-						CSV uploads are validated and applied transactionally by
-						the Go service.
-					</CardDescription>
-				</CardHeader>
-				<CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
-					<p>
-						Course schedules use a comma-separated{" "}
-						<code>periods</code> column containing fixed slot
-						identifiers.
-					</p>
-					<p>
-						Import grades, categories, and time slots before courses
-						or students that reference them.
-					</p>
-				</CardContent>
-			</Card>
+			<Tabs defaultValue="transfers">
+				<TabsList variant="line">
+					<TabsTrigger value="transfers">
+						Import &amp; Export
+					</TabsTrigger>
+					<TabsTrigger value="reset">Reset</TabsTrigger>
+				</TabsList>
+				<Separator />
+				<TabsContent value="transfers" className="pt-4">
+					<div className="grid gap-4 lg:grid-cols-3">
+						<SelectionExportCard count={data.selections.length} />
+						<ImportCard
+							title="Course import"
+							description="Bulk-create courses from a compatible CSV or Excel file. Existing IDs are rejected."
+							action="/admin/courses/import"
+							example="/admin/data/examples/courses"
+						/>
+						<ImportCard
+							title="Student import"
+							description="Bulk-create student profiles from a compatible CSV or Excel file. Existing IDs are rejected."
+							action="/admin/students/import"
+							example="/admin/data/examples/students"
+						/>
+						<ImportCard
+							title="Selection import"
+							description="Bulk-create normal, invited, or forced selections from CSV or Excel. The entire file is transactional."
+							action="/admin/selections/import"
+							example="/admin/data/examples/selections"
+						/>
+					</div>
+				</TabsContent>
+				<TabsContent value="reset" className="pt-4">
+					<div className="grid items-stretch gap-4 lg:grid-cols-3">
+						{resetDefinitions.map((definition) => (
+							<DataResetCard
+								key={definition.scope}
+								definition={definition}
+								refresh={refresh}
+							/>
+						))}
+					</div>
+				</TabsContent>
+			</Tabs>
 		</>
 	)
 }

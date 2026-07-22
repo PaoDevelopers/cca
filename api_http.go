@@ -76,6 +76,10 @@ func classifyAPIError(err error) (int, string, string) {
 			return http.StatusUnprocessableEntity, "invalid_course_period", "Choose a timetable slot offered by this CCA."
 		case "periods_fixed":
 			return http.StatusConflict, "periods_fixed", "Timetable periods are fixed and cannot be changed."
+		case "reset_selections_required":
+			return http.StatusConflict, "reset_selections_required", "Reset selections before resetting courses or students."
+		case "reset_scope":
+			return http.StatusUnprocessableEntity, "invalid_reset_scope", "Choose selections, courses, or students."
 		}
 		switch pgErr.Code {
 		case "P0002":
