@@ -267,6 +267,9 @@ export default function StudentApp(): React.JSX.Element {
 	const [busyCourseID, setBusyCourseID] = useState<string | null>(null)
 	const [removeCourse, setRemoveCourse] = useState<Course | null>(null)
 	const [slotCourse, setSlotCourse] = useState<Course | null>(null)
+	const [expandedDescriptionIDs, setExpandedDescriptionIDs] = useState<
+		ReadonlySet<string>
+	>(() => new Set())
 	const courses = data?.courses ?? EMPTY_COURSES
 
 	const load = useCallback(async (): Promise<void> => {
@@ -415,6 +418,22 @@ export default function StudentApp(): React.JSX.Element {
 		setCategoryFilter("all")
 		setAvailableOnly(false)
 	}, [])
+	const handleDescriptionExpandedChange = useCallback(
+		(courseID: string, expanded: boolean): void => {
+			setExpandedDescriptionIDs((current) => {
+				if (current.has(courseID) === expanded) return current
+
+				const next = new Set(current)
+				if (expanded) {
+					next.add(courseID)
+				} else {
+					next.delete(courseID)
+				}
+				return next
+			})
+		},
+		[],
+	)
 
 	const mutateSelection = useCallback(
 		async (
@@ -923,6 +942,10 @@ export default function StudentApp(): React.JSX.Element {
 								selectedCourses={selectedCourses}
 								busyCourseID={busyCourseID}
 								onToggle={handleCourseToggle}
+								expandedDescriptionIDs={expandedDescriptionIDs}
+								onDescriptionExpandedChange={
+									handleDescriptionExpandedChange
+								}
 								onResetFilters={clearCatalogueFilters}
 							/>
 						) : visibleCourses.length === 0 ? (
@@ -951,12 +974,20 @@ export default function StudentApp(): React.JSX.Element {
 								courses={visibleCourses}
 								busyCourseID={busyCourseID}
 								onToggle={handleCourseToggle}
+								expandedDescriptionIDs={expandedDescriptionIDs}
+								onDescriptionExpandedChange={
+									handleDescriptionExpandedChange
+								}
 							/>
 						) : (
 							<CourseList
 								courses={visibleCourses}
 								busyCourseID={busyCourseID}
 								onToggle={handleCourseToggle}
+								expandedDescriptionIDs={expandedDescriptionIDs}
+								onDescriptionExpandedChange={
+									handleDescriptionExpandedChange
+								}
 							/>
 						)}
 					</TabsContent>

@@ -3,7 +3,9 @@ import {
 	type DragEvent,
 	type KeyboardEvent,
 	useCallback,
+	useLayoutEffect,
 	useMemo,
+	useRef,
 	useState,
 } from "react"
 import {
@@ -26,6 +28,11 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card"
+import {
+	Collapsible,
+	CollapsibleContent,
+	CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import {
 	Empty,
 	EmptyContent,
@@ -67,6 +74,8 @@ interface CourseViewProps {
 	courses: readonly Course[]
 	busyCourseID: string | null
 	onToggle: (course: Course, periodID?: string) => void
+	expandedDescriptionIDs: ReadonlySet<string>
+	onDescriptionExpandedChange: (courseID: string, expanded: boolean) => void
 }
 
 interface CourseActionProps {
@@ -263,10 +272,81 @@ function EnrollmentBadge({ course }: { course: Course }): React.JSX.Element {
 	)
 }
 
+interface ExpandableCourseDescriptionProps {
+	course: Course
+	expanded: boolean
+	onExpandedChange: (expanded: boolean) => void
+}
+
+const ExpandableCourseDescription = memo(function ExpandableCourseDescription({
+	course,
+	expanded,
+	onExpandedChange,
+}: ExpandableCourseDescriptionProps): React.JSX.Element {
+	const description =
+		course.description || "No description has been provided."
+	const summaryRef = useRef<HTMLParagraphElement>(null)
+	const [isOverflowing, setIsOverflowing] = useState(expanded)
+
+	useLayoutEffect(() => {
+		if (expanded) return
+
+		const summary = summaryRef.current
+		if (summary === null) return
+
+		const measureOverflow = (): void => {
+			setIsOverflowing(summary.scrollHeight > summary.clientHeight + 1)
+		}
+		measureOverflow()
+
+		const observer = new ResizeObserver(measureOverflow)
+		observer.observe(summary)
+		return () => observer.disconnect()
+	}, [description, expanded])
+
+	return (
+		<Collapsible
+			open={expanded}
+			onOpenChange={onExpandedChange}
+			className="flex flex-col items-start gap-1"
+		>
+			<p
+				ref={summaryRef}
+				className={cn(
+					"line-clamp-3 break-words text-sm leading-relaxed text-muted-foreground",
+					expanded && "hidden",
+				)}
+			>
+				{description}
+			</p>
+			<CollapsibleContent>
+				<p className="break-words text-sm leading-relaxed text-muted-foreground">
+					{description}
+				</p>
+			</CollapsibleContent>
+			{isOverflowing ? (
+				<CollapsibleTrigger
+					render={
+						<Button
+							variant="link"
+							size="xs"
+							aria-label={`${expanded ? "Show less" : "Show more"} description for ${course.name}`}
+						/>
+					}
+				>
+					{expanded ? "Show less" : "Show more"}
+				</CollapsibleTrigger>
+			) : null}
+		</Collapsible>
+	)
+})
+
 interface CourseCardProps {
 	course: Course
 	busyCourseID: string | null
 	onToggle: (course: Course, periodID?: string) => void
+	descriptionExpanded: boolean
+	onDescriptionExpandedChange: (courseID: string, expanded: boolean) => void
 	mode?: "catalog" | "timetable"
 	isPreviewed?: boolean
 	onPreview?: (courseID: string) => void
@@ -279,6 +359,8 @@ const CourseCard = memo(function CourseCard({
 	course,
 	busyCourseID,
 	onToggle,
+	descriptionExpanded,
+	onDescriptionExpandedChange,
 	mode = "catalog",
 	isPreviewed = false,
 	onPreview,
@@ -297,6 +379,12 @@ const CourseCard = memo(function CourseCard({
 	const previewCourse = (): void => {
 		if (isTimetableCandidate) onPreview?.(course.id)
 	}
+	const handleDescriptionExpandedChange = useCallback(
+		(expanded: boolean): void => {
+			onDescriptionExpandedChange(course.id, expanded)
+		},
+		[course.id, onDescriptionExpandedChange],
+	)
 
 	return (
 		<Card
@@ -354,9 +442,11 @@ const CourseCard = memo(function CourseCard({
 					<PeriodBadges periodIDs={displayedPeriodIDs} />
 					<CompactCourseState course={course} />
 				</div>
-				<p className="break-words text-sm leading-relaxed text-muted-foreground">
-					{course.description || "No description has been provided."}
-				</p>
+				<ExpandableCourseDescription
+					course={course}
+					expanded={descriptionExpanded}
+					onExpandedChange={handleDescriptionExpandedChange}
+				/>
 				<dl className="grid grid-cols-2 gap-4 text-sm">
 					<div className="flex min-w-0 flex-col gap-1">
 						<dt className="text-xs text-muted-foreground">
@@ -456,6 +546,8 @@ export function CourseCardGrid({
 	courses,
 	busyCourseID,
 	onToggle,
+	expandedDescriptionIDs,
+	onDescriptionExpandedChange,
 }: CourseViewProps): React.JSX.Element {
 	return (
 		<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -465,6 +557,8 @@ export function CourseCardGrid({
 					course={course}
 					busyCourseID={busyCourseID}
 					onToggle={onToggle}
+					descriptionExpanded={expandedDescriptionIDs.has(course.id)}
+					onDescriptionExpandedChange={onDescriptionExpandedChange}
 				/>
 			))}
 		</div>
@@ -475,6 +569,8 @@ export function CourseList({
 	courses,
 	busyCourseID,
 	onToggle,
+	expandedDescriptionIDs,
+	onDescriptionExpandedChange,
 }: CourseViewProps): React.JSX.Element {
 	return (
 		<>
@@ -506,6 +602,16 @@ export function CourseList({
 									course.selected && course.selected_period_id
 										? [course.selected_period_id]
 										: course.period_ids
+								}
+							/>
+							<ExpandableCourseDescription
+								course={course}
+								expanded={expandedDescriptionIDs.has(course.id)}
+								onExpandedChange={(expanded) =>
+									onDescriptionExpandedChange(
+										course.id,
+										expanded,
+									)
 								}
 							/>
 							<dl className="grid grid-cols-2 gap-3 text-sm">
@@ -651,6 +757,8 @@ export function CourseTimetable({
 	selectedCourses,
 	busyCourseID,
 	onToggle,
+	expandedDescriptionIDs,
+	onDescriptionExpandedChange,
 	onResetFilters,
 }: CourseTimetableProps): React.JSX.Element {
 	const [mobileDay, setMobileDay] = useState<CCADay>("Monday")
@@ -1086,6 +1194,12 @@ export function CourseTimetable({
 							course={course}
 							busyCourseID={busyCourseID}
 							onToggle={onToggle}
+							descriptionExpanded={expandedDescriptionIDs.has(
+								course.id,
+							)}
+							onDescriptionExpandedChange={
+								onDescriptionExpandedChange
+							}
 							mode="timetable"
 							isPreviewed={activeCourseID === course.id}
 							onPreview={setPreviewedCourseID}
