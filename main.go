@@ -134,6 +134,7 @@ func main() {
 	mux.HandleFunc("/api/v1/student/grades", app.apiStudentOnly("handleAPIStudentGrades", app.handleAPIStudentGrades))
 	mux.HandleFunc("/api/v1/student/selections", app.apiStudentOnly("handleAPIStudentSelections", app.handleAPIStudentSelections))
 	mux.HandleFunc("/api/v1/student/events", app.apiStudentOnly("handleStuAPIEvents", app.handleStuAPIEvents))
+	mux.HandleFunc("/api/v1/admin/dashboard", app.apiAdminOnly("handleAPIAdminDashboard", app.handleAPIAdminDashboard))
 	mux.HandleFunc("/api/v1/admin/bootstrap", app.apiAdminOnly("handleAPIAdminBootstrap", app.handleAPIAdminBootstrap))
 	mux.HandleFunc("/api/v1/admin/categories", app.apiAdminOnly("handleAPIAdminCategories", app.handleAPIAdminCategories))
 	mux.HandleFunc("/api/v1/admin/categories/{id}", app.apiAdminOnly("handleAPIAdminCategory", app.handleAPIAdminCategory))

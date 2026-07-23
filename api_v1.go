@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"git.sr.ht/~runxiyu/cca/db"
 	"github.com/jackc/pgx/v5"
@@ -22,9 +23,19 @@ type adminSessionView struct {
 }
 
 type studentBootstrapView struct {
-	Session      sessionView                           `json:"session"`
-	Courses      []CourseView                          `json:"courses"`
-	Requirements []db.GetStudentRequirementProgressRow `json:"requirements"`
+	Session         sessionView                           `json:"session"`
+	Courses         []CourseView                          `json:"courses"`
+	Requirements    []db.GetStudentRequirementProgressRow `json:"requirements"`
+	SelectionStatus studentSelectionStatusView            `json:"selection_status"`
+}
+
+type studentSelectionStatusView struct {
+	Enabled              bool       `json:"enabled"`
+	MaxOwnChoices        int64      `json:"max_own_choices"`
+	NormalSelectionCount int64      `json:"normal_selection_count"`
+	OpensAt              *time.Time `json:"opens_at,omitempty"`
+	ClosesAt             *time.Time `json:"closes_at,omitempty"`
+	ScheduleOpened       bool       `json:"schedule_opened"`
 }
 
 func (app *App) loadStudentBootstrap(ctx context.Context, student *UserInfoStudent) (studentBootstrapView, error) {
@@ -52,6 +63,24 @@ func (app *App) loadStudentBootstrap(ctx context.Context, student *UserInfoStude
 	view.Requirements, err = queries.GetStudentRequirementProgress(ctx, student.ID)
 	if err != nil {
 		return view, err
+	}
+	selectionStatus, err := queries.GetStudentSelectionStatus(ctx, student.ID)
+	if err != nil {
+		return view, err
+	}
+	view.SelectionStatus = studentSelectionStatusView{
+		Enabled:              selectionStatus.Enabled,
+		MaxOwnChoices:        selectionStatus.MaxOwnChoices,
+		NormalSelectionCount: selectionStatus.NormalSelectionCount,
+		ScheduleOpened:       selectionStatus.ScheduleOpened,
+	}
+	if selectionStatus.OpensAt.Valid {
+		opensAt := selectionStatus.OpensAt.Time
+		view.SelectionStatus.OpensAt = &opensAt
+	}
+	if selectionStatus.ClosesAt.Valid {
+		closesAt := selectionStatus.ClosesAt.Time
+		view.SelectionStatus.ClosesAt = &closesAt
 	}
 	if view.Courses == nil {
 		view.Courses = []CourseView{}
@@ -216,6 +245,56 @@ type adminBootstrapView struct {
 	Courses        []CourseView                 `json:"courses"`
 	Students       []db.GetStudentsForAdminRow  `json:"students"`
 	Selections     []db.GetSelectionsRow        `json:"selections"`
+}
+
+type adminDashboardView struct {
+	Admin                   adminSessionView `json:"admin"`
+	CourseCount             int64            `json:"course_count"`
+	CoursesWithoutTimetable int64            `json:"courses_without_timetable"`
+	StudentCount            int64            `json:"student_count"`
+	Grades                  []db.Grade       `json:"grades"`
+}
+
+func (app *App) handleAPIAdminDashboard(w http.ResponseWriter, r *http.Request, admin *UserInfoAdmin) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		app.writeAPIError(r, w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed.", nil)
+		return
+	}
+	tx, err := app.pool.BeginTx(r.Context(), pgx.TxOptions{
+		IsoLevel:   pgx.RepeatableRead,
+		AccessMode: pgx.ReadOnly,
+	})
+	if err != nil {
+		app.writeClassifiedAPIError(r, w, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	queries := app.queries.WithTx(tx)
+	counts, err := queries.GetAdminDashboardCounts(r.Context())
+	if err != nil {
+		app.writeClassifiedAPIError(r, w, err)
+		return
+	}
+	grades, err := queries.GetGrades(r.Context())
+	if err != nil {
+		app.writeClassifiedAPIError(r, w, err)
+		return
+	}
+	if grades == nil {
+		grades = []db.Grade{}
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		app.writeClassifiedAPIError(r, w, err)
+		return
+	}
+	app.writeJSON(r, w, http.StatusOK, adminDashboardView{
+		Admin:                   adminSessionView{ID: admin.ID, Username: admin.Username},
+		CourseCount:             counts.CourseCount,
+		CoursesWithoutTimetable: counts.CoursesWithoutTimetable,
+		StudentCount:            counts.StudentCount,
+		Grades:                  grades,
+	})
 }
 
 func (app *App) handleAPIAdminBootstrap(w http.ResponseWriter, r *http.Request, admin *UserInfoAdmin) {

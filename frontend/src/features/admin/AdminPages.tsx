@@ -4,10 +4,8 @@ import {
 	BookOpenIcon,
 	CalendarClockIcon,
 	CalendarDaysIcon,
-	CheckCircle2Icon,
 	DownloadIcon,
 	InboxIcon,
-	LockKeyholeIcon,
 	PencilIcon,
 	PlusIcon,
 	SaveIcon,
@@ -89,7 +87,6 @@ import {
 	Item,
 	ItemActions,
 	ItemContent,
-	ItemDescription,
 	ItemGroup,
 	ItemTitle,
 } from "@/components/ui/item"
@@ -122,13 +119,9 @@ import {
 } from "@/components/ui/tooltip"
 import type { AdminPageProps } from "@/features/admin/AdminApp"
 import { useSearchFilter } from "@/hooks/use-search-filter"
-import {
-	CCA_DAYS,
-	CCA_SLOTS_PER_DAY,
-	ccaTimeSlotID,
-	FIXED_CCA_TIME_SLOTS,
-} from "@/lib/cca-schedule"
+import { CCA_DAYS, CCA_SLOTS_PER_DAY, ccaTimeSlotID } from "@/lib/cca-schedule"
 import type {
+	AdminDashboard,
 	Course,
 	CoursePayload,
 	Grade,
@@ -385,108 +378,33 @@ function StatCard({
 	)
 }
 
-export function DashboardPage({ data }: AdminPageProps): React.JSX.Element {
-	const unassigned = data.courses.filter(
-		(course) => course.period_ids.length === 0,
-	).length
-	const normalSelections = data.selections.filter(
-		(selection) => selection.selection_type === "normal",
-	).length
-
+export function DashboardPage({
+	data,
+}: {
+	data: AdminDashboard
+}): React.JSX.Element {
 	return (
 		<>
 			<PageHeading
 				title="System overview"
-				description="A live summary of timetable configuration, courses, students, and selections."
+				description="A live summary of courses, students, and grade access."
 			/>
-			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+			<div className="grid gap-4 sm:grid-cols-2">
 				<StatCard
 					icon={BookOpenIcon}
 					label="Courses"
-					value={data.courses.length}
-					description={`${unassigned} without a timetable`}
+					value={data.course_count}
+					description={`${data.courses_without_timetable} without a timetable`}
 				/>
 				<StatCard
 					icon={UsersIcon}
 					label="Students"
-					value={data.students.length}
+					value={data.student_count}
 					description="Registered student profiles"
-				/>
-				<StatCard
-					icon={CheckCircle2Icon}
-					label="Selections"
-					value={data.selections.length}
-					description={`${normalSelections} student choices`}
-				/>
-				<StatCard
-					icon={CalendarDaysIcon}
-					label="Time slots"
-					value={data.periods.length}
-					description="Fixed atomic timetable slots"
 				/>
 			</div>
 
-			<div className="mt-4 grid gap-4 xl:grid-cols-2">
-				<Card>
-					<CardHeader>
-						<CardTitle>Course capacity</CardTitle>
-						<CardDescription>
-							Courses nearest to their configured limit.
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						{data.courses.length === 0 ? (
-							<NoResults
-								title="No courses yet"
-								description="Create a course to begin."
-							/>
-						) : (
-							<ItemGroup>
-								{[...data.courses]
-									.sort((a, b) => {
-										const aRatio =
-											a.max_students === 0
-												? 0
-												: a.current_students /
-													a.max_students
-										const bRatio =
-											b.max_students === 0
-												? 0
-												: b.current_students /
-													b.max_students
-										return bRatio - aRatio
-									})
-									.slice(0, 6)
-									.map((course) => (
-										<Item key={course.id} size="xs">
-											<ItemContent>
-												<ItemTitle>
-													{course.name}
-												</ItemTitle>
-												<ItemDescription>
-													{course.id}
-												</ItemDescription>
-											</ItemContent>
-											<ItemActions>
-												<Badge
-													variant={
-														course.current_students >=
-														course.max_students
-															? "destructive"
-															: "outline"
-													}
-												>
-													{course.current_students}/
-													{course.max_students}
-												</Badge>
-											</ItemActions>
-										</Item>
-									))}
-							</ItemGroup>
-						)}
-					</CardContent>
-				</Card>
-
+			<div className="mt-4">
 				<Card>
 					<CardHeader>
 						<CardTitle>Grade settings</CardTitle>
@@ -734,39 +652,27 @@ export function PeriodsPage(props: AdminPageProps): React.JSX.Element {
 	return (
 		<>
 			<PageHeading
-				title="Fixed time slots"
+				title="Periods"
 				description="The CCA week has exactly 16 system-defined slots: four slots per day from Monday to Thursday."
 			/>
 
-			<Alert className="mb-6">
-				<LockKeyholeIcon />
-				<AlertTitle>Read-only system schedule</AlertTitle>
-				<AlertDescription>
-					Time slots cannot be created or deleted here. A course may
-					occupy multiple slots, and sharing any slot creates a
-					schedule conflict.
-				</AlertDescription>
-			</Alert>
-
 			<Card>
 				<CardHeader>
-					<CardTitle>
-						{FIXED_CCA_TIME_SLOTS.length} fixed slots
-					</CardTitle>
+					<CardTitle>Periods</CardTitle>
 					<CardDescription>
 						Each cell shows the permanent slot identifier and how
 						many courses currently use it.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="px-0">
-					<Table className="min-w-[58rem] table-fixed">
+					<Table className="min-w-[40rem] table-fixed">
 						<TableCaption className="sr-only">
 							The 16 fixed CCA time slots, arranged by weekday and
 							slot number.
 						</TableCaption>
 						<TableHeader>
 							<TableRow className="hover:bg-transparent">
-								<TableHead className="sticky left-0 z-10 w-24 bg-muted text-center">
+								<TableHead className="sticky left-0 z-10 w-20 bg-muted text-center">
 									Slot
 								</TableHead>
 								{CCA_DAYS.map((day) => (
@@ -1616,7 +1522,7 @@ function GradeRequirementsCard({
 	return (
 		<Card>
 			<CardHeader>
-				<CardTitle>{grade.grade}</CardTitle>
+				<CardTitle>Grade {grade.grade}</CardTitle>
 				<CardDescription>
 					Minimum selections across a set of categories.
 				</CardDescription>
@@ -1628,7 +1534,7 @@ function GradeRequirementsCard({
 						onClick={() => setRequirementOpen(true)}
 					>
 						<PlusIcon data-icon="inline-start" />
-						Add
+						Add requirement
 					</Button>
 				</CardAction>
 			</CardHeader>
@@ -1693,7 +1599,7 @@ function GradeRequirementsCard({
 			</CardContent>
 			<CardFooter className="justify-end">
 				<DeleteButton
-					name={grade.grade}
+					name={`Grade ${grade.grade}`}
 					description="Students and course restrictions may prevent this grade from being deleted."
 					onDelete={() =>
 						runMutation(
@@ -2781,8 +2687,10 @@ export function CoursesPage({
 			<Card>
 				<CardHeader>
 					<CardTitle>Course catalogue</CardTitle>
-					<CardDescription>
-						{data.courses.length} courses configured
+					<CardDescription aria-live="polite" aria-atomic="true">
+						{query.trim() === ""
+							? `${data.courses.length} course${data.courses.length === 1 ? "" : "s"} configured`
+							: `${courses.length} of ${data.courses.length} course${data.courses.length === 1 ? "" : "s"}`}
 					</CardDescription>
 					<CardAction className="col-span-2 col-start-1 row-span-1 row-start-3 mt-2 w-full justify-self-stretch sm:col-span-1 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:w-72 sm:justify-self-end">
 						<SearchBox
@@ -2840,9 +2748,18 @@ export function CoursesPage({
 											</p>
 										</TableCell>
 										<TableCell>
-											<Badge variant="outline">
-												{course.current_students}/
-												{course.max_students}
+											<Badge
+												variant={
+													course.max_students === 0 ||
+													course.current_students >=
+														course.max_students
+														? "destructive"
+														: "outline"
+												}
+											>
+												{course.max_students === 0
+													? "Closed"
+													: `${course.current_students}/${course.max_students}`}
 											</Badge>
 										</TableCell>
 										<TableCell className="sticky right-0 bg-background">

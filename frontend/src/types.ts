@@ -92,6 +92,20 @@ export interface GradeSelectionSchedule {
 	opened: boolean
 }
 
+export interface GradeSummary {
+	grade: string
+	enabled: boolean
+	max_own_choices: number
+}
+
+export interface AdminDashboard {
+	admin: AdminSession
+	course_count: number
+	courses_without_timetable: number
+	student_count: number
+	grades: readonly GradeSummary[]
+}
+
 export interface AdminBootstrap {
 	admin: AdminSession
 	categories: readonly string[]
@@ -107,6 +121,16 @@ export interface StudentBootstrap {
 	session: StudentSession
 	courses: readonly Course[]
 	requirements: readonly StudentRequirementProgress[]
+	selection_status: StudentSelectionStatus
+}
+
+export interface StudentSelectionStatus {
+	enabled: boolean
+	max_own_choices: number
+	normal_selection_count: number
+	opens_at?: string
+	closes_at?: string
+	schedule_opened: boolean
 }
 
 export interface CoursePayload {

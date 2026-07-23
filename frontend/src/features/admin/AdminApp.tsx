@@ -33,7 +33,7 @@ import {
 	SidebarTrigger,
 	useSidebar,
 } from "@/components/ui/sidebar"
-import type { AdminBootstrap } from "@/types"
+import type { AdminBootstrap, AdminDashboard, AdminSession } from "@/types"
 import {
 	CategoriesPage,
 	CoursesPage,
@@ -180,15 +180,15 @@ function AdminNavigation({
 
 function AdminShell({
 	children,
-	data,
+	admin,
 }: {
 	children: React.ReactNode
-	data: AdminBootstrap
+	admin: AdminSession
 }): React.JSX.Element {
 	const location = useLocation()
 	return (
 		<SidebarProvider>
-			<Sidebar variant="inset" collapsible="icon">
+			<Sidebar variant="sidebar" collapsible="icon">
 				<SidebarHeader>
 					<SidebarMenu>
 						<SidebarMenuItem>
@@ -220,12 +220,12 @@ function AdminShell({
 						<SidebarMenuItem>
 							<SidebarMenuButton
 								size="lg"
-								tooltip={data.admin.username}
+								tooltip={admin.username}
 							>
 								<ShieldUserIcon aria-hidden="true" />
 								<span className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
 									<span className="truncate font-medium">
-										{data.admin.username}
+										{admin.username}
 									</span>
 									<span className="truncate text-xs text-muted-foreground">
 										Administrator
@@ -250,7 +250,12 @@ function AdminShell({
 }
 
 export default function AdminApp(): React.JSX.Element {
+	const location = useLocation()
+	const isAdminRoot =
+		location.pathname === "/admin" || location.pathname === "/admin/"
+	const isDashboard = location.pathname === "/admin/dashboard"
 	const [data, setData] = useState<AdminBootstrap | null>(null)
+	const [dashboard, setDashboard] = useState<AdminDashboard | null>(null)
 	const [error, setError] = useState<string | null>(null)
 
 	const refresh = useCallback(async (): Promise<void> => {
@@ -270,9 +275,51 @@ export default function AdminApp(): React.JSX.Element {
 	}, [])
 
 	useEffect(() => {
+		if (isAdminRoot) return
+		if (isDashboard) {
+			const controller = new AbortController()
+			void apiRequest<AdminDashboard>("/api/v1/admin/dashboard", {
+				signal: controller.signal,
+			})
+				.then((next) => {
+					setDashboard(next)
+					setError(null)
+				})
+				.catch((caught: unknown) => {
+					if (controller.signal.aborted) return
+					setError(
+						caught instanceof Error
+							? caught.message
+							: "Unable to load dashboard data.",
+					)
+				})
+			return () => controller.abort()
+		}
 		// eslint-disable-next-line react-hooks/set-state-in-effect -- Bootstrap data is loaded after the request resolves.
 		void refresh()
-	}, [refresh])
+	}, [isAdminRoot, isDashboard, refresh])
+
+	if (isAdminRoot) return <Navigate to="dashboard" replace />
+
+	if (isDashboard) {
+		if (dashboard === null && error === null) return <PageSkeleton />
+		if (dashboard === null)
+			return (
+				<main id="main-content" className="mx-auto max-w-3xl p-6">
+					<ErrorAlert message={error ?? "Unable to load."} />
+				</main>
+			)
+		return (
+			<AdminShell admin={dashboard.admin}>
+				{error !== null ? (
+					<div className="mb-4">
+						<ErrorAlert message={error} />
+					</div>
+				) : null}
+				<DashboardPage data={dashboard} />
+			</AdminShell>
+		)
+	}
 
 	if (data === null && error === null) return <PageSkeleton />
 	if (data === null)
@@ -284,17 +331,13 @@ export default function AdminApp(): React.JSX.Element {
 
 	const pageProps: AdminPageProps = { data, refresh }
 	return (
-		<AdminShell data={data}>
+		<AdminShell admin={data.admin}>
 			{error !== null ? (
 				<div className="mb-4">
 					<ErrorAlert message={error} />
 				</div>
 			) : null}
 			<Routes>
-				<Route
-					path="dashboard"
-					element={<DashboardPage {...pageProps} />}
-				/>
 				<Route
 					path="periods"
 					element={<PeriodsPage {...pageProps} />}

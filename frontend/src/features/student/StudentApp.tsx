@@ -2,8 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import {
 	BookOpenCheckIcon,
 	CalendarDaysIcon,
+	CheckCircle2Icon,
+	Clock3Icon,
+	FilterIcon,
 	LayoutGridIcon,
 	ListIcon,
+	LockKeyholeIcon,
+	RotateCcwIcon,
 	SearchIcon,
 	Trash2Icon,
 } from "lucide-react"
@@ -11,6 +16,7 @@ import { toast } from "sonner"
 
 import { apiRequest, jsonBody } from "@/api"
 import { ErrorAlert, PageSkeleton, PeriodBadges } from "@/components/common"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -32,6 +38,7 @@ import {
 } from "@/components/ui/card"
 import {
 	Empty,
+	EmptyContent,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyMedia,
@@ -59,6 +66,21 @@ import {
 	SelectValue,
 } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
+import {
+	Progress,
+	ProgressLabel,
+	ProgressValue,
+} from "@/components/ui/progress"
+import {
+	Sheet,
+	SheetClose,
+	SheetContent,
+	SheetDescription,
+	SheetFooter,
+	SheetHeader,
+	SheetTitle,
+	SheetTrigger,
+} from "@/components/ui/sheet"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -88,6 +110,18 @@ const CCA_SLOT_FILTERS: readonly CCASlotFilter[] = [
 	...CCA_SLOTS_PER_DAY.map((slot) => String(slot) as CCASlotFilter),
 ]
 const EMPTY_COURSES: readonly Course[] = []
+const SELECTION_DATE_FORMAT = new Intl.DateTimeFormat(undefined, {
+	dateStyle: "medium",
+	timeStyle: "short",
+})
+
+function formatSelectionDate(value?: string): string | null {
+	if (value === undefined) return null
+	const date = new Date(value)
+	return Number.isNaN(date.getTime())
+		? null
+		: SELECTION_DATE_FORMAT.format(date)
+}
 
 function getCourseSearchText(course: Course): string {
 	return [
@@ -157,12 +191,12 @@ function ScheduleSlotTabs({
 					aria-hidden="true"
 					className="absolute bottom-1 left-0"
 				/>
-				<div className="no-scrollbar overflow-x-auto overflow-y-hidden pb-2">
+				<div className="overflow-x-auto overflow-y-hidden pb-2 md:no-scrollbar">
 					<TabsList
 						activateOnFocus
 						variant="line"
 						aria-label={`${dayLabel} CCA slot`}
-						className="h-10 min-w-max justify-start"
+						className="h-auto min-w-max justify-start"
 					>
 						{CCA_SLOT_FILTERS.map((slotValue) => (
 							<TabsTrigger
@@ -173,7 +207,7 @@ function ScheduleSlotTabs({
 										? "All CCA slots"
 										: `CCA ${slotValue}`
 								}
-								className="min-w-20 px-3"
+								className="min-h-11 min-w-20 px-3"
 							>
 								{slotValue === "all"
 									? "All slots"
@@ -230,7 +264,6 @@ export default function StudentApp(): React.JSX.Element {
 	const [slotFilter, setSlotFilter] = useState<CCASlotFilter>("all")
 	const [categoryFilter, setCategoryFilter] = useState("all")
 	const [availableOnly, setAvailableOnly] = useState(false)
-	const [timetableAvailableOnly, setTimetableAvailableOnly] = useState(true)
 	const [busyCourseID, setBusyCourseID] = useState<string | null>(null)
 	const [removeCourse, setRemoveCourse] = useState<Course | null>(null)
 	const [slotCourse, setSlotCourse] = useState<Course | null>(null)
@@ -347,7 +380,7 @@ export default function StudentApp(): React.JSX.Element {
 						!course.selected &&
 						(categoryFilter === "all" ||
 							course.category_id === categoryFilter) &&
-						(!timetableAvailableOnly ||
+						(!availableOnly ||
 							matchesPeriodFilter(
 								course.available_period_ids,
 								dayFilter,
@@ -360,14 +393,28 @@ export default function StudentApp(): React.JSX.Element {
 						Number(right.available) - Number(left.available) ||
 						left.name.localeCompare(right.name),
 				),
-		[
-			categoryFilter,
-			dayFilter,
-			searchResults,
-			slotFilter,
-			timetableAvailableOnly,
-		],
+		[categoryFilter, dayFilter, searchResults, slotFilter, availableOnly],
 	)
+	const secondaryFilterCount =
+		Number(categoryFilter !== "all") + Number(availableOnly)
+	const filtersActive =
+		query !== "" ||
+		dayFilter !== "all" ||
+		slotFilter !== "all" ||
+		secondaryFilterCount > 0
+	const activeCourses =
+		layout === "timetable" ? timetableCandidates : visibleCourses
+	const selectableCourseCount = activeCourses.filter(
+		(course) => !course.selected && course.available,
+	).length
+
+	const clearCatalogueFilters = useCallback((): void => {
+		setQuery("")
+		setDayFilter("all")
+		setSlotFilter("all")
+		setCategoryFilter("all")
+		setAvailableOnly(false)
+	}, [])
 
 	const mutateSelection = useCallback(
 		async (
@@ -447,6 +494,22 @@ export default function StudentApp(): React.JSX.Element {
 		)
 
 	const student = data.session.student
+	const selectionStatus = data.selection_status
+	const selectionOpensAt = formatSelectionDate(selectionStatus.opens_at)
+	const selectionClosesAt = formatSelectionDate(selectionStatus.closes_at)
+	const selectionHasNotStarted =
+		!selectionStatus.enabled && !selectionStatus.schedule_opened
+	const hasScheduledOpening =
+		selectionHasNotStarted && selectionOpensAt !== null
+	const requirementsRemaining = data.requirements.reduce(
+		(total, requirement) =>
+			total +
+			Math.max(0, requirement.min_count - requirement.current_count),
+		0,
+	)
+	const requirementsMet =
+		data.requirements.length > 0 && requirementsRemaining === 0
+
 	return (
 		<div className="min-h-svh bg-muted/30 [--student-page-header-height:3rem] sm:[--student-page-header-height:4.25rem]">
 			<header className="sticky top-0 z-30 isolate h-(--student-page-header-height) border-b bg-background shadow-sm">
@@ -457,7 +520,7 @@ export default function StudentApp(): React.JSX.Element {
 						</h1>
 					</div>
 					<div className="flex min-w-0 items-center gap-2 text-sm">
-						<span className="max-w-28 truncate font-medium sm:max-w-64">
+						<span className="hidden max-w-64 truncate font-medium sm:inline">
 							{student.name}
 						</span>
 						<Badge className="shrink-0" variant="secondary">
@@ -472,17 +535,45 @@ export default function StudentApp(): React.JSX.Element {
 				className="relative z-0 mx-auto flex max-w-7xl flex-col gap-4 p-4 sm:p-6"
 			>
 				{error !== null ? <ErrorAlert message={error} /> : null}
+				{!selectionStatus.enabled ? (
+					<Alert variant="warning">
+						<Clock3Icon aria-hidden="true" />
+						<AlertTitle>
+							{selectionHasNotStarted
+								? "CCA selection has not started"
+								: "CCA selection is closed"}
+						</AlertTitle>
+						<AlertDescription>
+							{hasScheduledOpening
+								? `Selection for G${student.grade} opens ${selectionOpensAt}.`
+								: selectionHasNotStarted
+									? `Selection for G${student.grade} has not started yet.`
+									: `Selection for G${student.grade} is currently closed.`}
+						</AlertDescription>
+					</Alert>
+				) : selectionStatus.schedule_opened &&
+				  selectionClosesAt !== null ? (
+					<Alert>
+						<CheckCircle2Icon aria-hidden="true" />
+						<AlertTitle>CCA selection is open</AlertTitle>
+						<AlertDescription>
+							Make your choices before {selectionClosesAt}. You
+							have used {selectionStatus.normal_selection_count}{" "}
+							of {selectionStatus.max_own_choices} own selections.
+						</AlertDescription>
+					</Alert>
+				) : null}
 				<Tabs defaultValue="catalog">
 					<TabsList
 						variant="line"
 						activateOnFocus
 						aria-label="Student sections"
 					>
-						<TabsTrigger value="catalog">
+						<TabsTrigger value="catalog" className="min-h-11">
 							<LayoutGridIcon data-icon="inline-start" />
 							Catalogue
 						</TabsTrigger>
-						<TabsTrigger value="review">
+						<TabsTrigger value="review" className="min-h-11">
 							<BookOpenCheckIcon data-icon="inline-start" />
 							My selections
 						</TabsTrigger>
@@ -548,145 +639,283 @@ export default function StudentApp(): React.JSX.Element {
 							</ToggleGroup>
 						</div>
 
-						{layout === "timetable" ? null : (
-							<Card size="sm" className="overflow-hidden">
-								<CardHeader className="sr-only">
-									<CardTitle>Catalogue filters</CardTitle>
-								</CardHeader>
-								<CardContent>
-									<FieldGroup className="flex w-full flex-col items-start gap-4 lg:flex-row lg:flex-wrap lg:items-end">
-										<Field className="min-w-0 lg:w-auto">
-											<FieldLabel id="schedule-filter-label">
-												Schedule
-											</FieldLabel>
-											<Tabs
-												value={dayFilter}
-												onValueChange={(value) =>
-													setDayFilter(
-														value as CCADayFilter,
-													)
-												}
-												className="w-full min-w-0 gap-0 lg:w-auto"
-											>
-												<div className="no-scrollbar overflow-x-auto overflow-y-hidden">
-													<TabsList
-														activateOnFocus
-														aria-labelledby="schedule-filter-label"
-														className="h-10 min-w-max"
-													>
-														{CCA_DAY_FILTERS.map(
-															(dayValue) => (
-																<TabsTrigger
-																	key={
-																		dayValue
-																	}
-																	value={
-																		dayValue
-																	}
-																	aria-label={
-																		dayValue ===
-																		"all"
-																			? "All days"
-																			: dayValue
-																	}
-																	className="min-w-20 px-3"
-																>
-																	{dayValue ===
+						<Card size="sm" className="overflow-hidden">
+							<CardHeader className="sr-only">
+								<CardTitle>Catalogue filters</CardTitle>
+							</CardHeader>
+							<CardContent>
+								<FieldGroup className="flex w-full flex-col items-start gap-4 md:flex-row md:flex-wrap md:items-end">
+									<Field className="min-w-0 md:w-auto">
+										<FieldLabel id="schedule-filter-label">
+											Schedule
+										</FieldLabel>
+										<Tabs
+											value={dayFilter}
+											onValueChange={(value) =>
+												setDayFilter(
+													value as CCADayFilter,
+												)
+											}
+											className="w-full min-w-0 gap-0 md:w-auto"
+										>
+											<div className="overflow-x-auto overflow-y-hidden pb-1 md:no-scrollbar md:pb-0">
+												<TabsList
+													activateOnFocus
+													aria-labelledby="schedule-filter-label"
+													className="h-auto min-w-max"
+												>
+													{CCA_DAY_FILTERS.map(
+														(dayValue) => (
+															<TabsTrigger
+																key={dayValue}
+																value={dayValue}
+																aria-label={
+																	dayValue ===
 																	"all"
 																		? "All days"
-																		: dayValue}
-																</TabsTrigger>
-															),
-														)}
-													</TabsList>
-												</div>
+																		: dayValue
+																}
+																className="min-h-11 min-w-20 px-3"
+															>
+																{dayValue ===
+																"all"
+																	? "All days"
+																	: dayValue}
+															</TabsTrigger>
+														),
+													)}
+												</TabsList>
+											</div>
 
-												{CCA_DAY_FILTERS.map(
-													(dayValue) => (
-														<TabsContent
-															key={dayValue}
-															value={dayValue}
-															className="sr-only"
-														>
-															{dayValue === "all"
-																? "All days"
-																: dayValue}
-														</TabsContent>
-													),
-												)}
-											</Tabs>
-										</Field>
-										<Field className="lg:w-56">
-											<FieldLabel htmlFor="category-filter">
-												CCA category
-											</FieldLabel>
-											<Select
-												items={categoryItems}
-												value={categoryFilter}
-												onValueChange={(value) =>
-													setCategoryFilter(
-														value ?? "all",
-													)
-												}
-											>
-												<SelectTrigger
-													id="category-filter"
-													className="h-10 w-full"
+											{CCA_DAY_FILTERS.map((dayValue) => (
+												<TabsContent
+													key={dayValue}
+													value={dayValue}
+													className="sr-only"
 												>
-													<SelectValue />
-												</SelectTrigger>
-												<SelectContent
-													alignItemWithTrigger={false}
-												>
-													<SelectGroup>
-														{categoryItems.map(
-															(item) => (
-																<SelectItem
-																	key={
-																		item.value
-																	}
-																	value={
-																		item.value
-																	}
-																>
-																	{item.label}
-																</SelectItem>
-															),
-														)}
-													</SelectGroup>
-												</SelectContent>
-											</Select>
-										</Field>
-										<Field
-											orientation="horizontal"
-											className="min-h-10 w-auto"
+													{dayValue === "all"
+														? "All days"
+														: dayValue}
+												</TabsContent>
+											))}
+										</Tabs>
+									</Field>
+
+									<Field className="hidden md:flex md:w-56">
+										<FieldLabel htmlFor="category-filter">
+											CCA category
+										</FieldLabel>
+										<Select
+											items={categoryItems}
+											value={categoryFilter}
+											onValueChange={(value) =>
+												setCategoryFilter(
+													value ?? "all",
+												)
+											}
 										>
-											<FieldLabel
-												htmlFor="available-filter"
-												className="whitespace-nowrap"
+											<SelectTrigger
+												id="category-filter"
+												className="h-11 w-full"
 											>
-												Available only
-											</FieldLabel>
-											<Switch
-												id="available-filter"
-												checked={availableOnly}
-												onCheckedChange={
-													setAvailableOnly
-												}
-											/>
-										</Field>
-									</FieldGroup>
-								</CardContent>
-							</Card>
-						)}
+												<SelectValue />
+											</SelectTrigger>
+											<SelectContent
+												alignItemWithTrigger={false}
+											>
+												<SelectGroup>
+													{categoryItems.map(
+														(item) => (
+															<SelectItem
+																key={item.value}
+																value={
+																	item.value
+																}
+															>
+																{item.label}
+															</SelectItem>
+														),
+													)}
+												</SelectGroup>
+											</SelectContent>
+										</Select>
+									</Field>
 
-						{layout === "timetable" ? null : (
-							<ScheduleSlotTabs
-								day={dayFilter}
-								slot={slotFilter}
-								onSlotChange={setSlotFilter}
-							/>
-						)}
+									<Field
+										orientation="horizontal"
+										className="hidden min-h-11 w-auto md:flex"
+									>
+										<FieldLabel
+											htmlFor="available-filter"
+											className="whitespace-nowrap"
+										>
+											Available only
+										</FieldLabel>
+										<Switch
+											id="available-filter"
+											checked={availableOnly}
+											onCheckedChange={setAvailableOnly}
+										/>
+									</Field>
+
+									<div className="w-full md:hidden">
+										<Sheet>
+											<SheetTrigger
+												render={
+													<Button
+														variant="outline"
+														className="min-h-11 w-full justify-between"
+													/>
+												}
+											>
+												<span className="flex items-center gap-2">
+													<FilterIcon data-icon="inline-start" />
+													Filters
+												</span>
+												{secondaryFilterCount > 0 ? (
+													<Badge variant="secondary">
+														{secondaryFilterCount}
+													</Badge>
+												) : null}
+											</SheetTrigger>
+											<SheetContent side="bottom">
+												<SheetHeader>
+													<SheetTitle>
+														Catalogue filters
+													</SheetTitle>
+													<SheetDescription>
+														Narrow the catalogue by
+														category or
+														availability.
+													</SheetDescription>
+												</SheetHeader>
+												<FieldGroup className="px-4 pb-4">
+													<Field>
+														<FieldLabel htmlFor="category-filter-mobile">
+															CCA category
+														</FieldLabel>
+														<Select
+															items={
+																categoryItems
+															}
+															value={
+																categoryFilter
+															}
+															onValueChange={(
+																value,
+															) =>
+																setCategoryFilter(
+																	value ??
+																		"all",
+																)
+															}
+														>
+															<SelectTrigger
+																id="category-filter-mobile"
+																className="h-11 w-full"
+															>
+																<SelectValue />
+															</SelectTrigger>
+															<SelectContent
+																alignItemWithTrigger={
+																	false
+																}
+															>
+																<SelectGroup>
+																	{categoryItems.map(
+																		(
+																			item,
+																		) => (
+																			<SelectItem
+																				key={
+																					item.value
+																				}
+																				value={
+																					item.value
+																				}
+																			>
+																				{
+																					item.label
+																				}
+																			</SelectItem>
+																		),
+																	)}
+																</SelectGroup>
+															</SelectContent>
+														</Select>
+													</Field>
+													<Field orientation="horizontal">
+														<FieldLabel htmlFor="available-filter-mobile">
+															Available only
+														</FieldLabel>
+														<Switch
+															id="available-filter-mobile"
+															checked={
+																availableOnly
+															}
+															onCheckedChange={
+																setAvailableOnly
+															}
+														/>
+													</Field>
+												</FieldGroup>
+												<SheetFooter>
+													<Button
+														variant="outline"
+														disabled={
+															secondaryFilterCount ===
+															0
+														}
+														onClick={() => {
+															setCategoryFilter(
+																"all",
+															)
+															setAvailableOnly(
+																false,
+															)
+														}}
+													>
+														<RotateCcwIcon data-icon="inline-start" />
+														Reset
+													</Button>
+													<SheetClose
+														render={<Button />}
+													>
+														Done
+													</SheetClose>
+												</SheetFooter>
+											</SheetContent>
+										</Sheet>
+									</div>
+								</FieldGroup>
+							</CardContent>
+						</Card>
+
+						<ScheduleSlotTabs
+							day={dayFilter}
+							slot={slotFilter}
+							onSlotChange={setSlotFilter}
+						/>
+
+						<div className="flex flex-wrap items-center justify-between gap-3">
+							<p
+								className="text-sm text-muted-foreground"
+								aria-live="polite"
+							>
+								{activeCourses.length} matching CCA
+								{activeCourses.length === 1 ? "" : "s"} ·{" "}
+								{selectableCourseCount} selectable
+							</p>
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={!filtersActive}
+								onClick={clearCatalogueFilters}
+							>
+								<RotateCcwIcon data-icon="inline-start" />
+								Reset filters
+							</Button>
+						</div>
 
 						{layout === "timetable" ? (
 							<CourseTimetable
@@ -694,17 +923,7 @@ export default function StudentApp(): React.JSX.Element {
 								selectedCourses={selectedCourses}
 								busyCourseID={busyCourseID}
 								onToggle={handleCourseToggle}
-								dayFilter={dayFilter}
-								onDayFilterChange={setDayFilter}
-								slotFilter={slotFilter}
-								onSlotFilterChange={setSlotFilter}
-								categoryItems={categoryItems}
-								categoryFilter={categoryFilter}
-								onCategoryFilterChange={setCategoryFilter}
-								availableOnly={timetableAvailableOnly}
-								onAvailableOnlyChange={
-									setTimetableAvailableOnly
-								}
+								onResetFilters={clearCatalogueFilters}
 							/>
 						) : visibleCourses.length === 0 ? (
 							<Empty>
@@ -717,6 +936,15 @@ export default function StudentApp(): React.JSX.Element {
 										Try another search or filter.
 									</EmptyDescription>
 								</EmptyHeader>
+								<EmptyContent>
+									<Button
+										variant="outline"
+										onClick={clearCatalogueFilters}
+									>
+										<RotateCcwIcon data-icon="inline-start" />
+										Reset filters
+									</Button>
+								</EmptyContent>
 							</Empty>
 						) : layout === "cards" ? (
 							<CourseCardGrid
@@ -737,6 +965,28 @@ export default function StudentApp(): React.JSX.Element {
 						value="review"
 						className="grid gap-5 pt-5 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]"
 					>
+						<Alert className="lg:col-span-2">
+							{requirementsMet ? (
+								<CheckCircle2Icon aria-hidden="true" />
+							) : (
+								<BookOpenCheckIcon aria-hidden="true" />
+							)}
+							<AlertTitle>
+								{data.requirements.length === 0
+									? "Your selections are saved"
+									: requirementsMet
+										? "All requirements met"
+										: `${requirementsRemaining} more qualifying selection${requirementsRemaining === 1 ? "" : "s"} needed`}
+							</AlertTitle>
+							<AlertDescription>
+								{selectedCourses.length} CCA
+								{selectedCourses.length === 1 ? "" : "s"}{" "}
+								selected.
+								{selectionStatus.enabled
+									? " You can still make changes."
+									: " Changes are unavailable while selection is closed."}
+							</AlertDescription>
+						</Alert>
 						<Card>
 							<CardHeader>
 								<CardTitle>Your selected CCAs</CardTitle>
@@ -783,21 +1033,39 @@ export default function StudentApp(): React.JSX.Element {
 														}
 													/>
 												</div>
-												<Button
-													variant="ghost"
-													size="icon"
-													className="size-11"
-													disabled={
-														!course.removable ||
-														busyCourseID !== null
-													}
-													onClick={() =>
-														setRemoveCourse(course)
-													}
-													aria-label={`Remove ${course.name}`}
-												>
-													<Trash2Icon />
-												</Button>
+												{course.removable ? (
+													<Button
+														variant="ghost"
+														size="icon"
+														className="size-11"
+														disabled={
+															busyCourseID !==
+															null
+														}
+														onClick={() =>
+															setRemoveCourse(
+																course,
+															)
+														}
+														aria-label={`Remove ${course.name}`}
+													>
+														<Trash2Icon />
+													</Button>
+												) : (
+													<div className="flex shrink-0 flex-col items-end gap-1">
+														<Badge variant="secondary">
+															<LockKeyholeIcon data-icon="inline-start" />
+															Locked
+														</Badge>
+														{course.selection_type ===
+														"force" ? (
+															<span className="max-w-48 text-right text-xs text-muted-foreground">
+																Required by your
+																school
+															</span>
+														) : null}
+													</div>
+												)}
 											</div>
 										</div>
 									))
@@ -809,36 +1077,35 @@ export default function StudentApp(): React.JSX.Element {
 							<CardHeader>
 								<CardTitle>Requirements</CardTitle>
 								<CardDescription>
-									Progress for {student.grade}.
+									Progress for Grade {student.grade}.
 								</CardDescription>
 							</CardHeader>
-							<CardContent className="flex flex-col gap-3">
+							<CardContent className="flex flex-col gap-5">
 								{data.requirements.length === 0 ? (
 									<p className="text-sm text-muted-foreground">
 										No requirements configured.
 									</p>
 								) : (
 									data.requirements.map((row) => (
-										<div
+										<Progress
 											key={row.id}
-											className="flex min-w-0 items-center justify-between gap-3"
+											value={Math.min(
+												row.current_count,
+												Math.max(row.min_count, 1),
+											)}
+											max={Math.max(row.min_count, 1)}
 										>
-											<span className="min-w-0 break-words">
+											<ProgressLabel className="min-w-0 flex-1 break-words">
 												{row.category_ids.join(" / ")}
-											</span>
-											<Badge
-												className="shrink-0 tabular-nums"
-												variant={
-													row.current_count >=
-													row.min_count
-														? "secondary"
-														: "outline"
-												}
+											</ProgressLabel>
+											<ProgressValue
+												aria-label={`${row.current_count} of ${row.min_count} selected`}
 											>
-												{row.current_count}/
-												{row.min_count}
-											</Badge>
-										</div>
+												{() =>
+													`${row.current_count} / ${row.min_count}`
+												}
+											</ProgressValue>
+										</Progress>
 									))
 								)}
 							</CardContent>

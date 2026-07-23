@@ -26,6 +26,22 @@ SELECT id, username
 FROM admins
 WHERE session_token = $1;
 
+---- Admin dashboard
+
+-- name: GetAdminDashboardCounts :one
+SELECT
+	(SELECT COUNT(*) FROM courses)::bigint AS course_count,
+	(
+		SELECT COUNT(*)
+		FROM courses course
+		WHERE NOT EXISTS (
+			SELECT 1
+			FROM course_periods assignment
+			WHERE assignment.course_id = course.id
+		)
+	)::bigint AS courses_without_timetable,
+	(SELECT COUNT(*) FROM students)::bigint AS student_count;
+
 ---- Categories
 
 -- name: GetCategories :many
@@ -476,6 +492,24 @@ JOIN students student
 	ON student.id = sqlc.arg(student_id)
 	AND student.grade = requirement.grade
 ORDER BY requirement.id;
+
+-- name: GetStudentSelectionStatus :one
+SELECT
+	grade.enabled,
+	grade.max_own_choices,
+	(
+		SELECT COUNT(*)::bigint
+		FROM choices student_choice
+		WHERE student_choice.student_id = student.id
+			AND student_choice.selection_type = 'normal'
+	) AS normal_selection_count,
+	schedule.opens_at,
+	schedule.closes_at,
+	COALESCE(schedule.opened, FALSE)::boolean AS schedule_opened
+FROM students student
+JOIN grades grade ON grade.grade = student.grade
+LEFT JOIN grade_selection_schedules schedule ON schedule.grade = grade.grade
+WHERE student.id = sqlc.arg(student_id);
 
 -- name: NewRequirementGroup :exec
 WITH new_group AS (

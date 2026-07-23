@@ -3,6 +3,7 @@ import {
 	BookOpenIcon,
 	FilterIcon,
 	MoreHorizontalIcon,
+	MoveHorizontalIcon,
 	PencilIcon,
 	PlusIcon,
 	SearchIcon,
@@ -28,6 +29,15 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+	Card,
+	CardAction,
+	CardContent,
+	CardDescription,
+	CardFooter,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
 	Combobox,
@@ -154,6 +164,7 @@ const PAGE_SIZE = 50
 const ASSIGNMENT_STUDENT_WINDOW_SIZE = 50
 const PARTICIPATION_MAIN_PANEL_ID = "participation-main"
 const PARTICIPATION_DETAILS_PANEL_ID = "participation-details"
+const PARTICIPATION_DETAILS_DIALOG_ID = "participation-details-dialog"
 const PARTICIPATION_LAYOUT_STORAGE_KEY = "cca-admin-participation-layout"
 const DEFAULT_PARTICIPATION_LAYOUT: Record<string, number> = {
 	[PARTICIPATION_MAIN_PANEL_ID]: 70,
@@ -604,7 +615,11 @@ function PaginationControls({
 
 	return (
 		<div className="flex items-center justify-between gap-3 py-4">
-			<p className="text-sm text-muted-foreground">
+			<p
+				className="text-sm text-muted-foreground"
+				aria-live="polite"
+				aria-atomic="true"
+			>
 				{start}–{end} of {total}
 			</p>
 			<Pagination className="mx-0 w-auto justify-end">
@@ -673,16 +688,6 @@ function EmptyTable({
 	)
 }
 
-function openRow(
-	event: React.KeyboardEvent<HTMLTableRowElement>,
-	open: () => void,
-): void {
-	if (event.key === "Enter" || event.key === " ") {
-		event.preventDefault()
-		open()
-	}
-}
-
 function StudentActions({
 	student,
 	onOpen,
@@ -701,6 +706,7 @@ function StudentActions({
 					<Button
 						variant="ghost"
 						size="icon-sm"
+						className="size-11 md:size-7"
 						aria-label={`Actions for ${student.name}`}
 						onClick={(event) => event.stopPropagation()}
 					/>
@@ -745,6 +751,7 @@ function CourseActions({
 					<Button
 						variant="ghost"
 						size="icon-sm"
+						className="size-11 md:size-7"
 						aria-label={`Participation actions for ${course.name}`}
 						onClick={(event) => event.stopPropagation()}
 					/>
@@ -769,6 +776,232 @@ function CourseActions({
 	)
 }
 
+function HorizontalScrollHint({ children }: { children: React.ReactNode }) {
+	return (
+		<p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+			<MoveHorizontalIcon className="size-3.5" aria-hidden="true" />
+			{children}
+		</p>
+	)
+}
+
+function MobileStudentCard({
+	student,
+	selections,
+	maxChoices,
+	status,
+	onOpen,
+	onEdit,
+	onAssign,
+}: {
+	student: Student
+	selections: readonly Selection[]
+	maxChoices: number
+	status: Exclude<CompletionStatus, "all">
+	onOpen: () => void
+	onEdit: () => void
+	onAssign: () => void
+}): React.JSX.Element {
+	return (
+		<Card size="sm" role="listitem">
+			<CardHeader>
+				<CardTitle>
+					<h2>{student.name}</h2>
+				</CardTitle>
+				<CardDescription>
+					<span className="font-mono">{student.id}</span> · G
+					{student.grade}
+				</CardDescription>
+				<CardAction>
+					<CompletionBadge status={status} />
+				</CardAction>
+			</CardHeader>
+			<CardContent>
+				<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3">
+					<dt className="text-muted-foreground">Progress</dt>
+					<dd className="justify-self-end font-medium tabular-nums">
+						{selections.length}/{maxChoices}
+					</dd>
+					<dt className="text-muted-foreground">Selected slots</dt>
+					<dd className="min-w-0 justify-self-end">
+						{selections.length === 0 ? (
+							<span className="text-muted-foreground">None</span>
+						) : (
+							<PeriodBadges
+								periodIDs={selections.map(
+									(selection) => selection.period_id,
+								)}
+							/>
+						)}
+					</dd>
+				</dl>
+			</CardContent>
+			<CardFooter className="justify-between gap-2">
+				<Button
+					variant="outline"
+					className="min-h-11 flex-1"
+					onClick={onOpen}
+					aria-label={`View participation for ${student.name}`}
+					aria-haspopup="dialog"
+					aria-controls={PARTICIPATION_DETAILS_DIALOG_ID}
+				>
+					<UserRoundIcon data-icon="inline-start" />
+					View details
+				</Button>
+				<StudentActions
+					student={student}
+					onOpen={onOpen}
+					onEdit={onEdit}
+					onAssign={onAssign}
+				/>
+			</CardFooter>
+		</Card>
+	)
+}
+
+function MobileCourseCard({
+	course,
+	participantCount,
+	onOpen,
+	onAssign,
+}: {
+	course: Course
+	participantCount: number
+	onOpen: () => void
+	onAssign: () => void
+}): React.JSX.Element {
+	const closed = course.max_students === 0
+	const full = !closed && course.current_students >= course.max_students
+
+	return (
+		<Card size="sm" role="listitem">
+			<CardHeader>
+				<CardTitle>
+					<h2>{course.name}</h2>
+				</CardTitle>
+				<CardDescription>
+					{course.id} · {course.category_id}
+				</CardDescription>
+				<CardAction>
+					<Badge
+						variant={closed || full ? "destructive" : "secondary"}
+					>
+						{closed ? "Closed" : full ? "Full" : "Open"}
+					</Badge>
+				</CardAction>
+			</CardHeader>
+			<CardContent>
+				<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3">
+					<dt className="text-muted-foreground">Schedule</dt>
+					<dd className="min-w-0 justify-self-end">
+						<PeriodBadges periodIDs={course.period_ids} />
+					</dd>
+					<dt className="text-muted-foreground">Capacity</dt>
+					<dd className="justify-self-end font-medium tabular-nums">
+						{course.current_students}/{course.max_students}
+					</dd>
+					<dt className="text-muted-foreground">Assignments</dt>
+					<dd className="justify-self-end font-medium tabular-nums">
+						{participantCount}
+					</dd>
+				</dl>
+			</CardContent>
+			<CardFooter className="justify-between gap-2">
+				<Button
+					variant="outline"
+					className="min-h-11 flex-1"
+					onClick={onOpen}
+					aria-label={`View roster for ${course.name}`}
+					aria-haspopup="dialog"
+					aria-controls={PARTICIPATION_DETAILS_DIALOG_ID}
+				>
+					<BookOpenIcon data-icon="inline-start" />
+					View roster
+				</Button>
+				<CourseActions
+					course={course}
+					onOpen={onOpen}
+					onAssign={onAssign}
+				/>
+			</CardFooter>
+		</Card>
+	)
+}
+
+function MobileAssignmentCard({
+	selection,
+	checked,
+	onCheckedChange,
+	onOpen,
+	onUpdateType,
+	onDelete,
+}: {
+	selection: Selection
+	checked: boolean
+	onCheckedChange: (checked: boolean) => void
+	onOpen: () => void
+	onUpdateType: (selection: Selection, type: SelectionType) => Promise<void>
+	onDelete: (selection: Selection) => Promise<void>
+}): React.JSX.Element {
+	const studentName = selection.student_name ?? selection.student_id
+	const courseName = selection.course_name ?? selection.course_id
+
+	return (
+		<Card size="sm" role="listitem">
+			<CardHeader>
+				<CardTitle>
+					<h2>{studentName}</h2>
+				</CardTitle>
+				<CardDescription>
+					G{selection.student_grade} · {selection.student_id}
+				</CardDescription>
+				<CardAction className="flex size-11 items-center justify-center">
+					<Checkbox
+						aria-label={`Select ${studentName} in ${courseName}`}
+						checked={checked}
+						onCheckedChange={onCheckedChange}
+					/>
+				</CardAction>
+			</CardHeader>
+			<CardContent>
+				<dl className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-4 gap-y-3">
+					<dt className="text-muted-foreground">Course</dt>
+					<dd className="min-w-0 justify-self-end text-right font-medium">
+						{courseName}
+					</dd>
+					<dt className="text-muted-foreground">Schedule</dt>
+					<dd className="justify-self-end">
+						<PeriodBadges periodIDs={[selection.period_id]} />
+					</dd>
+					<dt className="text-muted-foreground">Type</dt>
+					<dd className="justify-self-end">
+						<SelectionTypeBadge type={selection.selection_type} />
+					</dd>
+				</dl>
+			</CardContent>
+			<CardFooter className="justify-between gap-2">
+				<Button
+					variant="outline"
+					className="min-h-11 flex-1"
+					onClick={onOpen}
+					disabled={selection.student_id === undefined}
+					aria-label={`View participation for ${studentName}`}
+					aria-haspopup="dialog"
+					aria-controls={PARTICIPATION_DETAILS_DIALOG_ID}
+				>
+					<UserRoundIcon data-icon="inline-start" />
+					View student
+				</Button>
+				<SelectionActions
+					selection={selection}
+					onUpdateType={onUpdateType}
+					onDelete={onDelete}
+				/>
+			</CardFooter>
+		</Card>
+	)
+}
+
 function StudentTimetable({
 	selections,
 }: {
@@ -778,41 +1011,49 @@ function StudentTimetable({
 		selections.map((selection) => [selection.period_id, selection]),
 	)
 	return (
-		<Table containerLabel="Student CCA timetable" className="table-fixed">
-			<TableCaption className="sr-only">
-				Student selections arranged by weekday and CCA slot.
-			</TableCaption>
-			<TableHeader>
-				<TableRow>
-					<TableHead className="w-16">Slot</TableHead>
-					{CCA_DAYS.map((day) => (
-						<TableHead key={day}>{day.slice(0, 3)}</TableHead>
-					))}
-				</TableRow>
-			</TableHeader>
-			<TableBody>
-				{CCA_SLOTS_PER_DAY.map((slot) => (
-					<TableRow key={slot}>
-						<TableHead scope="row">CCA {slot}</TableHead>
-						{CCA_DAYS.map((day) => {
-							const selection = byPeriod.get(
-								ccaTimeSlotID(day, slot),
-							)
-							return (
-								<TableCell
-									key={day}
-									className="whitespace-normal"
-								>
-									{selection?.course_name ??
-										selection?.course_id ??
-										"—"}
-								</TableCell>
-							)
-						})}
+		<div className="flex flex-col gap-2">
+			<HorizontalScrollHint>
+				Scroll horizontally to view every day.
+			</HorizontalScrollHint>
+			<Table
+				containerLabel="Student CCA timetable"
+				className="min-w-[32rem] table-fixed"
+			>
+				<TableCaption className="sr-only">
+					Student assignments arranged by weekday and CCA slot.
+				</TableCaption>
+				<TableHeader>
+					<TableRow>
+						<TableHead className="w-16">Slot</TableHead>
+						{CCA_DAYS.map((day) => (
+							<TableHead key={day}>{day.slice(0, 3)}</TableHead>
+						))}
 					</TableRow>
-				))}
-			</TableBody>
-		</Table>
+				</TableHeader>
+				<TableBody>
+					{CCA_SLOTS_PER_DAY.map((slot) => (
+						<TableRow key={slot}>
+							<TableHead scope="row">CCA {slot}</TableHead>
+							{CCA_DAYS.map((day) => {
+								const selection = byPeriod.get(
+									ccaTimeSlotID(day, slot),
+								)
+								return (
+									<TableCell
+										key={day}
+										className="whitespace-normal"
+									>
+										{selection?.course_name ??
+											selection?.course_id ??
+											"—"}
+									</TableCell>
+								)
+							})}
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
+		</div>
 	)
 }
 
@@ -873,6 +1114,7 @@ function ParticipationDetailBody({
 				</section>
 				<Separator />
 				<SelectionList
+					context="student"
 					selections={selections}
 					onUpdateType={onUpdateType}
 					onDelete={onDeleteSelection}
@@ -889,6 +1131,7 @@ function ParticipationDetailBody({
 			</section>
 			<Separator />
 			<SelectionList
+				context="course"
 				title="Roster"
 				selections={selections}
 				onUpdateType={onUpdateType}
@@ -931,8 +1174,7 @@ function ParticipationDetailPanel({
 							</EmptyMedia>
 							<EmptyTitle>Nothing selected</EmptyTitle>
 							<EmptyDescription>
-								Choose a row from the table to show its details
-								here.
+								Choose a student or course to show details here.
 							</EmptyDescription>
 						</EmptyHeader>
 					</Empty>
@@ -1025,7 +1267,10 @@ function ParticipationSheet({
 
 	return (
 		<Sheet open={open} onOpenChange={onOpenChange}>
-			<SheetContent className="w-full sm:max-w-2xl">
+			<SheetContent
+				id={PARTICIPATION_DETAILS_DIALOG_ID}
+				className="data-[side=right]:w-full data-[side=right]:max-w-none data-[side=right]:sm:max-w-2xl"
+			>
 				{student !== undefined ? (
 					<>
 						<SheetHeader>
@@ -1046,15 +1291,19 @@ function ParticipationSheet({
 								/>
 							</div>
 						</ScrollArea>
-						<SheetFooter className="flex-row justify-end border-t">
+						<SheetFooter className="grid grid-cols-2 border-t sm:flex sm:flex-row sm:justify-end">
 							<Button
 								variant="outline"
+								className="min-h-11"
 								onClick={() => onEditStudent(student)}
 							>
 								<PencilIcon data-icon="inline-start" />
 								Edit profile
 							</Button>
-							<Button onClick={() => onAssignStudent(student.id)}>
+							<Button
+								className="min-h-11"
+								onClick={() => onAssignStudent(student.id)}
+							>
 								<PlusIcon data-icon="inline-start" />
 								Assign course
 							</Button>
@@ -1081,8 +1330,11 @@ function ParticipationSheet({
 								/>
 							</div>
 						</ScrollArea>
-						<SheetFooter className="flex-row justify-end border-t">
-							<Button onClick={() => onAssignCourse(course.id)}>
+						<SheetFooter className="border-t sm:flex-row sm:justify-end">
+							<Button
+								className="min-h-11 w-full sm:w-auto"
+								onClick={() => onAssignCourse(course.id)}
+							>
 								<PlusIcon data-icon="inline-start" />
 								Assign students
 							</Button>
@@ -1105,13 +1357,18 @@ function SelectionList({
 	selections,
 	onUpdateType,
 	onDelete,
-	title = "Selections",
+	context,
+	title = "Assignments",
 }: {
 	selections: readonly Selection[]
 	onUpdateType: (selection: Selection, type: SelectionType) => Promise<void>
 	onDelete: (selection: Selection) => Promise<void>
+	context: "student" | "course"
 	title?: string
 }): React.JSX.Element {
+	const showStudent = context !== "student"
+	const showCourse = context !== "course"
+
 	return (
 		<section className="flex flex-col gap-3">
 			<div className="flex items-center justify-between gap-3">
@@ -1120,56 +1377,72 @@ function SelectionList({
 			</div>
 			{selections.length === 0 ? (
 				<EmptyTable
-					title="No selections"
-					description="Use Assign to add a course selection."
+					title="No assignments"
+					description="Use Assign to add a course assignment."
 				/>
 			) : (
-				<Table containerLabel={`${title} table`}>
-					<TableHeader>
-						<TableRow>
-							<TableHead>Student</TableHead>
-							<TableHead>Course</TableHead>
-							<TableHead>Schedule</TableHead>
-							<TableHead>Type</TableHead>
-							<TableHead>
-								<span className="sr-only">Actions</span>
-							</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{selections.map((selection) => (
-							<TableRow
-								key={`${selection.student_id}-${selection.course_id}`}
-							>
-								<TableCell>
-									{selection.student_name ??
-										selection.student_id}
-								</TableCell>
-								<TableCell>
-									{selection.course_name ??
-										selection.course_id}
-								</TableCell>
-								<TableCell>
-									<PeriodBadges
-										periodIDs={[selection.period_id]}
-									/>
-								</TableCell>
-								<TableCell>
-									<SelectionTypeBadge
-										type={selection.selection_type}
-									/>
-								</TableCell>
-								<TableCell>
-									<SelectionActions
-										selection={selection}
-										onUpdateType={onUpdateType}
-										onDelete={onDelete}
-									/>
-								</TableCell>
+				<div className="flex flex-col gap-2">
+					<HorizontalScrollHint>
+						Scroll horizontally for assignment details.
+					</HorizontalScrollHint>
+					<Table
+						containerLabel={`${title} table`}
+						className="min-w-[28rem]"
+					>
+						<TableHeader>
+							<TableRow>
+								{showStudent ? (
+									<TableHead>Student</TableHead>
+								) : null}
+								{showCourse ? (
+									<TableHead>Course</TableHead>
+								) : null}
+								<TableHead>Schedule</TableHead>
+								<TableHead>Type</TableHead>
+								<TableHead>
+									<span className="sr-only">Actions</span>
+								</TableHead>
 							</TableRow>
-						))}
-					</TableBody>
-				</Table>
+						</TableHeader>
+						<TableBody>
+							{selections.map((selection) => (
+								<TableRow
+									key={`${selection.student_id}-${selection.course_id}`}
+								>
+									{showStudent ? (
+										<TableCell>
+											{selection.student_name ??
+												selection.student_id}
+										</TableCell>
+									) : null}
+									{showCourse ? (
+										<TableCell>
+											{selection.course_name ??
+												selection.course_id}
+										</TableCell>
+									) : null}
+									<TableCell>
+										<PeriodBadges
+											periodIDs={[selection.period_id]}
+										/>
+									</TableCell>
+									<TableCell>
+										<SelectionTypeBadge
+											type={selection.selection_type}
+										/>
+									</TableCell>
+									<TableCell>
+										<SelectionActions
+											selection={selection}
+											onUpdateType={onUpdateType}
+											onDelete={onDelete}
+										/>
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				</div>
 			)}
 		</section>
 	)
@@ -1191,7 +1464,8 @@ function SelectionActions({
 					<Button
 						variant="ghost"
 						size="icon-sm"
-						aria-label={`Actions for ${selection.course_name ?? selection.course_id}`}
+						className="size-11 md:size-7"
+						aria-label={`Assignment actions for ${selection.course_name ?? selection.course_id}`}
 						onClick={(event) => event.stopPropagation()}
 					/>
 				}
@@ -1940,7 +2214,7 @@ export function ParticipationPage({
 				{ method: "DELETE" },
 			)
 			await refresh()
-			toast.success("Selection removed.")
+			toast.success("Assignment removed.")
 		} catch (caught) {
 			toast.error(
 				caught instanceof Error
@@ -2041,6 +2315,22 @@ export function ParticipationPage({
 		currentAssignmentKeys.length > 0 &&
 		currentAssignmentKeys.every((key) => selectedAssignments.includes(key))
 
+	function selectCurrentAssignments(checked: boolean): void {
+		setSelectedAssignments((current) =>
+			checked
+				? [...new Set([...current, ...currentAssignmentKeys])]
+				: current.filter((key) => !currentAssignmentKeys.includes(key)),
+		)
+	}
+
+	function selectAssignment(key: string, checked: boolean): void {
+		setSelectedAssignments((current) =>
+			checked
+				? [...current, key]
+				: current.filter((item) => item !== key),
+		)
+	}
+
 	const mainContent = (
 		<div className="min-w-0">
 			<div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -2096,112 +2386,161 @@ export function ParticipationPage({
 							description="Change the search or filters."
 						/>
 					) : (
-						<Table containerLabel="Student participation table">
-							<TableCaption className="sr-only">
-								Students matching the participation filters.
-							</TableCaption>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Student</TableHead>
-									<TableHead>Grade</TableHead>
-									<TableHead>Progress</TableHead>
-									<TableHead>Selected slots</TableHead>
-									<TableHead>Status</TableHead>
-									<TableHead className="text-right">
-										Actions
-									</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
+						<>
+							<div
+								className="flex flex-col gap-3 md:hidden"
+								role="list"
+							>
 								{currentStudents.map((row) => {
 									const grade = data.grades.find(
 										(item) =>
 											item.grade === row.student.grade,
 									)
+									const open = () =>
+										setDetail({
+											kind: "student",
+											id: row.student.id,
+										})
 									return (
-										<TableRow
+										<MobileStudentCard
 											key={row.student.id}
-											data-state={
+											student={row.student}
+											selections={row.selections}
+											maxChoices={
+												grade?.max_own_choices ?? 0
+											}
+											status={row.status}
+											onOpen={open}
+											onEdit={() =>
+												editStudent(row.student)
+											}
+											onAssign={() =>
+												openAssignment(row.student.id)
+											}
+										/>
+									)
+								})}
+							</div>
+							<div className="hidden md:block">
+								<Table containerLabel="Student participation table">
+									<TableCaption className="sr-only">
+										Students matching the participation
+										filters.
+									</TableCaption>
+									<TableHeader>
+										<TableRow>
+											<TableHead>Student</TableHead>
+											<TableHead>Grade</TableHead>
+											<TableHead>Progress</TableHead>
+											<TableHead>
+												Selected slots
+											</TableHead>
+											<TableHead>Status</TableHead>
+											<TableHead className="text-right">
+												Actions
+											</TableHead>
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{currentStudents.map((row) => {
+											const grade = data.grades.find(
+												(item) =>
+													item.grade ===
+													row.student.grade,
+											)
+											const selected =
 												detail?.kind === "student" &&
 												detail.id === row.student.id
-													? "selected"
-													: undefined
-											}
-											tabIndex={0}
-											onClick={() =>
+											const open = () =>
 												setDetail({
 													kind: "student",
 													id: row.student.id,
 												})
-											}
-											onKeyDown={(event) =>
-												openRow(event, () =>
-													setDetail({
-														kind: "student",
-														id: row.student.id,
-													}),
-												)
-											}
-										>
-											<TableCell>
-												<p className="font-medium">
-													{row.student.name}
-												</p>
-												<p className="font-mono text-xs text-muted-foreground">
-													{row.student.id}
-												</p>
-											</TableCell>
-											<TableCell>
-												<Badge variant="outline">
-													G{row.student.grade}
-												</Badge>
-											</TableCell>
-											<TableCell>
-												{row.selections.length}/
-												{grade?.max_own_choices ?? 0}
-											</TableCell>
-											<TableCell className="whitespace-normal">
-												<PeriodBadges
-													periodIDs={row.selections.map(
-														(selection) =>
-															selection.period_id,
-													)}
-												/>
-											</TableCell>
-											<TableCell>
-												<CompletionBadge
-													status={row.status}
-												/>
-											</TableCell>
-											<TableCell>
-												<div className="flex justify-end">
-													<StudentActions
-														student={row.student}
-														onOpen={() =>
-															setDetail({
-																kind: "student",
-																id: row.student
-																	.id,
-															})
-														}
-														onEdit={() =>
-															editStudent(
-																row.student,
-															)
-														}
-														onAssign={() =>
-															openAssignment(
-																row.student.id,
-															)
-														}
-													/>
-												</div>
-											</TableCell>
-										</TableRow>
-									)
-								})}
-							</TableBody>
-						</Table>
+											return (
+												<TableRow
+													key={row.student.id}
+													className="cursor-pointer"
+													onClick={open}
+													data-state={
+														selected
+															? "selected"
+															: undefined
+													}
+												>
+													<TableCell>
+														<Button
+															variant="link"
+															className="h-auto justify-start p-0 text-left whitespace-normal"
+															onClick={open}
+															aria-label={`View participation for ${row.student.name}`}
+															aria-controls="participation-details"
+															aria-expanded={
+																selected
+															}
+															aria-haspopup={
+																isWideDetailLayout
+																	? undefined
+																	: "dialog"
+															}
+														>
+															{row.student.name}
+														</Button>
+														<p className="font-mono text-xs text-muted-foreground">
+															{row.student.id}
+														</p>
+													</TableCell>
+													<TableCell>
+														<Badge variant="outline">
+															G{row.student.grade}
+														</Badge>
+													</TableCell>
+													<TableCell>
+														{row.selections.length}/
+														{grade?.max_own_choices ??
+															0}
+													</TableCell>
+													<TableCell className="whitespace-normal">
+														<PeriodBadges
+															periodIDs={row.selections.map(
+																(selection) =>
+																	selection.period_id,
+															)}
+														/>
+													</TableCell>
+													<TableCell>
+														<CompletionBadge
+															status={row.status}
+														/>
+													</TableCell>
+													<TableCell>
+														<div className="flex justify-end">
+															<StudentActions
+																student={
+																	row.student
+																}
+																onOpen={open}
+																onEdit={() =>
+																	editStudent(
+																		row.student,
+																	)
+																}
+																onAssign={() =>
+																	openAssignment(
+																		row
+																			.student
+																			.id,
+																	)
+																}
+															/>
+														</div>
+													</TableCell>
+												</TableRow>
+											)
+										})}
+									</TableBody>
+								</Table>
+							</div>
+						</>
 					)}
 					<PaginationControls
 						page={page}
@@ -2223,121 +2562,163 @@ export function ParticipationPage({
 							description="Change the search or filters."
 						/>
 					) : (
-						<Table containerLabel="Course participation table">
-							<TableCaption className="sr-only">
-								Courses matching the participation filters.
-							</TableCaption>
-							<TableHeader>
-								<TableRow>
-									<TableHead>Course</TableHead>
-									<TableHead>Schedule</TableHead>
-									<TableHead>Capacity</TableHead>
-									<TableHead>Participants</TableHead>
-									<TableHead>Availability</TableHead>
-									<TableHead className="text-right">
-										Actions
-									</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
+						<>
+							<div
+								className="flex flex-col gap-3 md:hidden"
+								role="list"
+							>
 								{currentCourses.map((course) => {
-									const closed = course.max_students === 0
-									const full =
-										!closed &&
-										course.current_students >=
-											course.max_students
+									const open = () =>
+										setDetail({
+											kind: "course",
+											id: course.id,
+										})
 									return (
-										<TableRow
+										<MobileCourseCard
 											key={course.id}
-											data-state={
+											course={course}
+											participantCount={
+												selectionsForCourse(
+													data.selections,
+													course.id,
+												).length
+											}
+											onOpen={open}
+											onAssign={() =>
+												openAssignment(
+													undefined,
+													course.id,
+												)
+											}
+										/>
+									)
+								})}
+							</div>
+							<div className="hidden md:block">
+								<Table containerLabel="Course participation table">
+									<TableCaption className="sr-only">
+										Courses matching the participation
+										filters.
+									</TableCaption>
+									<TableHeader>
+										<TableRow>
+											<TableHead>Course</TableHead>
+											<TableHead>Schedule</TableHead>
+											<TableHead>Capacity</TableHead>
+											<TableHead>Assignments</TableHead>
+											<TableHead>Availability</TableHead>
+											<TableHead className="text-right">
+												Actions
+											</TableHead>
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{currentCourses.map((course) => {
+											const closed =
+												course.max_students === 0
+											const full =
+												!closed &&
+												course.current_students >=
+													course.max_students
+											const selected =
 												detail?.kind === "course" &&
 												detail.id === course.id
-													? "selected"
-													: undefined
-											}
-											tabIndex={0}
-											onClick={() =>
+											const open = () =>
 												setDetail({
 													kind: "course",
 													id: course.id,
 												})
-											}
-											onKeyDown={(event) =>
-												openRow(event, () =>
-													setDetail({
-														kind: "course",
-														id: course.id,
-													}),
-												)
-											}
-										>
-											<TableCell>
-												<p className="font-medium">
-													{course.name}
-												</p>
-												<p className="text-xs text-muted-foreground">
-													{course.id} ·{" "}
-													{course.category_id}
-												</p>
-											</TableCell>
-											<TableCell className="whitespace-normal">
-												<PeriodBadges
-													periodIDs={
-														course.period_ids
-													}
-												/>
-											</TableCell>
-											<TableCell>
-												{course.current_students}/
-												{course.max_students}
-											</TableCell>
-											<TableCell>
-												{
-													selectionsForCourse(
-														data.selections,
-														course.id,
-													).length
-												}
-											</TableCell>
-											<TableCell>
-												<Badge
-													variant={
-														closed || full
-															? "destructive"
-															: "secondary"
+											return (
+												<TableRow
+													key={course.id}
+													className="cursor-pointer"
+													onClick={open}
+													data-state={
+														selected
+															? "selected"
+															: undefined
 													}
 												>
-													{closed
-														? "Closed"
-														: full
-															? "Full"
-															: "Open"}
-												</Badge>
-											</TableCell>
-											<TableCell>
-												<div className="flex justify-end">
-													<CourseActions
-														course={course}
-														onOpen={() =>
-															setDetail({
-																kind: "course",
-																id: course.id,
-															})
+													<TableCell>
+														<Button
+															variant="link"
+															className="h-auto justify-start p-0 text-left whitespace-normal"
+															onClick={open}
+															aria-label={`View roster for ${course.name}`}
+															aria-controls="participation-details"
+															aria-expanded={
+																selected
+															}
+															aria-haspopup={
+																isWideDetailLayout
+																	? undefined
+																	: "dialog"
+															}
+														>
+															{course.name}
+														</Button>
+														<p className="text-xs text-muted-foreground">
+															{course.id} ·{" "}
+															{course.category_id}
+														</p>
+													</TableCell>
+													<TableCell className="whitespace-normal">
+														<PeriodBadges
+															periodIDs={
+																course.period_ids
+															}
+														/>
+													</TableCell>
+													<TableCell>
+														{
+															course.current_students
 														}
-														onAssign={() =>
-															openAssignment(
-																undefined,
+														/{course.max_students}
+													</TableCell>
+													<TableCell>
+														{
+															selectionsForCourse(
+																data.selections,
 																course.id,
-															)
+															).length
 														}
-													/>
-												</div>
-											</TableCell>
-										</TableRow>
-									)
-								})}
-							</TableBody>
-						</Table>
+													</TableCell>
+													<TableCell>
+														<Badge
+															variant={
+																closed || full
+																	? "destructive"
+																	: "secondary"
+															}
+														>
+															{closed
+																? "Closed"
+																: full
+																	? "Full"
+																	: "Open"}
+														</Badge>
+													</TableCell>
+													<TableCell>
+														<div className="flex justify-end">
+															<CourseActions
+																course={course}
+																onOpen={open}
+																onAssign={() =>
+																	openAssignment(
+																		undefined,
+																		course.id,
+																	)
+																}
+															/>
+														</div>
+													</TableCell>
+												</TableRow>
+											)
+										})}
+									</TableBody>
+								</Table>
+							</div>
+						</>
 					)}
 					<PaginationControls
 						page={page}
@@ -2405,55 +2786,46 @@ export function ParticipationPage({
 							description="Change the search or filters."
 						/>
 					) : (
-						<Table containerLabel="All assignments table">
-							<TableCaption className="sr-only">
-								Assignments matching the participation filters.
-							</TableCaption>
-							<TableHeader>
-								<TableRow>
-									<TableHead>
-										<Checkbox
-											aria-label="Select all assignments on this page"
-											checked={
-												allCurrentAssignmentsSelected
-											}
-											onCheckedChange={(checked) =>
-												setSelectedAssignments(
-													(current) =>
-														checked
-															? [
-																	...new Set([
-																		...current,
-																		...currentAssignmentKeys,
-																	]),
-																]
-															: current.filter(
-																	(key) =>
-																		!currentAssignmentKeys.includes(
-																			key,
-																		),
-																),
-												)
-											}
-										/>
-									</TableHead>
-									<TableHead>Student</TableHead>
-									<TableHead>Course</TableHead>
-									<TableHead>Schedule</TableHead>
-									<TableHead>Type</TableHead>
-									<TableHead className="text-right">
-										Actions
-									</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
+						<>
+							<Field
+								orientation="horizontal"
+								className="min-h-11 md:hidden"
+							>
+								<Checkbox
+									id="select-mobile-assignments"
+									checked={allCurrentAssignmentsSelected}
+									onCheckedChange={selectCurrentAssignments}
+								/>
+								<FieldContent>
+									<FieldLabel htmlFor="select-mobile-assignments">
+										Select all on this page
+									</FieldLabel>
+									<FieldDescription>
+										{currentAssignments.length} assignment
+										{currentAssignments.length === 1
+											? ""
+											: "s"}{" "}
+										visible
+									</FieldDescription>
+								</FieldContent>
+							</Field>
+							<div
+								className="flex flex-col gap-3 md:hidden"
+								role="list"
+							>
 								{currentAssignments.map((selection) => {
 									const key = `${selection.student_id}-${selection.course_id}`
 									return (
-										<TableRow
+										<MobileAssignmentCard
 											key={key}
-											tabIndex={0}
-											onClick={() => {
+											selection={selection}
+											checked={selectedAssignments.includes(
+												key,
+											)}
+											onCheckedChange={(checked) =>
+												selectAssignment(key, checked)
+											}
+											onOpen={() => {
 												if (
 													selection.student_id !==
 													undefined
@@ -2464,110 +2836,174 @@ export function ParticipationPage({
 													})
 												}
 											}}
-											onKeyDown={(event) =>
-												openRow(event, () => {
-													if (
-														selection.student_id !==
-														undefined
-													) {
-														setDetail({
-															kind: "student",
-															id: selection.student_id,
-														})
-													}
-												})
-											}
-											data-state={
-												selectedAssignments.includes(
-													key,
-												) ||
-												(detail?.kind === "student" &&
-													detail.id ===
-														selection.student_id)
-													? "selected"
-													: undefined
-											}
-										>
-											<TableCell>
-												<Checkbox
-													aria-label={`Select ${selection.student_name ?? selection.student_id} in ${selection.course_name ?? selection.course_id}`}
-													checked={selectedAssignments.includes(
-														key,
-													)}
-													onClick={(event) =>
-														event.stopPropagation()
-													}
-													onCheckedChange={(
-														checked,
-													) =>
-														setSelectedAssignments(
-															(current) =>
-																checked
-																	? [
-																			...current,
-																			key,
-																		]
-																	: current.filter(
-																			(
-																				item,
-																			) =>
-																				item !==
-																				key,
-																		),
-														)
-													}
-												/>
-											</TableCell>
-											<TableCell>
-												<p className="font-medium">
-													{selection.student_name ??
-														selection.student_id}
-												</p>
-												<p className="text-xs text-muted-foreground">
-													G{selection.student_grade}
-												</p>
-											</TableCell>
-											<TableCell>
-												<p className="font-medium">
-													{selection.course_name ??
-														selection.course_id}
-												</p>
-												<p className="text-xs text-muted-foreground">
-													{selection.course_id}
-												</p>
-											</TableCell>
-											<TableCell>
-												<PeriodBadges
-													periodIDs={[
-														selection.period_id,
-													]}
-												/>
-											</TableCell>
-											<TableCell>
-												<SelectionTypeBadge
-													type={
-														selection.selection_type
-													}
-												/>
-											</TableCell>
-											<TableCell>
-												<div className="flex justify-end">
-													<SelectionActions
-														selection={selection}
-														onUpdateType={
-															updateSelectionType
-														}
-														onDelete={
-															deleteSelection
-														}
-													/>
-												</div>
-											</TableCell>
-										</TableRow>
+											onUpdateType={updateSelectionType}
+											onDelete={deleteSelection}
+										/>
 									)
 								})}
-							</TableBody>
-						</Table>
+							</div>
+							<div className="hidden md:block">
+								<Table containerLabel="All assignments table">
+									<TableCaption className="sr-only">
+										Assignments matching the participation
+										filters.
+									</TableCaption>
+									<TableHeader>
+										<TableRow>
+											<TableHead>
+												<Checkbox
+													aria-label="Select all assignments on this page"
+													checked={
+														allCurrentAssignmentsSelected
+													}
+													onCheckedChange={
+														selectCurrentAssignments
+													}
+												/>
+											</TableHead>
+											<TableHead>Student</TableHead>
+											<TableHead>Course</TableHead>
+											<TableHead>Schedule</TableHead>
+											<TableHead>Type</TableHead>
+											<TableHead className="text-right">
+												Actions
+											</TableHead>
+										</TableRow>
+									</TableHeader>
+									<TableBody>
+										{currentAssignments.map((selection) => {
+											const key = `${selection.student_id}-${selection.course_id}`
+											const open = () => {
+												if (
+													selection.student_id !==
+													undefined
+												) {
+													setDetail({
+														kind: "student",
+														id: selection.student_id,
+													})
+												}
+											}
+											return (
+												<TableRow
+													key={key}
+													className={cn(
+														selection.student_id !==
+															undefined &&
+															"cursor-pointer",
+													)}
+													onClick={open}
+													data-state={
+														selectedAssignments.includes(
+															key,
+														) ||
+														(detail?.kind ===
+															"student" &&
+															detail.id ===
+																selection.student_id)
+															? "selected"
+															: undefined
+													}
+												>
+													<TableCell>
+														<Checkbox
+															aria-label={`Select ${selection.student_name ?? selection.student_id} in ${selection.course_name ?? selection.course_id}`}
+															checked={selectedAssignments.includes(
+																key,
+															)}
+															onClick={(event) =>
+																event.stopPropagation()
+															}
+															onCheckedChange={(
+																checked,
+															) =>
+																selectAssignment(
+																	key,
+																	checked,
+																)
+															}
+														/>
+													</TableCell>
+													<TableCell>
+														<Button
+															variant="link"
+															className="h-auto justify-start p-0 text-left whitespace-normal"
+															onClick={open}
+															disabled={
+																selection.student_id ===
+																undefined
+															}
+															aria-label={`View participation for ${selection.student_name ?? selection.student_id}`}
+															aria-controls="participation-details"
+															aria-expanded={
+																detail?.kind ===
+																	"student" &&
+																detail.id ===
+																	selection.student_id
+															}
+															aria-haspopup={
+																isWideDetailLayout
+																	? undefined
+																	: "dialog"
+															}
+														>
+															{selection.student_name ??
+																selection.student_id}
+														</Button>
+														<p className="text-xs text-muted-foreground">
+															G
+															{
+																selection.student_grade
+															}
+														</p>
+													</TableCell>
+													<TableCell>
+														<p className="font-medium">
+															{selection.course_name ??
+																selection.course_id}
+														</p>
+														<p className="text-xs text-muted-foreground">
+															{
+																selection.course_id
+															}
+														</p>
+													</TableCell>
+													<TableCell>
+														<PeriodBadges
+															periodIDs={[
+																selection.period_id,
+															]}
+														/>
+													</TableCell>
+													<TableCell>
+														<SelectionTypeBadge
+															type={
+																selection.selection_type
+															}
+														/>
+													</TableCell>
+													<TableCell>
+														<div className="flex justify-end">
+															<SelectionActions
+																selection={
+																	selection
+																}
+																onUpdateType={
+																	updateSelectionType
+																}
+																onDelete={
+																	deleteSelection
+																}
+															/>
+														</div>
+													</TableCell>
+												</TableRow>
+											)
+										})}
+									</TableBody>
+								</Table>
+							</div>
+						</>
 					)}
 					<PaginationControls
 						page={page}
@@ -2609,6 +3045,7 @@ export function ParticipationPage({
 						maxSize="45%"
 					>
 						<aside
+							id={PARTICIPATION_DETAILS_PANEL_ID}
 							aria-label="Participation details"
 							className="h-full pl-6"
 						>

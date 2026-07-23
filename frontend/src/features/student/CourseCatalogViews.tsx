@@ -6,7 +6,13 @@ import {
 	useMemo,
 	useState,
 } from "react"
-import { CheckIcon, ClockAlertIcon, XIcon } from "lucide-react"
+import {
+	CheckIcon,
+	ClockAlertIcon,
+	MousePointerClickIcon,
+	RotateCcwIcon,
+	XIcon,
+} from "lucide-react"
 
 import { BlockReasonBadges, PeriodBadges } from "@/components/common"
 import { Badge } from "@/components/ui/badge"
@@ -22,14 +28,13 @@ import {
 } from "@/components/ui/card"
 import {
 	Empty,
+	EmptyContent,
 	EmptyDescription,
 	EmptyHeader,
 	EmptyMedia,
 	EmptyTitle,
 } from "@/components/ui/empty"
 import { Spinner } from "@/components/ui/spinner"
-import { Separator } from "@/components/ui/separator"
-import { Switch } from "@/components/ui/switch"
 import {
 	Table,
 	TableBody,
@@ -45,15 +50,6 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import {
-	Select,
-	SelectContent,
-	SelectGroup,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select"
 import {
 	CCA_DAYS,
 	CCA_SLOTS_PER_DAY,
@@ -61,7 +57,6 @@ import {
 	FIXED_CCA_TIME_SLOTS,
 	formatCCATimeSlotLabel,
 	type CCADay,
-	type CCASlotNumber,
 } from "@/lib/cca-schedule"
 import { cn } from "@/lib/utils"
 import type { Course } from "@/types"
@@ -151,7 +146,9 @@ function courseIsFull(course: Course): boolean {
 
 function getSpecificBlockReasons(course: Course): Course["block_reasons"] {
 	return course.block_reasons.filter(
-		(reason) => reason.code !== "course_full",
+		(reason) =>
+			reason.code !== "course_full" &&
+			reason.code !== "selections_closed",
 	)
 }
 
@@ -182,7 +179,13 @@ function getListStatusBadges(
 		badges.push({ label: "Selected", variant: "secondary" })
 	} else if (course.available) {
 		badges.push({ label: "Available", variant: "secondary" })
-	} else if (!isFull && specificReasons.length === 0) {
+	} else if (
+		!isFull &&
+		specificReasons.length === 0 &&
+		!course.block_reasons.some(
+			(reason) => reason.code === "selections_closed",
+		)
+	) {
 		badges.push({ label: "Unavailable", variant: "outline" })
 	}
 
@@ -215,7 +218,9 @@ function CompactCourseState({
 	course: Course
 }): React.JSX.Element | null {
 	if (course.selected) {
-		const badges = getSelectionContextBadges(course)
+		const badges = getSelectionContextBadges(course).filter(
+			(badge) => badge.label !== "Locked",
+		)
 		return badges.length > 0 ? (
 			<div className="flex flex-wrap gap-1.5">
 				<CourseStatusBadges badges={badges} />
@@ -301,30 +306,11 @@ const CourseCard = memo(function CourseCard({
 				canDrag && "cursor-grab active:cursor-grabbing",
 			)}
 			draggable={canDrag}
-			role={isTimetableCandidate ? "button" : undefined}
-			tabIndex={isTimetableCandidate ? 0 : undefined}
-			aria-label={
-				isTimetableCandidate
-					? `Preview ${course.name} in your timetable`
-					: undefined
-			}
-			onClick={previewCourse}
-			onKeyDown={(event) => {
-				if (
-					!isTimetableCandidate ||
-					(event.key !== "Enter" && event.key !== " ")
-				) {
-					return
-				}
-				event.preventDefault()
-				previewCourse()
-			}}
-			onFocus={previewCourse}
 			onMouseEnter={() => {
-				if (isTimetableCandidate) onHover?.(course.id)
+				if (canDrag) onHover?.(course.id)
 			}}
 			onMouseLeave={() => {
-				if (isTimetableCandidate) onHover?.(null)
+				if (canDrag) onHover?.(null)
 			}}
 			onDragStart={(event) => {
 				if (canDrag) onDragStart?.(event, course)
@@ -336,9 +322,24 @@ const CourseCard = memo(function CourseCard({
 					{course.name}
 				</CardTitle>
 				<CardDescription className="min-w-0 break-words">
-					{course.category_id} · {course.id}
+					{course.category_id}
 				</CardDescription>
-				{isTimetableCandidate ? null : (
+				{isTimetableCandidate ? (
+					course.available ? (
+						<CardAction>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={busyCourseID !== null}
+								onClick={previewCourse}
+								onFocus={previewCourse}
+								aria-pressed={isPreviewed}
+							>
+								Choose slots
+							</Button>
+						</CardAction>
+					) : null
+				) : (
 					<CardAction>
 						<CourseAction
 							course={course}
@@ -353,12 +354,6 @@ const CourseCard = memo(function CourseCard({
 					<PeriodBadges periodIDs={displayedPeriodIDs} />
 					<CompactCourseState course={course} />
 				</div>
-				{course.selected && !course.removable ? (
-					<Badge variant="secondary">
-						{course.removal_block_reason ??
-							"This selection is locked."}
-					</Badge>
-				) : null}
 				<p className="break-words text-sm leading-relaxed text-muted-foreground">
 					{course.description || "No description has been provided."}
 				</p>
@@ -405,7 +400,7 @@ const TimetableSelectedCourse = memo(function TimetableSelectedCourse({
 
 	return (
 		<Card size="sm" className="gap-0 py-0">
-			<CardHeader className="flex h-8 items-center gap-1 px-2">
+			<CardHeader className="flex min-h-11 items-center gap-1 px-2 md:min-h-8">
 				<CardTitle className="min-w-0 flex-1 text-left text-xs">
 					<Tooltip>
 						<TooltipTrigger
@@ -425,7 +420,8 @@ const TimetableSelectedCourse = memo(function TimetableSelectedCourse({
 								render={
 									<Button
 										variant="ghost"
-										size="icon-xs"
+										size="icon-sm"
+										className="size-11 md:size-7"
 										disabled={busyCourseID !== null}
 										onClick={() => onToggle(course)}
 										aria-label={`Remove ${course.name}`}
@@ -481,188 +477,164 @@ export function CourseList({
 	onToggle,
 }: CourseViewProps): React.JSX.Element {
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Catalogue list</CardTitle>
-				<CardDescription>
-					Compare schedules, availability, and enrollment in one
-					compact view.
-				</CardDescription>
-			</CardHeader>
-			<CardContent className="px-0">
-				<Table containerLabel="CCA catalogue table">
-					<TableCaption>
-						Showing {courses.length} matching CCA
-						{courses.length === 1 ? "" : "s"}.
-					</TableCaption>
-					<TableHeader>
-						<TableRow>
-							<TableHead>CCA</TableHead>
-							<TableHead>Schedule</TableHead>
-							<TableHead>Teacher & location</TableHead>
-							<TableHead>Enrollment</TableHead>
-							<TableHead>Status</TableHead>
-							<TableHead className="text-right">Action</TableHead>
-						</TableRow>
-					</TableHeader>
-					<TableBody>
-						{courses.map((course) => (
-							<TableRow
-								key={course.id}
-								data-state={
-									course.selected ? "selected" : undefined
+		<>
+			<div
+				className="flex flex-col gap-3 md:hidden"
+				aria-label="CCA catalogue list"
+			>
+				{courses.map((course) => (
+					<Card key={course.id} size="sm">
+						<CardHeader>
+							<CardTitle className="break-words">
+								{course.name}
+							</CardTitle>
+							<CardDescription className="break-all">
+								{course.category_id}
+							</CardDescription>
+							<CardAction>
+								<CourseAction
+									course={course}
+									busyCourseID={busyCourseID}
+									onToggle={onToggle}
+									size="sm"
+								/>
+							</CardAction>
+						</CardHeader>
+						<CardContent className="flex flex-col gap-3">
+							<PeriodBadges
+								periodIDs={
+									course.selected && course.selected_period_id
+										? [course.selected_period_id]
+										: course.period_ids
 								}
-							>
-								<TableCell className="min-w-64 whitespace-normal">
-									<div className="flex min-w-0 flex-col gap-1">
-										<span className="break-words font-medium">
-											{course.name}
-										</span>
-										<span className="break-all text-xs text-muted-foreground">
-											{course.id} · {course.category_id}
-										</span>
-										<span className="line-clamp-2 text-xs text-muted-foreground">
-											{course.description ||
-												"No description has been provided."}
-										</span>
-									</div>
-								</TableCell>
-								<TableCell className="min-w-48 whitespace-normal">
-									<PeriodBadges
-										periodIDs={
-											course.selected &&
-											course.selected_period_id
-												? [course.selected_period_id]
-												: course.period_ids
-										}
-									/>
-								</TableCell>
-								<TableCell className="min-w-48 whitespace-normal">
-									<div className="flex min-w-0 flex-col gap-1">
-										<span className="break-words">
-											{course.teacher}
-										</span>
-										<span className="break-words text-xs text-muted-foreground">
-											{course.location}
-										</span>
-									</div>
-								</TableCell>
-								<TableCell>
-									<EnrollmentBadge course={course} />
-								</TableCell>
-								<TableCell className="min-w-48 whitespace-normal">
-									<CourseListStatus course={course} />
-								</TableCell>
-								<TableCell className="text-right">
-									<CourseAction
-										course={course}
-										busyCourseID={busyCourseID}
-										onToggle={onToggle}
-										size="sm"
-									/>
-								</TableCell>
+							/>
+							<dl className="grid grid-cols-2 gap-3 text-sm">
+								<div className="flex min-w-0 flex-col gap-0.5">
+									<dt className="text-xs text-muted-foreground">
+										Teacher
+									</dt>
+									<dd className="break-words">
+										{course.teacher}
+									</dd>
+								</div>
+								<div className="flex min-w-0 flex-col gap-0.5">
+									<dt className="text-xs text-muted-foreground">
+										Location
+									</dt>
+									<dd className="break-words">
+										{course.location}
+									</dd>
+								</div>
+							</dl>
+							<CourseListStatus course={course} />
+						</CardContent>
+						<CardFooter className="justify-between gap-3">
+							<span className="text-muted-foreground">
+								Enrollment
+							</span>
+							<EnrollmentBadge course={course} />
+						</CardFooter>
+					</Card>
+				))}
+			</div>
+
+			<Card className="hidden md:flex">
+				<CardHeader>
+					<CardTitle>Catalogue list</CardTitle>
+					<CardDescription>
+						Compare schedules, availability, and enrollment in one
+						compact view.
+					</CardDescription>
+				</CardHeader>
+				<CardContent className="px-0">
+					<Table containerLabel="CCA catalogue table">
+						<TableCaption>
+							Showing {courses.length} matching CCA
+							{courses.length === 1 ? "" : "s"}.
+						</TableCaption>
+						<TableHeader>
+							<TableRow>
+								<TableHead>CCA</TableHead>
+								<TableHead>Schedule</TableHead>
+								<TableHead>Teacher & location</TableHead>
+								<TableHead>Enrollment</TableHead>
+								<TableHead>Status</TableHead>
+								<TableHead className="text-right">
+									Action
+								</TableHead>
 							</TableRow>
-						))}
-					</TableBody>
-				</Table>
-			</CardContent>
-		</Card>
+						</TableHeader>
+						<TableBody>
+							{courses.map((course) => (
+								<TableRow
+									key={course.id}
+									data-state={
+										course.selected ? "selected" : undefined
+									}
+								>
+									<TableCell className="min-w-64 whitespace-normal">
+										<div className="flex min-w-0 flex-col gap-1">
+											<span className="break-words font-medium">
+												{course.name}
+											</span>
+											<span className="break-all text-xs text-muted-foreground">
+												{course.category_id}
+											</span>
+											<span className="line-clamp-2 text-xs text-muted-foreground">
+												{course.description ||
+													"No description has been provided."}
+											</span>
+										</div>
+									</TableCell>
+									<TableCell className="min-w-48 whitespace-normal">
+										<PeriodBadges
+											periodIDs={
+												course.selected &&
+												course.selected_period_id
+													? [
+															course.selected_period_id,
+														]
+													: course.period_ids
+											}
+										/>
+									</TableCell>
+									<TableCell className="min-w-48 whitespace-normal">
+										<div className="flex min-w-0 flex-col gap-1">
+											<span className="break-words">
+												{course.teacher}
+											</span>
+											<span className="break-words text-xs text-muted-foreground">
+												{course.location}
+											</span>
+										</div>
+									</TableCell>
+									<TableCell>
+										<EnrollmentBadge course={course} />
+									</TableCell>
+									<TableCell className="min-w-48 whitespace-normal">
+										<CourseListStatus course={course} />
+									</TableCell>
+									<TableCell className="text-right">
+										<CourseAction
+											course={course}
+											busyCourseID={busyCourseID}
+											onToggle={onToggle}
+											size="sm"
+										/>
+									</TableCell>
+								</TableRow>
+							))}
+						</TableBody>
+					</Table>
+				</CardContent>
+			</Card>
+		</>
 	)
 }
-
-interface CategoryItem {
-	label: string
-	value: string
-}
-
-type TimetableDayFilter = "all" | CCADay
-type TimetableSlotFilter = "all" | `${CCASlotNumber}`
-
-const TIMETABLE_DAY_FILTERS: readonly TimetableDayFilter[] = [
-	"all",
-	...CCA_DAYS,
-]
-const TIMETABLE_SLOT_FILTERS: readonly TimetableSlotFilter[] = [
-	"all",
-	...CCA_SLOTS_PER_DAY.map((slot) => String(slot) as TimetableSlotFilter),
-]
 
 interface CourseTimetableProps extends CourseViewProps {
 	selectedCourses: readonly Course[]
-	dayFilter: TimetableDayFilter
-	onDayFilterChange: (day: TimetableDayFilter) => void
-	slotFilter: TimetableSlotFilter
-	onSlotFilterChange: (slot: TimetableSlotFilter) => void
-	categoryItems: readonly CategoryItem[]
-	categoryFilter: string
-	onCategoryFilterChange: (category: string) => void
-	availableOnly: boolean
-	onAvailableOnlyChange: (availableOnly: boolean) => void
-}
-
-function TimetableSlotTabs({
-	day,
-	slot,
-	onSlotChange,
-}: {
-	day: TimetableDayFilter
-	slot: TimetableSlotFilter
-	onSlotChange: (slot: TimetableSlotFilter) => void
-}): React.JSX.Element {
-	const dayLabel = day === "all" ? "All days" : day
-
-	return (
-		<Tabs
-			value={slot}
-			onValueChange={(value) =>
-				onSlotChange(value as TimetableSlotFilter)
-			}
-			className="min-w-0 gap-0"
-		>
-			<div className="relative">
-				<Separator
-					aria-hidden="true"
-					className="absolute bottom-1 left-0"
-				/>
-				<div className="no-scrollbar overflow-x-auto overflow-y-hidden pb-2">
-					<TabsList
-						activateOnFocus
-						variant="line"
-						aria-label={`${dayLabel} CCA slot`}
-						className="h-10 min-w-max justify-start"
-					>
-						{TIMETABLE_SLOT_FILTERS.map((slotValue) => (
-							<TabsTrigger
-								key={slotValue}
-								value={slotValue}
-								aria-label={
-									slotValue === "all"
-										? "All CCA slots"
-										: `CCA ${slotValue}`
-								}
-								className="min-w-20 px-3"
-							>
-								{slotValue === "all"
-									? "All slots"
-									: `CCA ${slotValue}`}
-							</TabsTrigger>
-						))}
-					</TabsList>
-				</div>
-			</div>
-
-			{TIMETABLE_SLOT_FILTERS.map((slotValue) => (
-				<TabsContent
-					key={slotValue}
-					value={slotValue}
-					className="sr-only"
-				>
-					{dayLabel},{" "}
-					{slotValue === "all" ? "all CCA slots" : `CCA ${slotValue}`}
-				</TabsContent>
-			))}
-		</Tabs>
-	)
+	onResetFilters: () => void
 }
 
 function handleTimeSlotKeyDown(
@@ -679,16 +651,9 @@ export function CourseTimetable({
 	selectedCourses,
 	busyCourseID,
 	onToggle,
-	dayFilter,
-	onDayFilterChange,
-	slotFilter,
-	onSlotFilterChange,
-	categoryItems,
-	categoryFilter,
-	onCategoryFilterChange,
-	availableOnly,
-	onAvailableOnlyChange,
+	onResetFilters,
 }: CourseTimetableProps): React.JSX.Element {
+	const [mobileDay, setMobileDay] = useState<CCADay>("Monday")
 	const [previewedCourseID, setPreviewedCourseID] = useState<string | null>(
 		null,
 	)
@@ -776,319 +741,319 @@ export function CourseTimetable({
 
 	return (
 		<div className="flex flex-col gap-5">
-			<div className="pb-3 md:sticky md:top-[calc(var(--student-page-header-height)+0.75rem)] md:z-20">
-				<Card
-					size="sm"
-					className="shadow-sm md:shadow-md md:shadow-foreground/10"
-				>
+			<div className="sticky top-[calc(var(--student-page-header-height)+0.5rem)] z-20 pb-3">
+				<Card size="sm" className="shadow-md shadow-foreground/10">
 					<CardHeader>
 						<CardTitle>Your timetable</CardTitle>
+						<CardDescription>
+							Choose a CCA below, then choose one highlighted
+							slot. On desktop, you can also drag a CCA into the
+							timetable.
+						</CardDescription>
 					</CardHeader>
 					<CardContent className="px-0">
-						<Table
-							className="min-w-[44rem] table-fixed"
-							containerLabel="Your weekly CCA timetable"
+						<Tabs
+							value={mobileDay}
+							onValueChange={(value) =>
+								setMobileDay(value as CCADay)
+							}
+							className="gap-3 px-3 md:hidden"
 						>
-							<TableCaption className="sr-only">
-								Selected CCAs with weekdays as columns and CCA
-								slots as rows. Drag an available CCA to one
-								highlighted slot, or choose a card and then a
-								highlighted slot.
-							</TableCaption>
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead className="sticky left-0 z-10 w-16 bg-muted px-1 text-center">
-										Slot
-									</TableHead>
-									{CCA_DAYS.map((day) => (
-										<TableHead
-											key={day}
-											className="border-l bg-muted/50 text-center"
-										>
-											<span className="sm:hidden">
-												{day.slice(0, 3)}
-											</span>
-											<span className="hidden sm:inline">
-												{day}
-											</span>
-										</TableHead>
-									))}
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{CCA_SLOTS_PER_DAY.map((slot) => (
-									<TableRow
-										key={slot}
-										className="hover:bg-transparent"
+							<TabsList
+								variant="line"
+								activateOnFocus
+								aria-label="Timetable day"
+								className="h-auto w-full"
+							>
+								{CCA_DAYS.map((day) => (
+									<TabsTrigger
+										key={day}
+										value={day}
+										aria-label={day}
+										className="min-h-11"
 									>
-										<TableHead
-											scope="row"
-											className="sticky left-0 z-10 h-10 bg-muted px-1 text-center"
-										>
-											CCA {slot}
-										</TableHead>
-										{CCA_DAYS.map((day) => {
-											const timeSlot = ccaTimeSlotID(
-												day,
-												slot,
-											)
-											const slotCourses =
-												coursesByTimeSlot.get(
-													timeSlot,
-												) ?? []
-											const isPreviewSlot =
-												activePeriodIDs.has(timeSlot)
-											const canSelect =
-												activeCourse?.available ===
-													true &&
-												busyCourseID === null &&
-												isPreviewSlot
-											const canDrop =
-												draggingCourseID !== null &&
-												canSelect
-
-											return (
-												<TableCell
-													key={timeSlot}
-													className={cn(
-														"h-10 border-l p-1 align-middle whitespace-normal transition-[background-color,box-shadow,opacity]",
-														activeCourse !==
-															undefined &&
-															!isPreviewSlot &&
-															"opacity-50",
-														isPreviewSlot &&
-															"bg-accent/70 ring-2 ring-inset ring-ring/60",
-														canDrop &&
-															dragOverTimeSlot ===
-																timeSlot &&
-															"bg-primary/10",
-													)}
-													role={
-														canSelect
-															? "button"
-															: undefined
-													}
-													tabIndex={
-														canSelect
-															? 0
-															: undefined
-													}
-													aria-label={
-														canSelect &&
-														activeCourse !==
-															undefined
-															? `${formatCCATimeSlotLabel(timeSlot)}, select ${activeCourse.name} in this slot`
-															: undefined
-													}
-													onClick={() =>
-														selectActiveCourse(
-															timeSlot,
-														)
-													}
-													onKeyDown={(event) => {
-														if (!canSelect) return
-														handleTimeSlotKeyDown(
-															event,
-															() =>
-																selectActiveCourse(
-																	timeSlot,
-																),
-														)
-													}}
-													onDragOver={(event) => {
-														if (!canDrop) return
-														event.preventDefault()
-														event.dataTransfer.dropEffect =
-															"copy"
-														setDragOverTimeSlot(
-															timeSlot,
-														)
-													}}
-													onDragLeave={() =>
-														setDragOverTimeSlot(
-															null,
-														)
-													}
-													onDrop={(event) =>
-														handleDrop(
-															event,
-															timeSlot,
-														)
-													}
-												>
-													<div className="flex min-h-8 flex-col justify-center gap-1">
-														{slotCourses.map(
-															(course) => (
-																<div
-																	key={
-																		course.id
-																	}
-																	onClick={(
-																		event,
-																	) =>
-																		event.stopPropagation()
-																	}
-																>
-																	<TimetableSelectedCourse
-																		course={
-																			course
-																		}
-																		busyCourseID={
-																			busyCourseID
-																		}
-																		onToggle={
-																			onToggle
-																		}
-																	/>
-																</div>
-															),
-														)}
-														{activeCourse !==
-															undefined &&
-														isPreviewSlot &&
-														activeCourse.available &&
-														!activeCourse.selected ? (
-															<Badge
-																variant="outline"
-																className="h-auto justify-start rounded-md py-1"
-															>
-																{busyCourseID ===
-																activeCourse.id ? (
-																	<Spinner data-icon="inline-start" />
-																) : null}
-																{busyCourseID ===
-																activeCourse.id
-																	? "Selecting…"
-																	: "Drop here"}
-															</Badge>
-														) : null}
-													</div>
-												</TableCell>
-											)
-										})}
-									</TableRow>
+										{day.slice(0, 3)}
+									</TabsTrigger>
 								))}
-							</TableBody>
-						</Table>
+							</TabsList>
+							{CCA_DAYS.map((day) => (
+								<TabsContent key={day} value={day}>
+									<Table
+										className="table-fixed"
+										containerLabel={`${day} CCA timetable`}
+									>
+										<TableCaption className="sr-only">
+											Selected CCAs and available slots
+											for {day}.
+										</TableCaption>
+										<TableBody>
+											{CCA_SLOTS_PER_DAY.map((slot) => {
+												const timeSlot = ccaTimeSlotID(
+													day,
+													slot,
+												)
+												const slotCourses =
+													coursesByTimeSlot.get(
+														timeSlot,
+													) ?? []
+												const isPreviewSlot =
+													activePeriodIDs.has(
+														timeSlot,
+													)
+
+												return (
+													<TableRow
+														key={timeSlot}
+														className={cn(
+															isPreviewSlot &&
+																"bg-accent/60",
+														)}
+													>
+														<TableHead
+															scope="row"
+															className="w-20 px-2 text-center"
+														>
+															CCA {slot}
+														</TableHead>
+														<TableCell className="h-12 p-1 whitespace-normal">
+															<div className="flex min-h-11 flex-col justify-center gap-1">
+																{slotCourses.length ===
+																0 ? (
+																	<span className="px-2 text-xs text-muted-foreground">
+																		No CCA
+																	</span>
+																) : (
+																	slotCourses.map(
+																		(
+																			course,
+																		) => (
+																			<TimetableSelectedCourse
+																				key={
+																					course.id
+																				}
+																				course={
+																					course
+																				}
+																				busyCourseID={
+																					busyCourseID
+																				}
+																				onToggle={
+																					onToggle
+																				}
+																			/>
+																		),
+																	)
+																)}
+																{activeCourse !==
+																	undefined &&
+																isPreviewSlot &&
+																!activeCourse.selected ? (
+																	<Badge variant="outline">
+																		Available
+																	</Badge>
+																) : null}
+															</div>
+														</TableCell>
+													</TableRow>
+												)
+											})}
+										</TableBody>
+									</Table>
+								</TabsContent>
+							))}
+						</Tabs>
+
+						<div className="hidden md:block">
+							<Table
+								className="min-w-[44rem] table-fixed"
+								containerLabel="Your weekly CCA timetable"
+							>
+								<TableCaption className="sr-only">
+									Selected CCAs with weekdays as columns and
+									CCA slots as rows. Drag an available CCA to
+									one highlighted slot, or choose a card and
+									then a highlighted slot.
+								</TableCaption>
+								<TableHeader>
+									<TableRow className="hover:bg-transparent">
+										<TableHead className="sticky left-0 z-10 w-16 bg-muted px-1 text-center">
+											Slot
+										</TableHead>
+										{CCA_DAYS.map((day) => (
+											<TableHead
+												key={day}
+												className="border-l bg-muted/50 text-center"
+											>
+												{day}
+											</TableHead>
+										))}
+									</TableRow>
+								</TableHeader>
+								<TableBody>
+									{CCA_SLOTS_PER_DAY.map((slot) => (
+										<TableRow
+											key={slot}
+											className="hover:bg-transparent"
+										>
+											<TableHead
+												scope="row"
+												className="sticky left-0 z-10 h-10 bg-muted px-1 text-center"
+											>
+												CCA {slot}
+											</TableHead>
+											{CCA_DAYS.map((day) => {
+												const timeSlot = ccaTimeSlotID(
+													day,
+													slot,
+												)
+												const slotCourses =
+													coursesByTimeSlot.get(
+														timeSlot,
+													) ?? []
+												const isPreviewSlot =
+													activePeriodIDs.has(
+														timeSlot,
+													)
+												const canSelect =
+													activeCourse?.available ===
+														true &&
+													busyCourseID === null &&
+													isPreviewSlot
+												const canDrop =
+													draggingCourseID !== null &&
+													canSelect
+
+												return (
+													<TableCell
+														key={timeSlot}
+														className={cn(
+															"h-10 border-l p-1 align-middle whitespace-normal transition-[background-color,box-shadow,opacity]",
+															activeCourse !==
+																undefined &&
+																!isPreviewSlot &&
+																"opacity-50",
+															isPreviewSlot &&
+																"bg-accent/70 ring-2 ring-inset ring-ring/60",
+															canDrop &&
+																dragOverTimeSlot ===
+																	timeSlot &&
+																"bg-primary/10",
+														)}
+														role={
+															canSelect
+																? "button"
+																: undefined
+														}
+														tabIndex={
+															canSelect
+																? 0
+																: undefined
+														}
+														aria-label={
+															canSelect &&
+															activeCourse !==
+																undefined
+																? `${formatCCATimeSlotLabel(timeSlot)}, select ${activeCourse.name} in this slot`
+																: undefined
+														}
+														onClick={() =>
+															selectActiveCourse(
+																timeSlot,
+															)
+														}
+														onKeyDown={(event) => {
+															if (!canSelect)
+																return
+															handleTimeSlotKeyDown(
+																event,
+																() =>
+																	selectActiveCourse(
+																		timeSlot,
+																	),
+															)
+														}}
+														onDragOver={(event) => {
+															if (!canDrop) return
+															event.preventDefault()
+															event.dataTransfer.dropEffect =
+																"copy"
+															setDragOverTimeSlot(
+																timeSlot,
+															)
+														}}
+														onDragLeave={() =>
+															setDragOverTimeSlot(
+																null,
+															)
+														}
+														onDrop={(event) =>
+															handleDrop(
+																event,
+																timeSlot,
+															)
+														}
+													>
+														<div className="flex min-h-8 flex-col justify-center gap-1">
+															{slotCourses.map(
+																(course) => (
+																	<div
+																		key={
+																			course.id
+																		}
+																		onClick={(
+																			event,
+																		) =>
+																			event.stopPropagation()
+																		}
+																	>
+																		<TimetableSelectedCourse
+																			course={
+																				course
+																			}
+																			busyCourseID={
+																				busyCourseID
+																			}
+																			onToggle={
+																				onToggle
+																			}
+																		/>
+																	</div>
+																),
+															)}
+															{activeCourse !==
+																undefined &&
+															isPreviewSlot &&
+															activeCourse.available &&
+															!activeCourse.selected ? (
+																<Badge
+																	variant="outline"
+																	className="h-auto justify-start rounded-md py-1"
+																>
+																	{busyCourseID ===
+																	activeCourse.id ? (
+																		<Spinner data-icon="inline-start" />
+																	) : null}
+																	{busyCourseID ===
+																	activeCourse.id
+																		? "Selecting…"
+																		: draggingCourseID !==
+																			  null
+																			? "Drop here"
+																			: `Choose ${formatCCATimeSlotLabel(timeSlot)}`}
+																</Badge>
+															) : null}
+														</div>
+													</TableCell>
+												)
+											})}
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</div>
 					</CardContent>
 				</Card>
 			</div>
-
-			<Card size="sm" className="overflow-hidden">
-				<CardHeader className="sr-only">
-					<CardTitle>CCA candidate filters</CardTitle>
-				</CardHeader>
-				<CardContent>
-					<FieldGroup className="flex w-full flex-col items-start gap-4 lg:flex-row lg:flex-wrap lg:items-end">
-						<Field className="min-w-0 lg:w-auto">
-							<FieldLabel id="timetable-schedule-filter-label">
-								Schedule
-							</FieldLabel>
-							<Tabs
-								value={dayFilter}
-								onValueChange={(value) =>
-									onDayFilterChange(
-										value as TimetableDayFilter,
-									)
-								}
-								className="w-full min-w-0 gap-0 lg:w-auto"
-							>
-								<div className="no-scrollbar overflow-x-auto overflow-y-hidden">
-									<TabsList
-										activateOnFocus
-										aria-labelledby="timetable-schedule-filter-label"
-										className="h-10 min-w-max"
-									>
-										{TIMETABLE_DAY_FILTERS.map(
-											(dayValue) => (
-												<TabsTrigger
-													key={dayValue}
-													value={dayValue}
-													aria-label={
-														dayValue === "all"
-															? "All days"
-															: dayValue
-													}
-													className="min-w-20 px-3"
-												>
-													{dayValue === "all"
-														? "All days"
-														: dayValue}
-												</TabsTrigger>
-											),
-										)}
-									</TabsList>
-								</div>
-
-								{TIMETABLE_DAY_FILTERS.map((dayValue) => (
-									<TabsContent
-										key={dayValue}
-										value={dayValue}
-										className="sr-only"
-									>
-										{dayValue === "all"
-											? "All days"
-											: dayValue}
-									</TabsContent>
-								))}
-							</Tabs>
-						</Field>
-						<Field className="lg:w-56">
-							<FieldLabel htmlFor="timetable-category-filter">
-								CCA category
-							</FieldLabel>
-							<Select
-								items={categoryItems}
-								value={categoryFilter}
-								onValueChange={(value) =>
-									onCategoryFilterChange(value ?? "all")
-								}
-							>
-								<SelectTrigger
-									id="timetable-category-filter"
-									className="h-10 w-full"
-								>
-									<SelectValue />
-								</SelectTrigger>
-								<SelectContent alignItemWithTrigger={false}>
-									<SelectGroup>
-										{categoryItems.map((item) => (
-											<SelectItem
-												key={item.value}
-												value={item.value}
-											>
-												{item.label}
-											</SelectItem>
-										))}
-									</SelectGroup>
-								</SelectContent>
-							</Select>
-						</Field>
-						<Field
-							orientation="horizontal"
-							className="min-h-10 w-auto"
-						>
-							<FieldLabel
-								htmlFor="timetable-available-filter"
-								className="whitespace-nowrap"
-							>
-								Available only
-							</FieldLabel>
-							<Switch
-								id="timetable-available-filter"
-								checked={availableOnly}
-								onCheckedChange={onAvailableOnlyChange}
-							/>
-						</Field>
-					</FieldGroup>
-				</CardContent>
-			</Card>
-
-			<TimetableSlotTabs
-				day={dayFilter}
-				slot={slotFilter}
-				onSlotChange={onSlotFilterChange}
-			/>
 
 			{courses.length === 0 ? (
 				<Empty>
@@ -1101,9 +1066,20 @@ export function CourseTimetable({
 							Try another search, timetable slot, or filter.
 						</EmptyDescription>
 					</EmptyHeader>
+					<EmptyContent>
+						<Button variant="outline" onClick={onResetFilters}>
+							<RotateCcwIcon data-icon="inline-start" />
+							Reset filters
+						</Button>
+					</EmptyContent>
 				</Empty>
 			) : (
-				<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+				<div
+					className={cn(
+						"grid gap-4 md:grid-cols-2 xl:grid-cols-3",
+						activeCourse !== undefined && "pb-48 md:pb-0",
+					)}
+				>
 					{courses.map((course) => (
 						<CourseCard
 							key={course.id}
@@ -1120,6 +1096,48 @@ export function CourseTimetable({
 					))}
 				</div>
 			)}
+
+			{activeCourse !== undefined &&
+			activeCourse.available &&
+			!activeCourse.selected ? (
+				<Card
+					size="sm"
+					className="fixed inset-x-4 bottom-4 z-40 shadow-lg md:hidden"
+					aria-live="polite"
+				>
+					<CardHeader>
+						<CardTitle>{activeCourse.name}</CardTitle>
+						<CardDescription>
+							Choose one available CCA slot.
+						</CardDescription>
+						<CardAction>
+							<Button
+								variant="ghost"
+								size="icon"
+								className="size-11"
+								onClick={() => setPreviewedCourseID(null)}
+								aria-label={`Close slot choices for ${activeCourse.name}`}
+							>
+								<XIcon />
+							</Button>
+						</CardAction>
+					</CardHeader>
+					<CardContent className="grid grid-cols-2 gap-2">
+						{activeCourse.available_period_ids.map((periodID) => (
+							<Button
+								key={periodID}
+								variant="outline"
+								className="min-h-11 justify-start"
+								disabled={busyCourseID !== null}
+								onClick={() => onToggle(activeCourse, periodID)}
+							>
+								<MousePointerClickIcon data-icon="inline-start" />
+								{formatCCATimeSlotLabel(periodID)}
+							</Button>
+						))}
+					</CardContent>
+				</Card>
+			) : null}
 		</div>
 	)
 }
