@@ -294,7 +294,87 @@ ALTER TABLE choices
 	ADD CONSTRAINT choices_course_period_fkey
 		FOREIGN KEY (course_id, period_id)
 		REFERENCES course_periods(course_id, period_id)
-		ON UPDATE CASCADE ON DELETE RESTRICT;
+			ON UPDATE CASCADE ON DELETE RESTRICT;
+
+-- Capacity counts and their WebSocket ordering revisions are authoritative
+-- database state. Seed them from the migrated choices before installing the
+-- maintenance triggers.
+CREATE SEQUENCE course_selection_state_revision_seq AS BIGINT;
+CREATE TABLE course_selection_state (
+	course_id TEXT PRIMARY KEY REFERENCES courses(id) ON UPDATE CASCADE ON DELETE CASCADE,
+	current_students BIGINT NOT NULL DEFAULT 0 CHECK (current_students >= 0),
+	revision BIGINT NOT NULL DEFAULT nextval('course_selection_state_revision_seq')
+		CHECK (revision > 0)
+);
+INSERT INTO course_selection_state (course_id, current_students)
+SELECT c.id, COUNT(ch.student_id)::bigint
+FROM courses c
+LEFT JOIN choices ch ON ch.course_id = c.id
+GROUP BY c.id;
+
+CREATE FUNCTION create_course_selection_state()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+	INSERT INTO course_selection_state (course_id)
+	VALUES (NEW.id);
+	RETURN NEW;
+END;
+$$;
+CREATE TRIGGER trg_courses_selection_state
+AFTER INSERT ON courses
+FOR EACH ROW
+EXECUTE FUNCTION create_course_selection_state();
+
+CREATE FUNCTION bump_course_selection_state()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+	IF TG_OP = 'INSERT' THEN
+		UPDATE course_selection_state
+		SET
+			current_students = current_students + 1,
+			revision = nextval('course_selection_state_revision_seq')
+		WHERE course_id = NEW.course_id;
+		IF NOT FOUND THEN
+			RAISE EXCEPTION 'Course selection state missing for %', NEW.course_id;
+		END IF;
+	ELSIF TG_OP = 'DELETE' THEN
+		UPDATE course_selection_state
+		SET
+			current_students = current_students - 1,
+			revision = nextval('course_selection_state_revision_seq')
+		WHERE course_id = OLD.course_id;
+		IF NOT FOUND THEN
+			RAISE EXCEPTION 'Course selection state missing for %', OLD.course_id;
+		END IF;
+	ELSIF OLD.course_id IS DISTINCT FROM NEW.course_id THEN
+		PERFORM 1
+		FROM course_selection_state
+		WHERE course_id IN (OLD.course_id, NEW.course_id)
+		ORDER BY course_id
+		FOR UPDATE;
+
+		UPDATE course_selection_state
+		SET
+			current_students = current_students - 1,
+			revision = nextval('course_selection_state_revision_seq')
+		WHERE course_id = OLD.course_id;
+		UPDATE course_selection_state
+		SET
+			current_students = current_students + 1,
+			revision = nextval('course_selection_state_revision_seq')
+		WHERE course_id = NEW.course_id;
+	END IF;
+	RETURN NULL;
+END;
+$$;
+CREATE TRIGGER trg_choices_selection_state
+AFTER INSERT OR UPDATE OF course_id OR DELETE ON choices
+FOR EACH ROW
+EXECUTE FUNCTION bump_course_selection_state();
 
 CREATE FUNCTION reject_period_mutation()
 RETURNS trigger
@@ -398,9 +478,15 @@ BEGIN
 			USING ERRCODE = 'foreign_key_violation';
 	END IF;
 
-	-- The lock order for choice mutations is always student, then course. The
-	-- course-period foreign key and its row locks serialize choices with slot
-	-- removals, without introducing a reverse course-to-student lock order.
+	-- Lock every affected course after the student and in lexical order.
+	IF TG_OP = 'UPDATE' AND OLD.course_id IS DISTINCT FROM NEW.course_id THEN
+		PERFORM 1
+		FROM courses c
+		WHERE c.id IN (OLD.course_id, NEW.course_id)
+		ORDER BY c.id
+		FOR UPDATE;
+	END IF;
+
 	SELECT c.max_students, c.membership
 	INTO v_max, v_membership
 	FROM courses c
@@ -528,15 +614,19 @@ BEGIN
 			USING ERRCODE = 'check_violation', CONSTRAINT = 'choices_max_own';
 	END IF;
 
-	-- Capacity (after locking the course row)
-	SELECT COUNT(*)::bigint
+	-- Capacity comes from transactionally maintained PostgreSQL state.
+	SELECT state.current_students
 	INTO v_count
-	FROM choices ch
-	WHERE ch.course_id = NEW.course_id
-		AND NOT (
-			ch.student_id IS NOT DISTINCT FROM v_old_student_id
-			AND ch.course_id IS NOT DISTINCT FROM v_old_course_id
-		);
+	FROM course_selection_state state
+	WHERE state.course_id = NEW.course_id;
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Course selection state missing for %', NEW.course_id;
+	END IF;
+
+	IF TG_OP = 'UPDATE' AND OLD.course_id IS NOT DISTINCT FROM NEW.course_id THEN
+		v_count := v_count - 1;
+	END IF;
 
 	IF v_count >= v_max THEN
 		RAISE EXCEPTION 'Course % is at capacity (% >= %)', NEW.course_id, v_count, v_max
@@ -607,6 +697,26 @@ DECLARE
 	v_grade TEXT;
 	v_grade_enabled BOOLEAN;
 BEGIN
+	PERFORM 1
+	FROM students s
+	WHERE s.id = p_student_id
+	FOR UPDATE;
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Student % not found', p_student_id
+			USING ERRCODE = 'foreign_key_violation';
+	END IF;
+
+	PERFORM 1
+	FROM courses c
+	WHERE c.id = p_course_id
+	FOR UPDATE;
+
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'Course % not found', p_course_id
+			USING ERRCODE = 'foreign_key_violation';
+	END IF;
+
 	SELECT selection_type
 	INTO v_selection_type
 	FROM choices

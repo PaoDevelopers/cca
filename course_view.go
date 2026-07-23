@@ -22,6 +22,7 @@ type CourseView struct {
 	PeriodIDs          []string            `json:"period_ids"`
 	MaxStudents        int64               `json:"max_students"`
 	CurrentStudents    int64               `json:"current_students"`
+	StateRevision      int64               `json:"state_revision"`
 	Membership         db.MembershipType   `json:"membership"`
 	Teacher            string              `json:"teacher"`
 	Location           string              `json:"location"`
@@ -85,6 +86,7 @@ func (app *App) listCourseViews(ctx context.Context) ([]CourseView, error) {
 			PeriodIDs:          periodIDs,
 			MaxStudents:        course.MaxStudents,
 			CurrentStudents:    course.CurrentStudents,
+			StateRevision:      course.StateRevision,
 			Membership:         course.Membership,
 			Teacher:            course.Teacher,
 			Location:           course.Location,
@@ -137,6 +139,7 @@ func listStudentCourseViewsWithQueries(ctx context.Context, queries *db.Queries,
 			PeriodIDs:          row.PeriodIds,
 			MaxStudents:        row.MaxStudents,
 			CurrentStudents:    row.CurrentStudents,
+			StateRevision:      row.StateRevision,
 			Membership:         row.Membership,
 			Teacher:            row.Teacher,
 			Location:           row.Location,

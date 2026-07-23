@@ -1,10 +1,10 @@
 database {
         url postgres:///cca?host=/var/run/postgresql
-        max_conns 80
-        min_conns 10
+        max_conns 32
+        min_conns 8
 	// Nanoseconds
         max_conn_lifetime 14400000000000
-        max_conn_idle_time 1200000000000
+        max_conn_idle_time 300000000000
         health_check_period 60000000000
         connect_timeout 5000000000
 }

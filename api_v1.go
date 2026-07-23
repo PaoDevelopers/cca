@@ -202,34 +202,49 @@ func (app *App) handleAPIStudentSelections(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		var err error
+		var (
+			state CourseStateUpdate
+			err   error
+		)
 		if r.Method == http.MethodPost {
 			if mutation.PeriodID == "" {
 				app.writeAPIError(r, w, http.StatusUnprocessableEntity, "period_id_required", "Choose a CCA timetable slot.", nil)
 				return
 			}
-			err = app.queries.NewSelection(r.Context(), db.NewSelectionParams{
-				PStudentID:     student.ID,
-				PCourseID:      mutation.CourseID,
-				PPeriodID:      mutation.PeriodID,
-				PSelectionType: db.SelectionTypeNormal,
+			var result db.CreateStudentSelectionRow
+			result, err = app.queries.CreateStudentSelection(r.Context(), db.CreateStudentSelectionParams{
+				StudentID: student.ID,
+				CourseID:  mutation.CourseID,
+				PeriodID:  mutation.PeriodID,
 			})
+			state = CourseStateUpdate{
+				CourseID:        result.CourseID,
+				CurrentStudents: result.CurrentStudents,
+				StateRevision:   result.StateRevision,
+			}
 		} else {
-			err = app.queries.DeleteChoiceByStudentAndCourse(r.Context(), db.DeleteChoiceByStudentAndCourseParams{
-				PStudentID: student.ID,
-				PCourseID:  mutation.CourseID,
+			var result db.DeleteStudentSelectionRow
+			result, err = app.queries.DeleteStudentSelection(r.Context(), db.DeleteStudentSelectionParams{
+				StudentID: student.ID,
+				CourseID:  mutation.CourseID,
 			})
+			state = CourseStateUpdate{
+				CourseID:        result.CourseID,
+				CurrentStudents: result.CurrentStudents,
+				StateRevision:   result.StateRevision,
+			}
 		}
 		if err != nil {
 			app.writeClassifiedAPIError(r, w, err)
 			return
 		}
+		app.wsHub.PublishCourseStates([]CourseStateUpdate{state})
+
 		view, err := app.loadStudentBootstrap(r.Context(), student)
 		if err != nil {
 			app.writeClassifiedAPIError(r, w, err)
 			return
 		}
-		app.broadcastCourseCounts(r, []string{mutation.CourseID})
 		app.writeJSON(r, w, http.StatusOK, view)
 	default:
 		app.writeAPIError(r, w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed.", nil)

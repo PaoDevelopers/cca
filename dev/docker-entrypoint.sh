@@ -34,7 +34,7 @@ $0 ~ /^[[:space:]]*url[[:space:]]+/ {
 { print }
 ' "$source_config" >"$runtime_config"
 
-socat TCP-LISTEN:8192,bind=0.0.0.0,reuseaddr,fork TCP:127.0.0.1:8193 &
+nginx -g 'daemon off;' &
 proxy_pid=$!
 
 /app/cca -c "$runtime_config" &

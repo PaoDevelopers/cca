@@ -11,7 +11,6 @@ import (
 var upgraderOpts = &websocket.AcceptOptions{}
 
 func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *UserInfoStudent) {
-	app.logRequestStart(r, "handleStuAPIEvents", slog.Int64("student_id", sui.ID))
 	if r.Method != http.MethodGet {
 		app.apiError(r, w, http.StatusMethodNotAllowed, nil)
 		return
@@ -32,15 +31,18 @@ func (app *App) handleStuAPIEvents(w http.ResponseWriter, r *http.Request, sui *
 
 	app.wsHub.register <- client
 
-	if err := conn.Write(context.Background(), websocket.MessageText, []byte("hello")); err != nil {
+	ctx, cancel := context.WithTimeout(r.Context(), websocketWriteTimeout)
+	err = conn.Write(ctx, websocket.MessageText, []byte("hello"))
+	cancel()
+	if err != nil {
 		app.logError(r, logMsgStudentEventsHelloError, slog.Any("error", err))
-		app.wsHub.unregister <- client
-		_ = conn.Close(websocket.StatusInternalError, "")
+		client.unregister()
+		conn.CloseNow()
 		return
 	}
 
 	go client.writePump()
 	go client.readPump()
 
-	app.logInfo(r, logMsgStudentEventsEstablished, slog.Int64("student_id", sui.ID))
+	app.logDebug(r, logMsgStudentEventsEstablished, slog.Int64("student_id", sui.ID))
 }

@@ -43,7 +43,7 @@ func (app *App) handleStuAPIMySelections(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		app.logInfo(r, logMsgStudentSelectionsDelete, slog.Int64("student_id", sui.ID), slog.String("operation", "delete_selection"), slog.String("course_id", s))
-		app.broadcastCourseCounts(r, []string{s})
+		app.publishCourseStates(r, []string{s})
 		if get() {
 			return
 		}
@@ -74,7 +74,7 @@ func (app *App) handleStuAPIMySelections(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		app.logInfo(r, logMsgStudentSelectionsCreate, slog.Int64("student_id", sui.ID), slog.String("operation", "new_selection"), slog.String("course_id", s))
-		app.broadcastCourseCounts(r, []string{s})
+		app.publishCourseStates(r, []string{s})
 		if get() {
 			return
 		}

@@ -83,6 +83,13 @@ func main() {
 	if dbCfg.ConnectTimeout > 0 {
 		poolConfig.ConnConfig.ConnectTimeout = dbCfg.ConnectTimeout
 	}
+	if poolConfig.ConnConfig.RuntimeParams == nil {
+		poolConfig.ConnConfig.RuntimeParams = make(map[string]string)
+	}
+	// The student catalogue is a short, set-oriented read whose conservative
+	// planner estimate otherwise crosses PostgreSQL's JIT threshold. Compiling
+	// that query on every request costs far more than executing it.
+	poolConfig.ConnConfig.RuntimeParams["jit"] = "off"
 	app.pool, err = pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		log.Fatalf("open database: %v", err)
@@ -204,6 +211,8 @@ func main() {
 	server := &http.Server{
 		Handler:           mux,
 		ReadHeaderTimeout: time.Second * time.Duration(10),
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    64 << 10,
 		ErrorLog:          newHTTPServerErrorLogger(),
 	}
 	if err := server.Serve(l); err != nil {

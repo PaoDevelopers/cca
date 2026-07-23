@@ -55,6 +55,10 @@ func (app *App) logInfo(r *http.Request, msg string, extra ...slog.Attr) {
 	app.requestLogger(r, extra...).Info(msg)
 }
 
+func (app *App) logDebug(r *http.Request, msg string, extra ...slog.Attr) {
+	app.requestLogger(r, extra...).Debug(msg)
+}
+
 func (app *App) logWarn(r *http.Request, msg string, extra ...slog.Attr) {
 	app.requestLogger(r, extra...).Warn(msg)
 }

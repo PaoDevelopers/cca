@@ -193,7 +193,7 @@ func (app *App) handleAdmSelectionsNew(w http.ResponseWriter, r *http.Request, a
 		slog.String("selection_type", string(selectionType)),
 	)
 	app.wsHub.BroadcastToStudents(studentIDs, WSMessage("invalidate_selections"))
-	app.broadcastCourseCounts(r, courseIDs)
+	app.publishCourseStates(r, courseIDs)
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 
@@ -263,7 +263,7 @@ func (app *App) handleAdmSelectionsEdit(w http.ResponseWriter, r *http.Request, 
 	if currentCourseID != courseID {
 		courseSet = append(courseSet, currentCourseID)
 	}
-	app.broadcastCourseCounts(r, courseSet)
+	app.publishCourseStates(r, courseSet)
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 
@@ -297,7 +297,7 @@ func (app *App) handleAdmSelectionsDelete(w http.ResponseWriter, r *http.Request
 
 	app.logInfo(r, logMsgAdminSelectionsDelete, slog.String("admin_username", aui.Username), slog.Int64("student_id", studentID), slog.String("course_id", courseID))
 	app.wsHub.BroadcastToStudents([]int64{studentID}, WSMessage("invalidate_selections"))
-	app.broadcastCourseCounts(r, []string{courseID})
+	app.publishCourseStates(r, []string{courseID})
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }
 
@@ -460,7 +460,7 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 	if len(students) > 0 {
 		app.wsHub.BroadcastToStudents(students, WSMessage("invalidate_selections"))
 	}
-	app.broadcastCourseCounts(r, courses)
+	app.publishCourseStates(r, courses)
 
 	http.Redirect(w, r, "/admin/selections", http.StatusSeeOther)
 }

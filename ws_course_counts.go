@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
-	"strconv"
+	"time"
 )
 
-func (app *App) broadcastCourseCounts(r *http.Request, courseIDs []string) {
+const courseStateQueryTimeout = 2 * time.Second
+
+func (app *App) publishCourseStates(r *http.Request, courseIDs []string) {
 	if len(courseIDs) == 0 {
 		return
 	}
@@ -28,19 +31,23 @@ func (app *App) broadcastCourseCounts(r *http.Request, courseIDs []string) {
 		return
 	}
 
-	rows, err := app.queries.GetCourseCountsByIDs(r.Context(), dedup)
+	// The mutation has already committed. Do not lose its realtime update only
+	// because the caller disconnected while the response was being assembled.
+	ctx, cancel := context.WithTimeout(context.Background(), courseStateQueryTimeout)
+	defer cancel()
+	rows, err := app.queries.GetCourseStatesByIDs(ctx, dedup)
 	if err != nil {
 		app.logError(r, logMsgAdminCoursesCountsError, slog.Any("error", err))
 		return
 	}
 
-	counts := make(map[string]int64, len(dedup))
+	states := make([]CourseStateUpdate, 0, len(rows))
 	for _, row := range rows {
-		counts[row.ID] = row.CurrentStudents
+		states = append(states, CourseStateUpdate{
+			CourseID:        row.ID,
+			CurrentStudents: row.CurrentStudents,
+			StateRevision:   row.StateRevision,
+		})
 	}
-
-	for _, id := range dedup {
-		count := counts[id]
-		app.wsHub.Broadcast(WSMessage("course_count_update," + id + "," + strconv.FormatInt(count, 10)))
-	}
+	app.wsHub.PublishCourseStates(states)
 }

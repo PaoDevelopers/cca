@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
 	BookOpenCheckIcon,
 	CalendarDaysIcon,
@@ -232,31 +232,81 @@ function ScheduleSlotTabs({
 	)
 }
 
-function parseCourseCountUpdate(
+interface CourseStateUpdate {
+	courseID: string
+	currentStudents: number
+	stateRevision: number
+}
+
+function parseCourseStateBatch(
 	message: string,
-): { courseID: string; currentStudents: number } | null {
-	const parts = message.split(",")
-	const [messageType, courseID, countText] = parts
+): readonly CourseStateUpdate[] | null {
+	let parsed: unknown
+	try {
+		parsed = JSON.parse(message)
+	} catch {
+		return null
+	}
 	if (
-		parts.length !== 3 ||
-		messageType !== "course_count_update" ||
-		courseID === undefined ||
-		courseID === "" ||
-		countText === undefined
+		typeof parsed !== "object" ||
+		parsed === null ||
+		!("type" in parsed) ||
+		parsed.type !== "course_state" ||
+		!("courses" in parsed) ||
+		!Array.isArray(parsed.courses)
 	) {
 		return null
 	}
 
-	const currentStudents = Number(countText)
-	if (!Number.isSafeInteger(currentStudents) || currentStudents < 0) {
-		return null
+	const updates: CourseStateUpdate[] = []
+	for (const candidate of parsed.courses) {
+		if (
+			typeof candidate !== "object" ||
+			candidate === null ||
+			!("course_id" in candidate) ||
+			typeof candidate.course_id !== "string" ||
+			candidate.course_id === "" ||
+			!("current_students" in candidate) ||
+			!Number.isSafeInteger(candidate.current_students) ||
+			(candidate.current_students as number) < 0 ||
+			!("state_revision" in candidate) ||
+			!Number.isSafeInteger(candidate.state_revision) ||
+			(candidate.state_revision as number) <= 0
+		) {
+			return null
+		}
+		updates.push({
+			courseID: candidate.course_id,
+			currentStudents: candidate.current_students as number,
+			stateRevision: candidate.state_revision as number,
+		})
 	}
+	return updates
+}
 
-	return { courseID, currentStudents }
+function mergeNewerCourseStates(
+	bootstrap: StudentBootstrap,
+	current: StudentBootstrap | null,
+): StudentBootstrap {
+	if (current === null) return bootstrap
+	const currentByID = new Map(
+		current.courses.map((course) => [course.id, course]),
+	)
+	return {
+		...bootstrap,
+		courses: bootstrap.courses.map((course) => {
+			const existing = currentByID.get(course.id)
+			return existing !== undefined &&
+				existing.state_revision > course.state_revision
+				? existing
+				: course
+		}),
+	}
 }
 
 export default function StudentApp(): React.JSX.Element {
 	const [data, setData] = useState<StudentBootstrap | null>(null)
+	const dataRef = useRef<StudentBootstrap | null>(null)
 	const [error, setError] = useState<string | null>(null)
 	const [query, setQuery] = useState("")
 	const [layout, setLayout] = useState<CatalogLayout>("cards")
@@ -274,11 +324,22 @@ export default function StudentApp(): React.JSX.Element {
 
 	const load = useCallback(async (): Promise<void> => {
 		try {
-			const bootstrap = await apiRequest<StudentBootstrap>(
-				"/api/v1/student/bootstrap",
-			)
-			setData(bootstrap)
-			setError(null)
+			for (let attempt = 0; attempt < 2; attempt += 1) {
+				const bootstrap = await apiRequest<StudentBootstrap>(
+					"/api/v1/student/bootstrap",
+				)
+				const latest = dataRef.current
+				const merged = mergeNewerCourseStates(bootstrap, latest)
+				const snapshotWasStale = merged.courses.some(
+					(course, index) => course !== bootstrap.courses[index],
+				)
+				if (snapshotWasStale && attempt === 0) continue
+
+				dataRef.current = merged
+				setData(merged)
+				setError(null)
+				return
+			}
 		} catch (caught) {
 			setError(
 				caught instanceof Error
@@ -289,55 +350,103 @@ export default function StudentApp(): React.JSX.Element {
 	}, [])
 
 	useEffect(() => {
-		// eslint-disable-next-line react-hooks/set-state-in-effect -- Catalogue state is set after the requests resolve.
 		void load()
 	}, [load])
 
-	useEffect(() => {
-		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
-		const socket = new WebSocket(
-			`${protocol}//${window.location.host}/api/v1/student/events`,
-		)
-		socket.addEventListener("message", (event) => {
-			if (typeof event.data !== "string") return
-			if (event.data.startsWith("notify,")) {
-				toast.info(event.data.slice("notify,".length))
-				return
-			}
+	const applyCourseStates = useCallback(
+		(updates: readonly CourseStateUpdate[]): void => {
+			const current = dataRef.current
+			if (current === null || updates.length === 0) return
 
-			const countUpdate = parseCourseCountUpdate(event.data)
-			if (countUpdate !== null) {
-				setData((current) => {
-					if (current === null) return current
+			const byCourseID = new Map(
+				updates.map((update) => [update.courseID, update]),
+			)
+			let capacityBoundaryChanged = false
+			let changed = false
+			const courses = current.courses.map((course) => {
+				const update = byCourseID.get(course.id)
+				if (
+					update === undefined ||
+					update.stateRevision <= course.state_revision
+				) {
+					return course
+				}
 
-					const courseIndex = current.courses.findIndex(
-						(course) => course.id === countUpdate.courseID,
-					)
-					const existingCourse = current.courses[courseIndex]
-					if (
-						existingCourse === undefined ||
-						existingCourse.current_students ===
-							countUpdate.currentStudents
-					) {
-						return current
-					}
+				changed = true
+				const wasFull = course.current_students >= course.max_students
+				const isFull = update.currentStudents >= course.max_students
+				if (!course.selected && wasFull !== isFull) {
+					capacityBoundaryChanged = true
+				}
+				return {
+					...course,
+					current_students: update.currentStudents,
+					state_revision: update.stateRevision,
+				}
+			})
+			if (!changed) return
 
-					const courses = [...current.courses]
-					courses[courseIndex] = {
-						...existingCourse,
-						current_students: countUpdate.currentStudents,
-					}
-					return { ...current, courses }
-				})
-				return
-			}
-
-			if (event.data.startsWith("invalidate_")) {
+			const next = { ...current, courses }
+			dataRef.current = next
+			setData(next)
+			if (capacityBoundaryChanged) {
 				void load()
 			}
-		})
-		return () => socket.close()
-	}, [load])
+		},
+		[load],
+	)
+
+	useEffect(() => {
+		const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+		let socket: WebSocket | null = null
+		let retryTimer: number | undefined
+		let retryDelay = 1_000
+		let stopped = false
+		let connectedBefore = false
+
+		const connect = (): void => {
+			socket = new WebSocket(
+				`${protocol}//${window.location.host}/api/v1/student/events`,
+			)
+			socket.addEventListener("open", () => {
+				if (connectedBefore) void load()
+				connectedBefore = true
+				retryDelay = 1_000
+			})
+			socket.addEventListener("message", (event) => {
+				if (typeof event.data !== "string") return
+				if (event.data.startsWith("notify,")) {
+					toast.info(event.data.slice("notify,".length))
+					return
+				}
+
+				const courseStates = parseCourseStateBatch(event.data)
+				if (courseStates !== null) {
+					applyCourseStates(courseStates)
+					return
+				}
+
+				if (event.data.startsWith("invalidate_")) {
+					void load()
+				}
+			})
+			socket.addEventListener("close", () => {
+				if (stopped) return
+				const jitteredDelay = retryDelay * (0.75 + Math.random() * 0.5)
+				retryTimer = window.setTimeout(() => {
+					retryDelay = Math.min(retryDelay * 2, 15_000)
+					connect()
+				}, jitteredDelay)
+			})
+		}
+
+		connect()
+		return () => {
+			stopped = true
+			if (retryTimer !== undefined) window.clearTimeout(retryTimer)
+			socket?.close()
+		}
+	}, [applyCourseStates, load])
 
 	const selectedCourses = useMemo(
 		() => courses.filter((course) => course.selected),
@@ -454,7 +563,12 @@ export default function StudentApp(): React.JSX.Element {
 						}),
 					},
 				)
-				setData(bootstrap)
+				const merged = mergeNewerCourseStates(
+					bootstrap,
+					dataRef.current,
+				)
+				dataRef.current = merged
+				setData(merged)
 				setError(null)
 				toast.success(
 					method === "POST"

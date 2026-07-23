@@ -54,8 +54,10 @@ const (
 	logMsgWebsocketClientUnregistered       = "websocket.client.unregistered"
 	logMsgWebsocketBroadcastAll             = "websocket.broadcast.all"
 	logMsgWebsocketBroadcastTargeted        = "websocket.broadcast.targeted"
-	logMsgWebsocketDropSlowClient           = "websocket.broadcast.drop_slow_client"
-	logMsgWebsocketDropTargetedSlowClient   = "websocket.broadcast.targeted_drop_slow_client"
+	logMsgWebsocketBroadcastCourseState     = "websocket.broadcast.course_state"
+	logMsgWebsocketCourseStateEncodeError   = "websocket.course_state.encode_error"
+	logMsgWebsocketSlowClientDisconnected   = "websocket.slow_client.disconnected"
+	logMsgWebsocketPingFailed               = "websocket.ping.failed"
 	logMsgWebsocketWriteError               = "websocket.write.error"
 	logMsgWebsocketReadError                = "websocket.read.error"
 	logMsgStartupConfigLoad                 = "startup.config.load"     //#nosec:G101

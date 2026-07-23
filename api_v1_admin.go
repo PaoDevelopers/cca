@@ -324,7 +324,7 @@ func (app *App) handleAPIAdminSelections(w http.ResponseWriter, r *http.Request,
 			return
 		}
 		app.wsHub.BroadcastToStudents(payload.StudentIDs, WSMessage("invalidate_selections"))
-		app.broadcastCourseCounts(r, payload.CourseIDs)
+		app.publishCourseStates(r, payload.CourseIDs)
 		app.writeJSON(r, w, http.StatusCreated, map[string]int64{"created": created})
 	default:
 		app.writeAPIError(r, w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed.", nil)
@@ -383,7 +383,7 @@ func (app *App) handleAPIAdminSelection(w http.ResponseWriter, r *http.Request, 
 		}
 		app.wsHub.BroadcastToStudents([]int64{studentID}, WSMessage("invalidate_selections"))
 		courseIDs := normalizeStringSet([]string{currentCourseID, payload.CourseID})
-		app.broadcastCourseCounts(r, courseIDs)
+		app.publishCourseStates(r, courseIDs)
 		w.WriteHeader(http.StatusNoContent)
 	case http.MethodDelete:
 		if err := app.queries.DeleteSelection(r.Context(), db.DeleteSelectionParams{StudentID: studentID, CourseID: currentCourseID}); err != nil {
@@ -391,7 +391,7 @@ func (app *App) handleAPIAdminSelection(w http.ResponseWriter, r *http.Request, 
 			return
 		}
 		app.wsHub.BroadcastToStudents([]int64{studentID}, WSMessage("invalidate_selections"))
-		app.broadcastCourseCounts(r, []string{currentCourseID})
+		app.publishCourseStates(r, []string{currentCourseID})
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		app.writeAPIError(r, w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed.", nil)

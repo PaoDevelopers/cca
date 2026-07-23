@@ -58,6 +58,7 @@ export interface Course {
 	period_ids: readonly string[]
 	max_students: number
 	current_students: number
+	state_revision: number
 	membership: MembershipType
 	teacher: string
 	location: string

@@ -110,17 +110,47 @@ func TestPostgresV1ToV2MigrationIntegration(t *testing.T) {
 		assertMigratedCoursePeriods(t, ctx, pool, "M-FULL-MW2", []string{"Monday CCA 2", "Wednesday CCA 2"})
 		assertMigratedCoursePeriods(t, ctx, pool, "M-FULL-TT4", []string{"Tuesday CCA 4", "Thursday CCA 4"})
 
-		var periodCount, choiceCount, unusedCount int
+		var periodCount, choiceCount, unusedCount, stateCount, stateMismatchCount int
 		if err := pool.QueryRow(ctx, `
 			SELECT
 				(SELECT count(*) FROM periods),
 				(SELECT count(*) FROM choices),
-				(SELECT count(*) FROM periods WHERE id = 'Unused legacy label')
-		`).Scan(&periodCount, &choiceCount, &unusedCount); err != nil {
+				(SELECT count(*) FROM periods WHERE id = 'Unused legacy label'),
+				(SELECT count(*) FROM course_selection_state),
+				(
+					SELECT count(*)
+					FROM course_selection_state state
+					JOIN (
+						SELECT course.id, count(choice.*)::bigint AS actual
+						FROM courses course
+						LEFT JOIN choices choice ON choice.course_id = course.id
+						GROUP BY course.id
+					) counted ON counted.id = state.course_id
+					WHERE state.current_students <> counted.actual
+						OR state.revision <= 0
+				)
+		`).Scan(
+			&periodCount,
+			&choiceCount,
+			&unusedCount,
+			&stateCount,
+			&stateMismatchCount,
+		); err != nil {
 			t.Fatalf("inspect migrated data: %v", err)
 		}
-		if periodCount != 16 || choiceCount != 5 || unusedCount != 0 {
-			t.Fatalf("migrated counts periods=%d choices=%d unused=%d, want 16, 5, 0", periodCount, choiceCount, unusedCount)
+		if periodCount != 16 ||
+			choiceCount != 5 ||
+			unusedCount != 0 ||
+			stateCount != 5 ||
+			stateMismatchCount != 0 {
+			t.Fatalf(
+				"migrated counts periods=%d choices=%d unused=%d states=%d mismatches=%d; want 16, 5, 0, 5, 0",
+				periodCount,
+				choiceCount,
+				unusedCount,
+				stateCount,
+				stateMismatchCount,
+			)
 		}
 
 		rows, err := pool.Query(ctx, `
@@ -696,6 +726,112 @@ func TestPostgresConcurrencyIntegration(t *testing.T) {
 		if persisted != 25 {
 			t.Fatalf("persisted choices = %d, want 25", persisted)
 		}
+
+		var stateCount, stateRevision int64
+		if err := pool.QueryRow(ctx, `
+				SELECT current_students, revision
+				FROM course_selection_state
+				WHERE course_id = $1
+			`, courseID).Scan(&stateCount, &stateRevision); err != nil {
+			t.Fatalf("read capacity state: %v", err)
+		}
+		if stateCount != int64(persisted) || stateRevision <= 0 {
+			t.Fatalf(
+				"capacity state count=%d revision=%d, want count=%d and positive revision",
+				stateCount,
+				stateRevision,
+				persisted,
+			)
+		}
+	})
+
+	t.Run("course state follows selection insert move and delete", func(t *testing.T) {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		const (
+			gradeID    = "IT State Grade"
+			categoryID = "IT State Category"
+			studentID  = int64(1_500_001)
+			courseA    = "IT-STATE-A"
+			courseB    = "IT-STATE-B"
+		)
+
+		seedGradeAndCategory(t, ctx, pool, gradeID, categoryID, 4)
+		seedStudents(t, ctx, pool, studentID-1, 1, gradeID, "State")
+		seedCourses(
+			t,
+			ctx,
+			pool,
+			categoryID,
+			4,
+			[]string{courseA, courseB},
+			[]string{"Monday CCA 1", "Tuesday CCA 1"},
+		)
+
+		initialRevisions := make(map[string]int64, 2)
+		rows, err := pool.Query(ctx, `
+			SELECT course_id, revision
+			FROM course_selection_state
+			WHERE course_id IN ($1, $2)
+		`, courseA, courseB)
+		if err != nil {
+			t.Fatalf("read initial course state: %v", err)
+		}
+		for rows.Next() {
+			var courseID string
+			var revision int64
+			if err := rows.Scan(&courseID, &revision); err != nil {
+				rows.Close()
+				t.Fatalf("scan initial course state: %v", err)
+			}
+			initialRevisions[courseID] = revision
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			t.Fatalf("iterate initial course state: %v", err)
+		}
+		rows.Close()
+
+		if _, err := pool.Exec(
+			ctx,
+			"SELECT new_selection($1, $2, $3, 'normal'::selection_type)",
+			studentID,
+			courseA,
+			"Monday CCA 1",
+		); err != nil {
+			t.Fatalf("insert selection: %v", err)
+		}
+		insertedRevisionA := assertCourseSelectionState(
+			t,
+			ctx,
+			pool,
+			courseA,
+			1,
+			initialRevisions[courseA],
+		)
+
+		if _, err := pool.Exec(ctx, `
+			UPDATE choices
+			SET course_id = $3, period_id = $4
+			WHERE student_id = $1 AND course_id = $2
+		`, studentID, courseA, courseB, "Tuesday CCA 1"); err != nil {
+			t.Fatalf("move selection: %v", err)
+		}
+		assertCourseSelectionState(t, ctx, pool, courseA, 0, insertedRevisionA)
+		movedRevision := assertCourseSelectionState(
+			t,
+			ctx,
+			pool,
+			courseB,
+			1,
+			initialRevisions[courseB],
+		)
+
+		if _, err := pool.Exec(ctx, "SELECT delete_choice($1, $2)", studentID, courseB); err != nil {
+			t.Fatalf("delete selection: %v", err)
+		}
+		assertCourseSelectionState(t, ctx, pool, courseB, 0, movedRevision)
 	})
 
 	t.Run("one student can win only one overlapping course", func(t *testing.T) {
@@ -1730,6 +1866,37 @@ func assertMultipleBackends(t *testing.T, results []selectionRaceResult) {
 	if len(backendPIDs) < 2 {
 		t.Fatalf("selection race used %d PostgreSQL backend, want at least 2", len(backendPIDs))
 	}
+}
+
+func assertCourseSelectionState(
+	t *testing.T,
+	ctx context.Context,
+	pool *pgxpool.Pool,
+	courseID string,
+	wantCount int64,
+	previousRevision int64,
+) int64 {
+	t.Helper()
+
+	var count, revision int64
+	if err := pool.QueryRow(ctx, `
+		SELECT current_students, revision
+		FROM course_selection_state
+		WHERE course_id = $1
+	`, courseID).Scan(&count, &revision); err != nil {
+		t.Fatalf("read course state for %s: %v", courseID, err)
+	}
+	if count != wantCount || revision <= previousRevision {
+		t.Fatalf(
+			"course %s state count=%d revision=%d, want count=%d and revision > %d",
+			courseID,
+			count,
+			revision,
+			wantCount,
+			previousRevision,
+		)
+	}
+	return revision
 }
 
 func assertPGConstraint(t *testing.T, err error, code string, constraint string) {
