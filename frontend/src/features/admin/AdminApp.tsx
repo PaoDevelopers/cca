@@ -189,23 +189,22 @@ function AdminShell({
 	return (
 		<SidebarProvider>
 			<Sidebar variant="sidebar" collapsible="icon">
-				<SidebarHeader>
+				<SidebarHeader className="group-data-[collapsible=icon]:hidden">
 					<SidebarMenu>
 						<SidebarMenuItem>
 							<SidebarMenuButton
 								render={<Link to="/admin/dashboard" />}
 								size="lg"
-								tooltip="CCA Admin"
+								className="h-auto min-h-12"
 							>
-								<BookOpenIcon aria-hidden="true" />
-								<span className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+								<div className="grid min-w-0 gap-0.5 text-left leading-tight">
 									<span className="truncate font-heading font-semibold">
-										CCA Admin
+										YKPaoSchool CCA Sign-Up
 									</span>
-									<span className="truncate text-xs text-muted-foreground">
-										YK Pao School
+									<span className="text-xs text-muted-foreground">
+										Admin Panel
 									</span>
-								</span>
+								</div>
 							</SidebarMenuButton>
 						</SidebarMenuItem>
 					</SidebarMenu>
