@@ -127,6 +127,7 @@ func main() {
 	// Router
 	slog.Info(logMsgStartupRoutesRegister)
 	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", app.handleHealthz)
 	mux.HandleFunc("/{$}", app.handleIndex)
 	mux.HandleFunc("/auth", app.handleAuth)
 	mux.HandleFunc("/dp42ik", app.handleDP42IK)
