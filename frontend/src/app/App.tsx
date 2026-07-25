@@ -3,9 +3,9 @@ import { Navigate, Route, Routes } from "react-router-dom"
 
 import { PageSkeleton } from "@/components/common"
 
-const AdminApp = lazy(() => import("@/features/admin/AdminApp"))
-const StudentApp = lazy(() => import("@/features/student/StudentApp"))
-const TestLoginPage = lazy(() => import("@/features/auth/TestLoginPage"))
+const AdminApp = lazy(() => import("@/features/admin/app/AdminApp"))
+const StudentApp = lazy(() => import("@/features/student/app/StudentApp"))
+const TestLoginPage = lazy(() => import("@/features/auth/pages/TestLoginPage"))
 
 export default function App(): React.JSX.Element {
 	return (

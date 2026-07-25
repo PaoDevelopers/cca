@@ -1,4 +1,3 @@
-import { useEffect, useMemo, useState } from "react"
 import {
 	BookOpenIcon,
 	FilterIcon,
@@ -11,9 +10,10 @@ import {
 	UserRoundIcon,
 	XIcon,
 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
-import { apiRequest, jsonBody } from "@/api"
+import { adminRequest, jsonBody } from "@/api"
 import { PeriodBadges } from "@/components/common"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -130,8 +130,8 @@ import {
 } from "@/components/ui/table"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import type { AdminPageProps } from "@/features/admin/AdminApp"
-import { StudentDialog } from "@/features/admin/AdminPages"
+import type { AdminPageProps } from "@/features/admin/app/AdminApp"
+import { StudentDialog } from "@/features/admin/components/StudentDialog"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { CCA_DAYS, CCA_SLOTS_PER_DAY, ccaTimeSlotID } from "@/lib/cca-schedule"
 import { cn } from "@/lib/utils"
@@ -1687,7 +1687,7 @@ function AssignmentDialog({
 		if (course === undefined || periodID === "" || invalidCount > 0) return
 		setBusy(true)
 		try {
-			await apiRequest("/api/v1/admin/selections", {
+			await adminRequest("/selections", {
 				method: "POST",
 				body: jsonBody({
 					student_ids: studentIDs,
@@ -2184,8 +2184,8 @@ export function ParticipationPage({
 		)
 			return
 		try {
-			await apiRequest(
-				`/api/v1/admin/selections/${selection.student_id}/${encodeURIComponent(selection.course_id)}`,
+			await adminRequest(
+				`/selections/${selection.student_id}/${encodeURIComponent(selection.course_id)}`,
 				{
 					method: "PUT",
 					body: jsonBody({
@@ -2209,8 +2209,8 @@ export function ParticipationPage({
 	async function deleteSelection(selection: Selection): Promise<void> {
 		if (selection.student_id === undefined) return
 		try {
-			await apiRequest(
-				`/api/v1/admin/selections/${selection.student_id}/${encodeURIComponent(selection.course_id)}`,
+			await adminRequest(
+				`/selections/${selection.student_id}/${encodeURIComponent(selection.course_id)}`,
 				{ method: "DELETE" },
 			)
 			await refresh()
@@ -2236,8 +2236,8 @@ export function ParticipationPage({
 				selected.map((selection) => {
 					if (selection.student_id === undefined)
 						return Promise.resolve()
-					return apiRequest(
-						`/api/v1/admin/selections/${selection.student_id}/${encodeURIComponent(selection.course_id)}`,
+					return adminRequest(
+						`/selections/${selection.student_id}/${encodeURIComponent(selection.course_id)}`,
 						{
 							method: "PUT",
 							body: jsonBody({
@@ -2275,8 +2275,8 @@ export function ParticipationPage({
 				selected.map((selection) => {
 					if (selection.student_id === undefined)
 						return Promise.resolve()
-					return apiRequest(
-						`/api/v1/admin/selections/${selection.student_id}/${encodeURIComponent(selection.course_id)}`,
+					return adminRequest(
+						`/selections/${selection.student_id}/${encodeURIComponent(selection.course_id)}`,
 						{ method: "DELETE" },
 					)
 				}),

@@ -13,7 +13,7 @@ import {
 } from "lucide-react"
 import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom"
 
-import { apiRequest } from "@/api"
+import { adminRequest } from "@/api"
 import { ErrorAlert, PageSkeleton } from "@/components/common"
 import {
 	Sidebar,
@@ -34,16 +34,16 @@ import {
 	useSidebar,
 } from "@/components/ui/sidebar"
 import type { AdminBootstrap, AdminDashboard, AdminSession } from "@/types"
+import { CoursesPage } from "@/features/admin/pages/CoursesPage"
+import { DashboardPage } from "@/features/admin/pages/DashboardPage"
+import { DataManagementPage } from "@/features/admin/pages/DataManagementPage"
+import { GradesPage } from "@/features/admin/pages/GradesPage"
+import { NotificationsPage } from "@/features/admin/pages/NotificationsPage"
+import { ParticipationPage } from "@/features/admin/pages/ParticipationPage"
 import {
 	CategoriesPage,
-	CoursesPage,
-	DashboardPage,
-	DataManagementPage,
-	GradesPage,
-	NotificationsPage,
 	PeriodsPage,
-} from "@/features/admin/AdminPages"
-import { ParticipationPage } from "@/features/admin/ParticipationPage"
+} from "@/features/admin/pages/ResourcePages"
 
 interface NavigationItem {
 	path: string
@@ -259,9 +259,7 @@ export default function AdminApp(): React.JSX.Element {
 
 	const refresh = useCallback(async (): Promise<void> => {
 		try {
-			const next = await apiRequest<AdminBootstrap>(
-				"/api/v1/admin/bootstrap",
-			)
+			const next = await adminRequest<AdminBootstrap>("/bootstrap")
 			setData(next)
 			setError(null)
 		} catch (caught) {
@@ -277,7 +275,7 @@ export default function AdminApp(): React.JSX.Element {
 		if (isAdminRoot) return
 		if (isDashboard) {
 			const controller = new AbortController()
-			void apiRequest<AdminDashboard>("/api/v1/admin/dashboard", {
+			void adminRequest<AdminDashboard>("/dashboard", {
 				signal: controller.signal,
 			})
 				.then((next) => {

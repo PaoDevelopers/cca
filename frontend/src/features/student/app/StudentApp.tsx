@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { apiRequest, jsonBody } from "@/api"
+import { studentRequest, jsonBody } from "@/api"
 import { ErrorAlert, PageSkeleton, PeriodBadges } from "@/components/common"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
@@ -89,7 +89,7 @@ import {
 	CourseList,
 	CourseTimetable,
 	type CatalogLayout,
-} from "@/features/student/CourseCatalogViews"
+} from "@/features/student/components/CourseCatalogViews"
 import { useSearchFilter } from "@/hooks/use-search-filter"
 import {
 	CCA_DAYS,
@@ -325,9 +325,8 @@ export default function StudentApp(): React.JSX.Element {
 	const load = useCallback(async (): Promise<void> => {
 		try {
 			for (let attempt = 0; attempt < 2; attempt += 1) {
-				const bootstrap = await apiRequest<StudentBootstrap>(
-					"/api/v1/student/bootstrap",
-				)
+				const bootstrap =
+					await studentRequest<StudentBootstrap>("/bootstrap")
 				const latest = dataRef.current
 				const merged = mergeNewerCourseStates(bootstrap, latest)
 				const snapshotWasStale = merged.courses.some(
@@ -406,7 +405,7 @@ export default function StudentApp(): React.JSX.Element {
 
 		const connect = (): void => {
 			socket = new WebSocket(
-				`${protocol}//${window.location.host}/api/v1/student/events`,
+				`${protocol}//${window.location.host}/events`,
 			)
 			socket.addEventListener("open", () => {
 				if (connectedBefore) void load()
@@ -552,8 +551,8 @@ export default function StudentApp(): React.JSX.Element {
 		): Promise<void> => {
 			setBusyCourseID(course.id)
 			try {
-				const bootstrap = await apiRequest<StudentBootstrap>(
-					"/api/v1/student/selections",
+				const bootstrap = await studentRequest<StudentBootstrap>(
+					"/selections",
 					{
 						method,
 						body: jsonBody({
