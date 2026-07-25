@@ -27,7 +27,7 @@ func TestCartesianSelectionBatchProducesAlignedArrays(t *testing.T) {
 		t.Fatalf("selection types length = %d, want 4", len(got.SelectionTypes))
 	}
 	for i, selectionType := range got.SelectionTypes {
-		if selectionType != db.SelectionTypeInvite {
+		if selectionType != string(db.SelectionTypeInvite) {
 			t.Fatalf("selection type %d = %q, want %q", i, selectionType, db.SelectionTypeInvite)
 		}
 	}

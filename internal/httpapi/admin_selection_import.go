@@ -140,12 +140,12 @@ func (app *App) handleAdmSelectionsImport(w http.ResponseWriter, r *http.Request
 	studentIDs := make([]int64, 0, len(records))
 	courseIDs := make([]string, 0, len(records))
 	periodIDs := make([]string, 0, len(records))
-	selectionTypes := make([]db.SelectionType, 0, len(records))
+	selectionTypes := make([]string, 0, len(records))
 	for _, record := range records {
 		studentIDs = append(studentIDs, record.studentID)
 		courseIDs = append(courseIDs, record.courseID)
 		periodIDs = append(periodIDs, record.periodID)
-		selectionTypes = append(selectionTypes, record.selectionType)
+		selectionTypes = append(selectionTypes, string(record.selectionType))
 		studentSet[record.studentID] = struct{}{}
 		courseSet[record.courseID] = struct{}{}
 	}

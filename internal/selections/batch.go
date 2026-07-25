@@ -14,14 +14,14 @@ func CartesianBatch(
 		StudentIds:     make([]int64, 0, batchSize),
 		CourseIds:      make([]string, 0, batchSize),
 		PeriodIds:      make([]string, 0, batchSize),
-		SelectionTypes: make([]db.SelectionType, 0, batchSize),
+		SelectionTypes: make([]string, 0, batchSize),
 	}
 	for _, studentID := range studentIDs {
 		for index, courseID := range courseIDs {
 			params.StudentIds = append(params.StudentIds, studentID)
 			params.CourseIds = append(params.CourseIds, courseID)
 			params.PeriodIds = append(params.PeriodIds, periodIDs[index])
-			params.SelectionTypes = append(params.SelectionTypes, selectionType)
+			params.SelectionTypes = append(params.SelectionTypes, string(selectionType))
 		}
 	}
 	return params

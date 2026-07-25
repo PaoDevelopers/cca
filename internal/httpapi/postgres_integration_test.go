@@ -1334,15 +1334,13 @@ func TestPostgresConcurrencyIntegration(t *testing.T) {
 		`, studentBase+1, studentBase+2, courseIDs[0])
 		assertPGConstraint(t, err, "22023", "selection_batch_shape")
 
-		var inserted int64
-		if err := pool.QueryRow(ctx, `
-			SELECT new_selections_batch(
-				ARRAY[$1::bigint, $2::bigint],
-				ARRAY[$3::text, $4::text],
-				ARRAY['Monday CCA 2'::text, 'Tuesday CCA 2'::text],
-				ARRAY['normal'::selection_type, 'normal'::selection_type]
-			)
-		`, studentBase+1, studentBase+2, courseIDs[0], courseIDs[1]).Scan(&inserted); err != nil {
+		inserted, err := db.New(pool).NewSelectionsBatch(ctx, db.NewSelectionsBatchParams{
+			StudentIds:     []int64{studentBase + 1, studentBase + 2},
+			CourseIds:      courseIDs,
+			PeriodIds:      []string{"Monday CCA 2", "Tuesday CCA 2"},
+			SelectionTypes: []string{"normal", "normal"},
+		})
+		if err != nil {
 			t.Fatalf("insert selection batch: %v", err)
 		}
 		if inserted != 2 {

@@ -51,7 +51,7 @@ SELECT new_selections_batch(
 	sqlc.arg(student_ids)::bigint[],
 	sqlc.arg(course_ids)::text[],
 	sqlc.arg(period_ids)::text[],
-	sqlc.arg(selection_types)::selection_type[]
+	sqlc.arg(selection_types)::text[]::selection_type[]
 ) AS inserted_count;
 
 -- name: UpdateSelection :execrows
