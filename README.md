@@ -11,15 +11,39 @@ You need a recent [Go](https://go.dev) toolchain and
 [npm](https://www.npmjs.com/). [`sqlc`](https://sqlc.dev) is necessary but will
 be downloaded and run automatically if absent from `$PATH`.
 
-To install NPM packages, run `./prepare`.
+To install NPM packages, run `./prepare` (a compatibility wrapper around
+`./scripts/prepare.sh`).
 
-To build, just run `./build`.
+To build, run `./build` (a compatibility wrapper around
+`./scripts/build.sh`).
 
-To lint, just run `./lint`.
+To lint, run `./lint` (a compatibility wrapper around `./scripts/lint.sh`).
 
 The frontend is one React and shadcn application. Vite produces a shared build
 that the Go service exposes at `/student/` and `/admin/`; both application areas
 use the versioned JSON API below `/api/v1/`.
+
+## Project structure
+
+```text
+cmd/cca/                Go executable entry point
+internal/app/           process startup and dependency wiring
+internal/httpapi/       HTTP routes, authentication, and API handlers
+internal/courses/       course write service
+internal/realtime/      WebSocket hub and fan-out
+internal/selections/    batch selection construction
+internal/transfer/      CSV and Excel transfer support
+internal/store/sqlc/    generated PostgreSQL access package
+database/               schema, migrations, queries, fixtures, and test data
+frontend/src/api/       shared, administrator, and student API clients
+frontend/src/features/  React feature applications, pages, and components
+scripts/                build, lint, and dependency setup scripts
+tools/                  standalone maintenance and load-testing utilities
+```
+
+The root `build`, `lint`, and `prepare` commands are compatibility wrappers
+around the scripts in `scripts/`. Deployment entry points stay at the repository
+root as `Dockerfile` and `compose.yaml`.
 
 For local frontend development, run the Go service and then:
 
@@ -33,8 +57,8 @@ Vite proxies `/api` (including WebSocket upgrades) to `CCA_API_TARGET`.
 ### Local Docker stack
 
 The local Docker stack builds the React frontend and Go service, starts an
-isolated PostgreSQL database, and loads `schema.sql` plus `dev/mock_data.sql` on
-the first run:
+isolated PostgreSQL database, and loads `database/schema.sql` plus
+`database/fixtures/mock_data.sql` on the first run:
 
 ```sh
 docker compose up -d --build
@@ -75,13 +99,17 @@ and requires an `access_key` of at least 16 characters. Never enable it in
 production. The access key is entered on the test login page and must not be
 committed to source control.
 
-Note that this service does not have automatic database schema migrations.
+Database schema, migration, query, fixture, and test-data files are grouped
+under [`database/`](database/). Note that this service does not have automatic
+database schema migrations.
 Instance administrators are required to run the schema and relevant migrations
 themselves.
 
-For a new database, apply [`schema.sql`](schema.sql). To upgrade a schema-version
-1 database, back it up and apply the single atomic
-[`migrations/002_multi_periods.sql`](migrations/002_multi_periods.sql) migration.
+For a new database, apply
+[`database/schema.sql`](database/schema.sql). To upgrade a schema-version 1
+database, back it up and apply the single atomic
+[`database/migrations/002_multi_periods.sql`](database/migrations/002_multi_periods.sql)
+migration.
 Run it in a maintenance window: it takes `ACCESS EXCLUSIVE` locks while keys,
 reference data, and triggers are replaced.
 
