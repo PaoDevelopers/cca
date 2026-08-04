@@ -8,13 +8,7 @@ import {
 	useRef,
 	useState,
 } from "react"
-import {
-	CheckIcon,
-	ClockAlertIcon,
-	MousePointerClickIcon,
-	RotateCcwIcon,
-	XIcon,
-} from "lucide-react"
+import { XIcon } from "lucide-react"
 
 import { BlockReasonBadges, PeriodBadges } from "@/components/common"
 import { Badge } from "@/components/ui/badge"
@@ -38,7 +32,6 @@ import {
 	EmptyContent,
 	EmptyDescription,
 	EmptyHeader,
-	EmptyMedia,
 	EmptyTitle,
 } from "@/components/ui/empty"
 import { Spinner } from "@/components/ui/spinner"
@@ -133,8 +126,6 @@ function CourseAction({
 		>
 			{busy ? (
 				<Spinner data-icon="inline-start" aria-hidden="true" />
-			) : course.selected ? (
-				<CheckIcon data-icon="inline-start" />
 			) : null}
 			{label}
 		</Button>
@@ -1166,9 +1157,6 @@ export function CourseTimetable({
 			{courses.length === 0 ? (
 				<Empty>
 					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<ClockAlertIcon />
-						</EmptyMedia>
 						<EmptyTitle>No matching CCA candidates</EmptyTitle>
 						<EmptyDescription>
 							Try another search, timetable slot, or filter.
@@ -1176,7 +1164,6 @@ export function CourseTimetable({
 					</EmptyHeader>
 					<EmptyContent>
 						<Button variant="outline" onClick={onResetFilters}>
-							<RotateCcwIcon data-icon="inline-start" />
 							Reset filters
 						</Button>
 					</EmptyContent>
@@ -1245,7 +1232,6 @@ export function CourseTimetable({
 								disabled={busyCourseID !== null}
 								onClick={() => onToggle(activeCourse, periodID)}
 							>
-								<MousePointerClickIcon data-icon="inline-start" />
 								{formatCCATimeSlotLabel(periodID)}
 							</Button>
 						))}

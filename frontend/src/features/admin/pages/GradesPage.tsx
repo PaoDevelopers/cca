@@ -1,10 +1,4 @@
-import {
-	CalendarClockIcon,
-	CalendarDaysIcon,
-	PencilIcon,
-	PlusIcon,
-	SaveIcon,
-} from "lucide-react"
+import { CalendarDaysIcon, PencilIcon, SaveIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import { adminRequest, jsonBody } from "@/api"
@@ -17,7 +11,6 @@ import {
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogHeader,
-	AlertDialogMedia,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -195,11 +188,7 @@ function GradeDialog({
 								Number(maxChoices) < 0
 							}
 						>
-							{busy ? (
-								<Spinner data-icon="inline-start" />
-							) : (
-								<PlusIcon data-icon="inline-start" />
-							)}
+							{busy ? <Spinner data-icon="inline-start" /> : null}
 							Create
 						</Button>
 					</DialogFooter>
@@ -344,11 +333,7 @@ function RequirementDialog({
 								Number(minimum) < 0
 							}
 						>
-							{busy ? (
-								<Spinner data-icon="inline-start" />
-							) : (
-								<PlusIcon data-icon="inline-start" />
-							)}
+							{busy ? <Spinner data-icon="inline-start" /> : null}
 							Create
 						</Button>
 					</DialogFooter>
@@ -742,7 +727,6 @@ function GradeScheduleDialog({
 						) : null}
 						{currentlyOpenGrades.length > 0 && !editing?.opened ? (
 							<Alert>
-								<CalendarClockIcon />
 								<AlertTitle>
 									Currently open grades will close now
 								</AlertTitle>
@@ -756,7 +740,6 @@ function GradeScheduleDialog({
 						) : null}
 						{activeConflictGrades.length > 0 ? (
 							<Alert variant="destructive">
-								<CalendarClockIcon />
 								<AlertTitle>
 									An active window cannot be replaced
 								</AlertTitle>
@@ -770,7 +753,6 @@ function GradeScheduleDialog({
 						) : null}
 						{replaceableConflictGrades.length > 0 ? (
 							<Alert variant="destructive">
-								<CalendarClockIcon />
 								<AlertTitle>
 									Existing schedules will be replaced
 								</AlertTitle>
@@ -786,7 +768,6 @@ function GradeScheduleDialog({
 							</Alert>
 						) : null}
 						<Alert>
-							<CalendarClockIcon />
 							<AlertTitle>Review the schedule</AlertTitle>
 							<AlertDescription>
 								{gradeIDs.length === 0 ? (
@@ -816,11 +797,7 @@ function GradeScheduleDialog({
 							Cancel
 						</Button>
 						<Button type="submit" disabled={busy || !valid}>
-							{busy ? (
-								<Spinner data-icon="inline-start" />
-							) : (
-								<CalendarClockIcon data-icon="inline-start" />
-							)}
+							{busy ? <Spinner data-icon="inline-start" /> : null}
 							{replaceableConflictGrades.length > 0
 								? "Replace and save"
 								: "Save schedule"}
@@ -856,7 +833,6 @@ function GradeRequirementsCard({
 						disabled={categories.length === 0}
 						onClick={() => setRequirementOpen(true)}
 					>
-						<PlusIcon data-icon="inline-start" />
 						Add requirement
 					</Button>
 				</CardAction>
@@ -1022,7 +998,6 @@ export function GradesPage({
 				description="Control when students can select CCAs and define grade requirements."
 				action={
 					<Button onClick={() => setGradeDialogOpen(true)}>
-						<PlusIcon data-icon="inline-start" />
 						Add grade
 					</Button>
 				}
@@ -1080,7 +1055,6 @@ export function GradesPage({
 									disabled={activeSelectedGrades.length === 0}
 									onClick={() => openSchedule(null)}
 								>
-									<CalendarClockIcon data-icon="inline-start" />
 									Schedule
 								</Button>
 								<span className="text-sm text-muted-foreground">
@@ -1421,9 +1395,6 @@ export function GradesPage({
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogMedia>
-							<CalendarClockIcon />
-						</AlertDialogMedia>
 						<AlertDialogTitle>
 							Override the existing schedule?
 						</AlertDialogTitle>

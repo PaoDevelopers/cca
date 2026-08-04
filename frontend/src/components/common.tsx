@@ -1,5 +1,3 @@
-import { AlertCircleIcon, CalendarClockIcon } from "lucide-react"
-
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,7 +22,6 @@ export function PeriodBadges({
 		<div className="flex flex-wrap gap-1.5">
 			{periodIDs.map((periodID) => (
 				<Badge key={periodID} variant="outline">
-					<CalendarClockIcon data-icon="inline-start" />
 					{formatCCATimeSlotLabel(periodID)}
 				</Badge>
 			))}
@@ -80,7 +77,6 @@ export function ErrorAlert({
 }): React.JSX.Element {
 	return (
 		<Alert variant="destructive">
-			<AlertCircleIcon />
 			<AlertTitle>Something went wrong</AlertTitle>
 			<AlertDescription>{message}</AlertDescription>
 		</Alert>

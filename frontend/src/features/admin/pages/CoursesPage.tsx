@@ -1,4 +1,4 @@
-import { PencilIcon, PlusIcon, SaveIcon } from "lucide-react"
+import { PencilIcon } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { adminRequest, jsonBody } from "@/api"
@@ -562,11 +562,7 @@ function CourseDialog({
 							type="submit"
 							disabled={busy || form.period_ids.length === 0}
 						>
-							{busy ? (
-								<Spinner data-icon="inline-start" />
-							) : (
-								<SaveIcon data-icon="inline-start" />
-							)}
+							{busy ? <Spinner data-icon="inline-start" /> : null}
 							Save course
 						</Button>
 					</DialogFooter>
@@ -603,7 +599,6 @@ export function CoursesPage({
 						}
 						onClick={() => openCourse(null)}
 					>
-						<PlusIcon data-icon="inline-start" />
 						Add course
 					</Button>
 				}

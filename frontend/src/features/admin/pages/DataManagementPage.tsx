@@ -1,4 +1,3 @@
-import { DownloadIcon, Trash2Icon, UploadIcon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
 
@@ -11,7 +10,6 @@ import {
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogHeader,
-	AlertDialogMedia,
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
@@ -173,7 +171,6 @@ function ImportCard({
 			</CardContent>
 			<CardFooter className="flex-wrap gap-2">
 				<Button type="submit" form={formID} variant="outline">
-					<UploadIcon data-icon="inline-start" />
 					Import {format.value === "csv" ? "CSV" : "Excel"}
 				</Button>
 				<Button
@@ -181,7 +178,6 @@ function ImportCard({
 					render={<a href={`${example}?format=${format.value}`} />}
 					nativeButton={false}
 				>
-					<DownloadIcon data-icon="inline-start" />
 					Download {format.value === "csv" ? "CSV" : "Excel"} example
 				</Button>
 			</CardFooter>
@@ -224,7 +220,6 @@ function SelectionExportCard({ count }: { count: number }): React.JSX.Element {
 					}
 					nativeButton={false}
 				>
-					<DownloadIcon data-icon="inline-start" />
 					Download {format.value === "csv" ? "CSV" : "Excel"}
 				</Button>
 			</CardFooter>
@@ -332,14 +327,10 @@ function DataResetCard({
 							/>
 						}
 					>
-						<Trash2Icon data-icon="inline-start" />
 						{definition.title}
 					</AlertDialogTrigger>
 					<AlertDialogContent>
 						<AlertDialogHeader>
-							<AlertDialogMedia>
-								<Trash2Icon aria-hidden="true" />
-							</AlertDialogMedia>
 							<AlertDialogTitle>
 								{definition.title}?
 							</AlertDialogTitle>
@@ -381,9 +372,7 @@ function DataResetCard({
 							>
 								{busy ? (
 									<Spinner data-icon="inline-start" />
-								) : (
-									<Trash2Icon data-icon="inline-start" />
-								)}
+								) : null}
 								Reset
 							</AlertDialogAction>
 						</AlertDialogFooter>

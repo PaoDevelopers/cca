@@ -1,15 +1,4 @@
-import {
-	BookOpenIcon,
-	FilterIcon,
-	MoreHorizontalIcon,
-	MoveHorizontalIcon,
-	PencilIcon,
-	PlusIcon,
-	SearchIcon,
-	Trash2Icon,
-	UserRoundIcon,
-	XIcon,
-} from "lucide-react"
+import { MoreHorizontalIcon, XIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { toast } from "sonner"
 
@@ -24,7 +13,6 @@ import {
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogHeader,
-	AlertDialogMedia,
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -68,7 +56,6 @@ import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
-	EmptyMedia,
 	EmptyTitle,
 } from "@/components/ui/empty"
 import {
@@ -80,11 +67,7 @@ import {
 	FieldLegend,
 	FieldSet,
 } from "@/components/ui/field"
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-} from "@/components/ui/input-group"
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group"
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import {
 	Pagination,
@@ -328,9 +311,6 @@ function SearchBox({
 }): React.JSX.Element {
 	return (
 		<InputGroup className="h-10 w-full sm:max-w-sm">
-			<InputGroupAddon>
-				<SearchIcon aria-hidden="true" />
-			</InputGroupAddon>
 			<InputGroupInput
 				type="search"
 				value={value}
@@ -368,7 +348,6 @@ function FilterPopover({
 			<PopoverTrigger
 				render={
 					<Button variant="outline">
-						<FilterIcon data-icon="inline-start" />
 						Filters
 						{activeCount > 0 ? (
 							<Badge variant="secondary">{activeCount}</Badge>
@@ -718,15 +697,12 @@ function StudentActions({
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>{student.name}</DropdownMenuLabel>
 					<DropdownMenuItem onClick={onOpen}>
-						<UserRoundIcon />
 						View participation
 					</DropdownMenuItem>
 					<DropdownMenuItem onClick={onAssign}>
-						<PlusIcon />
 						Assign course
 					</DropdownMenuItem>
 					<DropdownMenuItem onClick={onEdit}>
-						<PencilIcon />
 						Edit profile
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
@@ -763,11 +739,9 @@ function CourseActions({
 				<DropdownMenuGroup>
 					<DropdownMenuLabel>{course.name}</DropdownMenuLabel>
 					<DropdownMenuItem onClick={onOpen}>
-						<BookOpenIcon />
 						View roster
 					</DropdownMenuItem>
 					<DropdownMenuItem onClick={onAssign}>
-						<PlusIcon />
 						Assign students
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
@@ -777,12 +751,7 @@ function CourseActions({
 }
 
 function HorizontalScrollHint({ children }: { children: React.ReactNode }) {
-	return (
-		<p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-			<MoveHorizontalIcon className="size-3.5" aria-hidden="true" />
-			{children}
-		</p>
-	)
+	return <p className="text-xs text-muted-foreground">{children}</p>
 }
 
 function MobileStudentCard({
@@ -845,7 +814,6 @@ function MobileStudentCard({
 					aria-haspopup="dialog"
 					aria-controls={PARTICIPATION_DETAILS_DIALOG_ID}
 				>
-					<UserRoundIcon data-icon="inline-start" />
 					View details
 				</Button>
 				<StudentActions
@@ -915,7 +883,6 @@ function MobileCourseCard({
 					aria-haspopup="dialog"
 					aria-controls={PARTICIPATION_DETAILS_DIALOG_ID}
 				>
-					<BookOpenIcon data-icon="inline-start" />
 					View roster
 				</Button>
 				<CourseActions
@@ -989,7 +956,6 @@ function MobileAssignmentCard({
 					aria-haspopup="dialog"
 					aria-controls={PARTICIPATION_DETAILS_DIALOG_ID}
 				>
-					<UserRoundIcon data-icon="inline-start" />
 					View student
 				</Button>
 				<SelectionActions
@@ -1169,9 +1135,6 @@ function ParticipationDetailPanel({
 				<div className="flex min-h-0 flex-1">
 					<Empty>
 						<EmptyHeader>
-							<EmptyMedia variant="icon">
-								<BookOpenIcon />
-							</EmptyMedia>
 							<EmptyTitle>Nothing selected</EmptyTitle>
 							<EmptyDescription>
 								Choose a student or course to show details here.
@@ -1227,17 +1190,14 @@ function ParticipationDetailPanel({
 							variant="outline"
 							onClick={() => onEditStudent(student)}
 						>
-							<PencilIcon data-icon="inline-start" />
 							Edit profile
 						</Button>
 						<Button onClick={() => onAssignStudent(student.id)}>
-							<PlusIcon data-icon="inline-start" />
 							Assign course
 						</Button>
 					</>
 				) : course !== undefined ? (
 					<Button onClick={() => onAssignCourse(course.id)}>
-						<PlusIcon data-icon="inline-start" />
 						Assign students
 					</Button>
 				) : null}
@@ -1297,14 +1257,12 @@ function ParticipationSheet({
 								className="min-h-11"
 								onClick={() => onEditStudent(student)}
 							>
-								<PencilIcon data-icon="inline-start" />
 								Edit profile
 							</Button>
 							<Button
 								className="min-h-11"
 								onClick={() => onAssignStudent(student.id)}
 							>
-								<PlusIcon data-icon="inline-start" />
 								Assign course
 							</Button>
 						</SheetFooter>
@@ -1335,7 +1293,6 @@ function ParticipationSheet({
 								className="min-h-11 w-full sm:w-auto"
 								onClick={() => onAssignCourse(course.id)}
 							>
-								<PlusIcon data-icon="inline-start" />
 								Assign students
 							</Button>
 						</SheetFooter>
@@ -1497,7 +1454,6 @@ function SelectionActions({
 						variant="destructive"
 						onClick={() => void onDelete(selection)}
 					>
-						<Trash2Icon />
 						Remove selection
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
@@ -1994,11 +1950,7 @@ function AssignmentDialog({
 								invalidCount > 0
 							}
 						>
-							{busy ? (
-								<Spinner data-icon="inline-start" />
-							) : (
-								<PlusIcon data-icon="inline-start" />
-							)}
+							{busy ? <Spinner data-icon="inline-start" /> : null}
 							Create {studentIDs.length || ""} assignment
 							{studentIDs.length === 1 ? "" : "s"}
 						</Button>
@@ -2344,7 +2296,6 @@ export function ParticipationPage({
 					</p>
 				</div>
 				<Button onClick={() => openAssignment()}>
-					<PlusIcon data-icon="inline-start" />
 					Assign students
 				</Button>
 			</div>
@@ -2774,7 +2725,6 @@ export function ParticipationPage({
 									variant="destructive"
 									onClick={() => setBulkDeleteOpen(true)}
 								>
-									<Trash2Icon data-icon="inline-start" />
 									Remove {selectedAssignments.length}
 								</Button>
 							</>
@@ -3116,9 +3066,6 @@ export function ParticipationPage({
 			<AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
 				<AlertDialogContent>
 					<AlertDialogHeader>
-						<AlertDialogMedia>
-							<Trash2Icon />
-						</AlertDialogMedia>
 						<AlertDialogTitle>
 							Remove {selectedAssignments.length} assignments?
 						</AlertDialogTitle>
@@ -3138,9 +3085,7 @@ export function ParticipationPage({
 						>
 							{bulkBusy ? (
 								<Spinner data-icon="inline-start" />
-							) : (
-								<Trash2Icon data-icon="inline-start" />
-							)}
+							) : null}
 							Remove assignments
 						</AlertDialogAction>
 					</AlertDialogFooter>

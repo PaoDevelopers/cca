@@ -1,17 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import {
-	BookOpenCheckIcon,
-	CalendarDaysIcon,
-	CheckCircle2Icon,
-	Clock3Icon,
-	FilterIcon,
-	LayoutGridIcon,
-	ListIcon,
-	LockKeyholeIcon,
-	RotateCcwIcon,
-	SearchIcon,
-	Trash2Icon,
-} from "lucide-react"
+import { Trash2Icon } from "lucide-react"
 import { toast } from "sonner"
 
 import { studentRequest, jsonBody } from "@/api"
@@ -41,7 +29,6 @@ import {
 	EmptyContent,
 	EmptyDescription,
 	EmptyHeader,
-	EmptyMedia,
 	EmptyTitle,
 } from "@/components/ui/empty"
 import {
@@ -52,11 +39,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-} from "@/components/ui/input-group"
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group"
 import {
 	Select,
 	SelectContent,
@@ -669,7 +652,6 @@ export default function StudentApp(): React.JSX.Element {
 				{error !== null ? <ErrorAlert message={error} /> : null}
 				{!selectionStatus.enabled ? (
 					<Alert variant="warning">
-						<Clock3Icon aria-hidden="true" />
 						<AlertTitle>
 							{selectionHasNotStarted
 								? "CCA selection has not started"
@@ -686,7 +668,6 @@ export default function StudentApp(): React.JSX.Element {
 				) : selectionStatus.schedule_opened &&
 				  selectionClosesAt !== null ? (
 					<Alert>
-						<CheckCircle2Icon aria-hidden="true" />
 						<AlertTitle>CCA selection is open</AlertTitle>
 						<AlertDescription>
 							Make your choices before {selectionClosesAt}. You
@@ -702,11 +683,9 @@ export default function StudentApp(): React.JSX.Element {
 						aria-label="Student sections"
 					>
 						<TabsTrigger value="catalog" className="min-h-11">
-							<LayoutGridIcon data-icon="inline-start" />
 							Catalogue
 						</TabsTrigger>
 						<TabsTrigger value="review" className="min-h-11">
-							<BookOpenCheckIcon data-icon="inline-start" />
 							My selections
 						</TabsTrigger>
 					</TabsList>
@@ -717,9 +696,6 @@ export default function StudentApp(): React.JSX.Element {
 					>
 						<div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
 							<InputGroup className="h-11 max-w-xl">
-								<InputGroupAddon>
-									<SearchIcon aria-hidden="true" />
-								</InputGroupAddon>
 								<InputGroupInput
 									type="search"
 									name="catalogue_search"
@@ -749,7 +725,6 @@ export default function StudentApp(): React.JSX.Element {
 									aria-label="Card layout"
 									className="min-h-11"
 								>
-									<LayoutGridIcon data-icon="inline-start" />
 									Cards
 								</ToggleGroupItem>
 								<ToggleGroupItem
@@ -757,7 +732,6 @@ export default function StudentApp(): React.JSX.Element {
 									aria-label="List layout"
 									className="min-h-11"
 								>
-									<ListIcon data-icon="inline-start" />
 									List
 								</ToggleGroupItem>
 								<ToggleGroupItem
@@ -765,7 +739,6 @@ export default function StudentApp(): React.JSX.Element {
 									aria-label="Timetable layout"
 									className="min-h-11"
 								>
-									<CalendarDaysIcon data-icon="inline-start" />
 									Timetable
 								</ToggleGroupItem>
 							</ToggleGroup>
@@ -900,10 +873,7 @@ export default function StudentApp(): React.JSX.Element {
 													/>
 												}
 											>
-												<span className="flex items-center gap-2">
-													<FilterIcon data-icon="inline-start" />
-													Filters
-												</span>
+												<span>Filters</span>
 												{secondaryFilterCount > 0 ? (
 													<Badge variant="secondary">
 														{secondaryFilterCount}
@@ -1007,7 +977,6 @@ export default function StudentApp(): React.JSX.Element {
 															)
 														}}
 													>
-														<RotateCcwIcon data-icon="inline-start" />
 														Reset
 													</Button>
 													<SheetClose
@@ -1044,7 +1013,6 @@ export default function StudentApp(): React.JSX.Element {
 								disabled={!filtersActive}
 								onClick={clearCatalogueFilters}
 							>
-								<RotateCcwIcon data-icon="inline-start" />
 								Reset filters
 							</Button>
 						</div>
@@ -1064,9 +1032,6 @@ export default function StudentApp(): React.JSX.Element {
 						) : visibleCourses.length === 0 ? (
 							<Empty>
 								<EmptyHeader>
-									<EmptyMedia variant="icon">
-										<SearchIcon />
-									</EmptyMedia>
 									<EmptyTitle>No matching CCAs</EmptyTitle>
 									<EmptyDescription>
 										Try another search or filter.
@@ -1077,7 +1042,6 @@ export default function StudentApp(): React.JSX.Element {
 										variant="outline"
 										onClick={clearCatalogueFilters}
 									>
-										<RotateCcwIcon data-icon="inline-start" />
 										Reset filters
 									</Button>
 								</EmptyContent>
@@ -1110,11 +1074,6 @@ export default function StudentApp(): React.JSX.Element {
 						className="grid gap-5 pt-5 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]"
 					>
 						<Alert className="lg:col-span-2">
-							{requirementsMet ? (
-								<CheckCircle2Icon aria-hidden="true" />
-							) : (
-								<BookOpenCheckIcon aria-hidden="true" />
-							)}
 							<AlertTitle>
 								{data.requirements.length === 0
 									? "Your selections are saved"
@@ -1143,9 +1102,6 @@ export default function StudentApp(): React.JSX.Element {
 								{selectedCourses.length === 0 ? (
 									<Empty>
 										<EmptyHeader>
-											<EmptyMedia variant="icon">
-												<BookOpenCheckIcon />
-											</EmptyMedia>
 											<EmptyTitle>
 												No selections yet
 											</EmptyTitle>
@@ -1198,7 +1154,6 @@ export default function StudentApp(): React.JSX.Element {
 												) : (
 													<div className="flex shrink-0 flex-col items-end gap-1">
 														<Badge variant="secondary">
-															<LockKeyholeIcon data-icon="inline-start" />
 															Locked
 														</Badge>
 														{course.selection_type ===
@@ -1288,7 +1243,6 @@ export default function StudentApp(): React.JSX.Element {
 									)
 								}
 							>
-								<CalendarDaysIcon data-icon="inline-start" />
 								{formatCCATimeSlotLabel(periodID)}
 							</Button>
 						))}
@@ -1325,7 +1279,6 @@ export default function StudentApp(): React.JSX.Element {
 									void mutateSelection(removeCourse, "DELETE")
 							}}
 						>
-							<Trash2Icon data-icon="inline-start" />
 							Remove
 						</AlertDialogAction>
 					</AlertDialogFooter>

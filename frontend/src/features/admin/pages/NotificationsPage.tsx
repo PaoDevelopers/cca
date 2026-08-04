@@ -1,11 +1,9 @@
-import { BellRingIcon, SendIcon } from "lucide-react"
 import { useState } from "react"
 
 import { adminRequest, jsonBody } from "@/api"
 import { Button } from "@/components/ui/button"
 import {
 	Card,
-	CardAction,
 	CardContent,
 	CardDescription,
 	CardHeader,
@@ -60,9 +58,6 @@ export function NotificationsPage({
 						Messages are delivered live and are not stored as an
 						inbox.
 					</CardDescription>
-					<CardAction>
-						<BellRingIcon aria-hidden="true" />
-					</CardAction>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={(event) => void send(event)}>
@@ -92,9 +87,7 @@ export function NotificationsPage({
 							>
 								{busy ? (
 									<Spinner data-icon="inline-start" />
-								) : (
-									<SendIcon data-icon="inline-start" />
-								)}
+								) : null}
 								Send notification
 							</Button>
 						</FieldGroup>

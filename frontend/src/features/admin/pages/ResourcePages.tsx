@@ -1,4 +1,3 @@
-import { PlusIcon } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { adminRequest, jsonBody } from "@/api"
@@ -95,7 +94,6 @@ function NamedResourcePage({
 				description={description}
 				action={
 					<Button onClick={() => setDialogOpen(true)}>
-						<PlusIcon data-icon="inline-start" />
 						Add {itemLabel.toLowerCase()}
 					</Button>
 				}
@@ -216,9 +214,7 @@ function NamedResourcePage({
 							>
 								{busy ? (
 									<Spinner data-icon="inline-start" />
-								) : (
-									<PlusIcon data-icon="inline-start" />
-								)}
+								) : null}
 								Create
 							</Button>
 						</DialogFooter>

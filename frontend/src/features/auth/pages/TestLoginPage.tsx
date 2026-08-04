@@ -1,9 +1,4 @@
 import { useEffect, useState, type FormEvent } from "react"
-import {
-	GraduationCapIcon,
-	ShieldAlertIcon,
-	ShieldCheckIcon,
-} from "lucide-react"
 
 import { apiRequest, jsonBody } from "@/api"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -118,14 +113,7 @@ function LoginCard({
 		<form onSubmit={(event) => void handleSubmit(event)}>
 			<Card className="h-full">
 				<CardHeader>
-					<CardTitle className="flex items-center gap-2">
-						{role === "student" ? (
-							<GraduationCapIcon aria-hidden="true" />
-						) : (
-							<ShieldCheckIcon aria-hidden="true" />
-						)}
-						{content.title}
-					</CardTitle>
+					<CardTitle>{content.title}</CardTitle>
 					<CardDescription>{content.description}</CardDescription>
 				</CardHeader>
 				<CardContent>
@@ -230,7 +218,6 @@ export default function TestLoginPage(): React.JSX.Element {
 
 				{error !== null ? (
 					<Alert variant="destructive">
-						<ShieldAlertIcon />
 						<AlertTitle>Test sign-in is unavailable</AlertTitle>
 						<AlertDescription>{error}</AlertDescription>
 					</Alert>
@@ -243,7 +230,6 @@ export default function TestLoginPage(): React.JSX.Element {
 					</div>
 				) : !settings.enabled ? (
 					<Alert>
-						<ShieldCheckIcon />
 						<AlertTitle>Test mode is disabled</AlertTitle>
 						<AlertDescription>
 							Enable test authentication in the server settings
@@ -253,7 +239,6 @@ export default function TestLoginPage(): React.JSX.Element {
 				) : (
 					<>
 						<Alert variant="destructive">
-							<ShieldAlertIcon />
 							<AlertTitle>TEST MODE IS ACTIVE</AlertTitle>
 							<AlertDescription>
 								This page bypasses normal identity-provider

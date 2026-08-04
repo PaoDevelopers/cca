@@ -1,4 +1,3 @@
-import { SaveIcon } from "lucide-react"
 import { useState } from "react"
 
 import { adminRequest, jsonBody } from "@/api"
@@ -173,11 +172,7 @@ export function StudentDialog({
 								grade === ""
 							}
 						>
-							{busy ? (
-								<Spinner data-icon="inline-start" />
-							) : (
-								<SaveIcon data-icon="inline-start" />
-							)}
+							{busy ? <Spinner data-icon="inline-start" /> : null}
 							Save student
 						</Button>
 					</DialogFooter>

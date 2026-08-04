@@ -1,4 +1,4 @@
-import { InboxIcon, SearchIcon, Trash2Icon } from "lucide-react"
+import { Trash2Icon } from "lucide-react"
 import { useState } from "react"
 
 import {
@@ -9,15 +9,12 @@ import {
 	AlertDialogDescription,
 	AlertDialogFooter,
 	AlertDialogHeader,
-	AlertDialogMedia,
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
 	Card,
-	CardAction,
 	CardContent,
 	CardDescription,
 	CardHeader,
@@ -27,14 +24,9 @@ import {
 	Empty,
 	EmptyDescription,
 	EmptyHeader,
-	EmptyMedia,
 	EmptyTitle,
 } from "@/components/ui/empty"
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-} from "@/components/ui/input-group"
+import { InputGroup, InputGroupInput } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
 
 export function PageHeading({
@@ -72,9 +64,6 @@ export function SearchBox({
 }): React.JSX.Element {
 	return (
 		<InputGroup className="h-11 max-w-md">
-			<InputGroupAddon>
-				<SearchIcon aria-hidden="true" />
-			</InputGroupAddon>
 			<InputGroupInput
 				type="search"
 				name="admin_search"
@@ -99,9 +88,6 @@ export function NoResults({
 	return (
 		<Empty>
 			<EmptyHeader>
-				<EmptyMedia variant="icon">
-					<InboxIcon aria-hidden="true" />
-				</EmptyMedia>
 				<EmptyTitle>{title}</EmptyTitle>
 				<EmptyDescription>{description}</EmptyDescription>
 			</EmptyHeader>
@@ -146,9 +132,6 @@ export function DeleteButton({
 			</AlertDialogTrigger>
 			<AlertDialogContent>
 				<AlertDialogHeader>
-					<AlertDialogMedia>
-						<Trash2Icon aria-hidden="true" />
-					</AlertDialogMedia>
 					<AlertDialogTitle>Delete {name}?</AlertDialogTitle>
 					<AlertDialogDescription>
 						{description ??
@@ -164,11 +147,7 @@ export function DeleteButton({
 						disabled={busy}
 						onClick={() => void remove()}
 					>
-						{busy ? (
-							<Spinner data-icon="inline-start" />
-						) : (
-							<Trash2Icon data-icon="inline-start" />
-						)}
+						{busy ? <Spinner data-icon="inline-start" /> : null}
 						Delete
 					</AlertDialogAction>
 				</AlertDialogFooter>
@@ -178,12 +157,10 @@ export function DeleteButton({
 }
 
 export function StatCard({
-	icon: Icon,
 	label,
 	value,
 	description,
 }: {
-	icon: React.ComponentType<React.SVGProps<SVGSVGElement>>
 	label: string
 	value: number
 	description: string
@@ -193,12 +170,6 @@ export function StatCard({
 			<CardHeader>
 				<CardTitle>{label}</CardTitle>
 				<CardDescription>{description}</CardDescription>
-				<CardAction>
-					<Badge variant="secondary">
-						<Icon aria-hidden="true" />
-						<span className="sr-only">{label}</span>
-					</Badge>
-				</CardAction>
 			</CardHeader>
 			<CardContent>
 				<p className="font-heading text-3xl font-semibold tabular-nums">

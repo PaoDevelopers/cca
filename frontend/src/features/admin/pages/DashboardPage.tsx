@@ -1,5 +1,3 @@
-import { BookOpenIcon, UsersIcon } from "lucide-react"
-
 import { Badge } from "@/components/ui/badge"
 import {
 	Card,
@@ -35,13 +33,11 @@ export function DashboardPage({
 			/>
 			<div className="grid gap-4 sm:grid-cols-2">
 				<StatCard
-					icon={BookOpenIcon}
 					label="Courses"
 					value={data.course_count}
 					description={`${data.courses_without_timetable} without a timetable`}
 				/>
 				<StatCard
-					icon={UsersIcon}
 					label="Students"
 					value={data.student_count}
 					description="Registered student profiles"

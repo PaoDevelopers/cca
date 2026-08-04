@@ -7,7 +7,6 @@ import {
 	DatabaseIcon,
 	FolderTreeIcon,
 	GraduationCapIcon,
-	ShieldUserIcon,
 	type LucideIcon,
 	UsersIcon,
 } from "lucide-react"
@@ -214,15 +213,11 @@ function AdminShell({
 					<AdminNavigation pathname={location.pathname} />
 				</SidebarContent>
 				<SidebarSeparator />
-				<SidebarFooter>
+				<SidebarFooter className="group-data-[collapsible=icon]:hidden">
 					<SidebarMenu>
 						<SidebarMenuItem>
-							<SidebarMenuButton
-								size="lg"
-								tooltip={admin.username}
-							>
-								<ShieldUserIcon aria-hidden="true" />
-								<span className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+							<SidebarMenuButton size="lg">
+								<span className="grid flex-1 text-left leading-tight">
 									<span className="truncate font-medium">
 										{admin.username}
 									</span>
