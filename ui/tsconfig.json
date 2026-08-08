@@ -1,0 +1,41 @@
+{
+	"compilerOptions": {
+		"target": "ESNext",
+		"useDefineForClassFields": true,
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"esModuleInterop": true,
+		"lib": ["ESNext", "DOM", "DOM.Iterable"],
+		"skipLibCheck": true,
+		"allowSyntheticDefaultImports": true,
+		"strict": true,
+		"noImplicitOverride": true,
+		"noUncheckedIndexedAccess": true,
+		"exactOptionalPropertyTypes": true,
+		"noPropertyAccessFromIndexSignature": true,
+		"forceConsistentCasingInFileNames": true,
+		"noFallthroughCasesInSwitch": true,
+		"noEmit": true,
+		"types": ["svelte", "vite/client"],
+		"baseUrl": ".",
+		"paths": {
+			"@common/*": ["common/src/*"]
+		}
+	},
+	"include": [
+		"common/src/**/*.ts",
+		"common/src/**/*.svelte",
+		"student/src/**/*.ts",
+		"student/src/**/*.d.ts",
+		"student/src/**/*.svelte",
+		"admin/src/**/*.ts",
+		"admin/src/**/*.d.ts",
+		"admin/src/**/*.svelte",
+		"dev.ts",
+		"student/vite.config.ts",
+		"admin/vite.config.ts",
+		"svelte.config.js"
+	]
+}

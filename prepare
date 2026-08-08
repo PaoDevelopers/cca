@@ -1,7 +1,0 @@
-#!/bin/sh
-
-set -eux
-
-cd frontend
-
-npm install

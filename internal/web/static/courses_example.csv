@@ -1,0 +1,4 @@
+id,name,description,periods,max_students,invite_only,teacher,teacher_email,location,term,cost,category,allowed_legal_sexes,allowed_grades
+ROBOTICS,Introduction to Robotics,Hands-on introduction to robotics projects,"MON1,WED1",24,false,Ms Chan,chan@ykpaoschool.cn,Innovation Lab,Season,,TECH,,
+FLOORBALL,Girls' Varsity Floorball,Competitive floorball training and fixtures,"TUE2,THU2",16,true,Mr Lee,lee@ykpaoschool.cn,Sports Hall,Semester,600 rmb,SPORT,F,"Y10,Y11"
+CHOIR,Senior Choir,,FRI1,40,false,,,Music Room 2,Season,,ART,,

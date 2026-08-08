@@ -1,0 +1,4 @@
+course_id,student_id,student_droppable,counts_toward_budget
+ROBOTICS,s22501,true,true
+FLOORBALL,s22502,false,true
+CHOIR,s22503,true,false

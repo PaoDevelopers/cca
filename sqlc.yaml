@@ -1,12 +1,34 @@
 version: "2"
+servers:
+  - engine: "postgresql"
+    uri: "postgresql:///postgres?host=/var/run/postgresql"
 sql:
   - engine: "postgresql"
-    queries: "queries.sql"
-    schema: "schema.sql"
+    schema: "internal/db/schemas/"
+    queries: "internal/db/queries/"
+    database:
+      managed: true
     gen:
       go:
         package: "db"
-        out: "db"
+        out: "internal/db"
         sql_package: "pgx/v5"
         emit_json_tags: true
         emit_prepared_queries: true
+        overrides:
+          # The identifier domains are plain strings in Go;
+          # the grammar is enforced by the database.
+          - db_type: "entity_id"
+            go_type: "string"
+          - db_type: "localpart"
+            go_type: "string"
+          - db_type: "trimmed_text"
+            go_type: "string"
+          - db_type: "trimmed_text_opt"
+            go_type: "string"
+          # A count is an int64 in Go; the range is the database's.
+          - db_type: "count_value"
+            go_type: "int64"
+          - db_type: "count_value"
+            nullable: true
+            go_type: "github.com/jackc/pgx/v5/pgtype.Int8"

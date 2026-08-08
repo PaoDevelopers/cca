@@ -1,0 +1,181 @@
+id,name,description,periods,max_students,invite_only,teacher,teacher_email,location,term,cost,category,allowed_legal_sexes,allowed_grades
+SPT01,Basketball Fundamentals,,,0,true,,,Sports Hall,Season,,SPORT,,
+SPT02,Advanced Basketball,"Student-led sessions combining technique, reflection, and a final showcase.",WED2,15,false,Ms García,garcia@example.test,Music Room 2,Autumn,50 rmb,SPORT,X,"Y11,Y12"
+SPT03,Volleyball Club,Open to curious beginners; equipment and starter materials are provided.,FRI3,80,false,Ms Lin,lin@example.test,Design Workshop,Intensive,Equipment deposit,SPORT,,Y11
+SPT04,Badminton Lab,A focused programme for students ready to practise beyond the basics.,WED1,6,false,Ms García,garcia@example.test,Swimming Pool,Semester,,SPORT,"F,M",
+SPT05,Table Tennis Squad,Collaborative projects connect table tennis squad with life around the school.,FRI2,24,false,Ms Lin,lin@example.test,Online,Spring,600 rmb,SPORT,,"Y9,Y10,Y11"
+SPT06,Football Skills,Short demonstrations are followed by lots of hands-on work.,"TUE3,THU3",0,true,Ms García,garcia@example.test,Art Studio 1,Drop-in,,SPORT,"F,X",Y12
+SPT07,Fencing Foundations,Build confidence through small-group practice and peer feedback.,FRI1,15,true,Ms Lin,lin@example.test,Library Seminar Room,Full Year,50 rmb,SPORT,,
+SPT08,Swimming Technique,A mixed-experience group with optional extension challenges.,TUE2,80,false,Ms García,garcia@example.test,Dance Studio,Six-week Block,Equipment deposit,SPORT,"M,X","Y10,Y11,Y12"
+SPT09,Track and Field,The group plans one public event or exhibition during the term.,THU3,6,false,Ms Lin,lin@example.test,,Season,,SPORT,F,"Y9,Y10"
+SPT10,Ultimate Frisbee,"Try something unfamiliar in a friendly, low-pressure setting.",TUE1,24,false,Ms García,,Innovation Lab,Autumn,600 rmb,SPORT,"F,M,X",Y9
+SPT11,Floorball Team,A practical introduction to floorball team with a new challenge each week.,"THU2,MON2",0,true,Ms Lin,lin@example.test,Science Lab 3,Intensive,,SPORT,M,"Y9,Y10,Y11,Y12"
+SPT12,Indoor Rock Climbing,"Student-led sessions combining technique, reflection, and a final showcase.",MON3,15,false,Ms García,garcia@example.test,Room S206,Semester,50 rmb,SPORT,,"Y10,Y11"
+SPT13,Archery Practice,Open to curious beginners; equipment and starter materials are provided.,THU1,80,true,Ms Lin,lin@example.test,Community Room,Spring,Equipment deposit,SPORT,X,Y10
+SPT14,Tennis Workshop,A focused programme for students ready to practise beyond the basics.,MON2,6,false,,,Gym 2,Drop-in,,SPORT,,
+SPT15,Dance Fitness,,WED3,24,false,Ms Lin,lin@example.test,Black Box,Full Year,600 rmb,SPORT,"F,M","Y11,Y12"
+ART01,Watercolour Studio,Short demonstrations are followed by lots of hands-on work.,"MON1,WED1",8,false,Mx Rivera,rivera@example.test,Dance Studio,Drop-in,180 rmb,ART,"M,X",
+ART02,Oil Painting Workshop,Build confidence through small-group practice and peer feedback.,WED3,30,false,Ms Tanaka,tanaka@example.test,,Full Year,¥120,ART,F,"Y9,Y10,Y11"
+ART03,Digital Illustration,A mixed-experience group with optional extension challenges.,"MON3,TUE3,THU1",1,true,Mx Rivera,rivera@example.test,Innovation Lab,Six-week Block,Materials included,ART,"F,M,X",Y12
+ART04,Ceramics Lab,The group plans one public event or exhibition during the term.,WED2,16,true,Ms Tanaka,,Science Lab 3,Season,Student paid,ART,M,
+ART05,Sculpture Studio,"Try something unfamiliar in a friendly, low-pressure setting.",,120,false,Mx Rivera,rivera@example.test,Room S206,Autumn,,ART,,"Y10,Y11,Y12"
+ART06,Printmaking Collective,A practical introduction to printmaking collective with a new challenge each week.,"TUE3,THU3",8,false,Ms Tanaka,tanaka@example.test,Community Room,Intensive,180 rmb,ART,X,"Y9,Y10"
+ART07,Street Photography,"Student-led sessions combining technique, reflection, and a final showcase.",FRI2,30,false,Mx Rivera,rivera@example.test,Gym 2,Semester,¥120,ART,,Y9
+ART08,Fashion Design,Open to curious beginners; equipment and starter materials are provided.,TUE3,1,true,Ms Tanaka,tanaka@example.test,Black Box,Spring,Materials included,ART,"F,M","Y9,Y10,Y11,Y12"
+ART09,Textile Arts,A focused programme for students ready to practise beyond the basics.,FRI1,16,false,Mx Rivera,rivera@example.test,Courtyard,Drop-in,Student paid,ART,,"Y10,Y11"
+ART10,Comics and Storyboards,Collaborative projects connect comics and storyboards with life around the school.,TUE2,120,true,Ms Tanaka,tanaka@example.test,North Field,Full Year,,ART,"F,X",Y10
+ART11,Chinese Calligraphy,Short demonstrations are followed by lots of hands-on work.,"THU2,MON2",8,false,Mx Rivera,rivera@example.test,Sports Hall,Six-week Block,180 rmb,ART,,
+ART12,Urban Sketching,Build confidence through small-group practice and peer feedback.,TUE1,30,false,,,Music Room 2,Season,¥120,ART,"M,X","Y11,Y12"
+ART13,Art History Lab,A mixed-experience group with optional extension challenges.,THU2,1,true,Mx Rivera,,Design Workshop,Autumn,Materials included,ART,F,Y11
+ART14,Installation Art,,MON3,16,false,Ms Tanaka,tanaka@example.test,Swimming Pool,Intensive,Student paid,ART,"F,M,X",
+ART15,Portfolio Studio,"Try something unfamiliar in a friendly, low-pressure setting.","MON1,TUE1,WED1,THU1,FRI1",120,false,Mx Rivera,rivera@example.test,Online,Semester,,ART,M,"Y9,Y10,Y11"
+MUS01,Junior Choir,A practical introduction to junior choir with a new challenge each week.,"MON1,WED1",18,true,Ms García,garcia@example.test,Black Box,Intensive,,MUSIC,"F,M",
+MUS02,Senior Chamber Choir,"Student-led sessions combining technique, reflection, and a final showcase.",THU1,250,false,Ms Lin,lin@example.test,Courtyard,Semester,50 rmb,MUSIC,,"Y10,Y11,Y12"
+MUS03,Concert Band,Open to curious beginners; equipment and starter materials are provided.,MON2,10,false,Ms García,garcia@example.test,North Field,Spring,Equipment deposit,MUSIC,"F,X","Y9,Y10"
+MUS04,Jazz Ensemble,A focused programme for students ready to practise beyond the basics.,WED3,40,false,Ms Lin,lin@example.test,Sports Hall,Drop-in,,MUSIC,,Y9
+MUS05,String Orchestra,Collaborative projects connect string orchestra with life around the school.,"TUE2,WED2,THU3",2,false,Ms García,garcia@example.test,Music Room 2,Full Year,600 rmb,MUSIC,"M,X","Y9,Y10,Y11,Y12"
+MUS06,Beginner Guitar,Short demonstrations are followed by lots of hands-on work.,"TUE3,THU3",18,false,Ms Lin,lin@example.test,Design Workshop,Six-week Block,,MUSIC,F,"Y10,Y11"
+MUS07,Advanced Guitar,Build confidence through small-group practice and peer feedback.,FRI3,250,true,Ms García,,Swimming Pool,Season,50 rmb,MUSIC,"F,M,X",Y10
+MUS08,Piano Duets,A mixed-experience group with optional extension challenges.,WED1,10,false,Ms Lin,lin@example.test,Online,Autumn,Equipment deposit,MUSIC,M,
+MUS09,Electronic Music Production,The group plans one public event or exhibition during the term.,,40,false,Ms García,garcia@example.test,Art Studio 1,Intensive,,MUSIC,,"Y11,Y12"
+MUS10,Songwriting Circle,"Try something unfamiliar in a friendly, low-pressure setting.",TUE3,2,false,,,Library Seminar Room,Semester,600 rmb,MUSIC,X,Y11
+MUS11,Percussion Ensemble,A practical introduction to percussion ensemble with a new challenge each week.,"THU2,MON2",18,false,Ms García,garcia@example.test,Dance Studio,Spring,,MUSIC,,
+MUS12,Traditional Instruments,"Student-led sessions combining technique, reflection, and a final showcase.",TUE2,250,false,Ms Lin,lin@example.test,,Drop-in,50 rmb,MUSIC,"F,M","Y9,Y10,Y11"
+MUS13,Music Theory Clinic,,THU3,10,true,Ms García,garcia@example.test,Innovation Lab,Full Year,Equipment deposit,MUSIC,,Y12
+MUS14,A Cappella Group,A focused programme for students ready to practise beyond the basics.,TUE1,40,false,Ms Lin,lin@example.test,Science Lab 3,Six-week Block,,MUSIC,"F,X",
+MUS15,Open Mic Workshop,Collaborative projects connect open mic workshop with life around the school.,THU2,2,false,Ms García,garcia@example.test,Room S206,Season,600 rmb,MUSIC,,"Y10,Y11,Y12"
+STM01,Introduction to Robotics,Short demonstrations are followed by lots of hands-on work.,"MON1,WED1",60,false,Ms Tanaka,,Online,Six-week Block,180 rmb,STEM,M,Y9
+STM02,Competition Robotics,Build confidence through small-group practice and peer feedback.,THU2,4,false,Mx Rivera,rivera@example.test,Art Studio 1,Season,¥120,STEM,,"Y9,Y10,Y11,Y12"
+STM03,Python Explorers,A mixed-experience group with optional extension challenges.,MON3,20,false,Ms Tanaka,tanaka@example.test,Library Seminar Room,Autumn,Materials included,STEM,X,"Y10,Y11"
+STM04,Web Development,The group plans one public event or exhibition during the term.,THU1,500,true,Mx Rivera,rivera@example.test,Dance Studio,Intensive,Student paid,STEM,,Y10
+STM05,Data Science Lab,"Try something unfamiliar in a friendly, low-pressure setting.",MON2,12,false,Ms Tanaka,tanaka@example.test,,Semester,,STEM,"F,M",
+STM06,Astronomy Club,A practical introduction to astronomy club with a new challenge each week.,"TUE3,THU3",60,false,Mx Rivera,rivera@example.test,Innovation Lab,Spring,180 rmb,STEM,,"Y11,Y12"
+STM07,Experimental Chemistry,"Student-led sessions combining technique, reflection, and a final showcase.","WED1,THU1,FRI2",4,false,Ms Tanaka,tanaka@example.test,Science Lab 3,Drop-in,¥120,STEM,"F,X",Y11
+STM08,Applied Physics,Open to curious beginners; equipment and starter materials are provided.,WED2,20,false,,,Room S206,Full Year,Materials included,STEM,,
+STM09,Biology Field Lab,A focused programme for students ready to practise beyond the basics.,FRI3,500,false,Ms Tanaka,tanaka@example.test,Community Room,Six-week Block,Student paid,STEM,"M,X","Y9,Y10,Y11"
+STM10,Mathematics Circle,Collaborative projects connect mathematics circle with life around the school.,WED1,12,true,Mx Rivera,,Gym 2,Season,,STEM,F,Y12
+STM11,Cybersecurity Basics,Short demonstrations are followed by lots of hands-on work.,"THU2,MON2",60,false,Ms Tanaka,tanaka@example.test,Black Box,Autumn,180 rmb,STEM,"F,M,X",
+STM12,Game Development,,TUE3,4,false,Mx Rivera,rivera@example.test,Courtyard,Intensive,¥120,STEM,M,"Y10,Y11,Y12"
+STM13,AI and Society,A mixed-experience group with optional extension challenges.,,20,false,Ms Tanaka,tanaka@example.test,North Field,Semester,Materials included,STEM,,"Y9,Y10"
+STM14,Engineering Challenges,The group plans one public event or exhibition during the term.,"MON1,TUE1,WED1,THU1,FRI1",500,false,Mx Rivera,rivera@example.test,Sports Hall,Spring,Student paid,STEM,X,Y9
+STM15,Science Olympiad,"Try something unfamiliar in a friendly, low-pressure setting.",THU3,12,false,Ms Tanaka,tanaka@example.test,Music Room 2,Drop-in,,STEM,,"Y9,Y10,Y11,Y12"
+MKR01,Woodworking Basics,A practical introduction to woodworking basics with a new challenge each week.,"MON1,WED1",0,true,Ms Lin,lin@example.test,Room S206,Spring,,MAKER,,Y10
+MKR02,Advanced Woodworking,"Student-led sessions combining technique, reflection, and a final showcase.",THU3,15,false,Ms García,garcia@example.test,Community Room,Drop-in,50 rmb,MAKER,"M,X",
+MKR03,3D Printing Lab,Open to curious beginners; equipment and starter materials are provided.,TUE1,80,false,Ms Lin,lin@example.test,Gym 2,Full Year,Equipment deposit,MAKER,F,"Y11,Y12"
+MKR04,Laser Cutting Studio,A focused programme for students ready to practise beyond the basics.,THU2,6,false,Ms García,,Black Box,Six-week Block,,MAKER,"F,M,X",Y11
+MKR05,Product Design,Collaborative projects connect product design with life around the school.,MON3,24,false,Ms Lin,lin@example.test,Courtyard,Season,600 rmb,MAKER,M,
+MKR06,Sewing and Repair,Short demonstrations are followed by lots of hands-on work.,"TUE3,THU3",0,true,,,North Field,Autumn,,MAKER,,"Y9,Y10,Y11"
+MKR07,Bicycle Workshop,Build confidence through small-group practice and peer feedback.,MON2,15,true,Ms Lin,lin@example.test,Sports Hall,Intensive,50 rmb,MAKER,X,Y12
+MKR08,Model Architecture,A mixed-experience group with optional extension challenges.,WED3,80,false,Ms García,garcia@example.test,Music Room 2,Semester,Equipment deposit,MAKER,,
+MKR09,Electronics Bench,The group plans one public event or exhibition during the term.,"WED3,THU3,MON1",6,false,Ms Lin,lin@example.test,Design Workshop,Spring,,MAKER,"F,M","Y10,Y11,Y12"
+MKR10,Upcycled Fashion,"Try something unfamiliar in a friendly, low-pressure setting.",WED2,24,false,Ms García,garcia@example.test,Swimming Pool,Drop-in,600 rmb,MAKER,,"Y9,Y10"
+MKR11,Cardboard Engineering,,"THU2,MON2",0,true,Ms Lin,lin@example.test,Online,Full Year,,MAKER,"F,X",Y9
+MKR12,Jewellery Making,"Student-led sessions combining technique, reflection, and a final showcase.",WED1,15,false,Ms García,garcia@example.test,Art Studio 1,Six-week Block,50 rmb,MAKER,,"Y9,Y10,Y11,Y12"
+MKR13,Bookbinding,Open to curious beginners; equipment and starter materials are provided.,FRI2,80,true,Ms Lin,,Library Seminar Room,Season,Equipment deposit,MAKER,"M,X","Y10,Y11"
+MKR14,Stagecraft,A focused programme for students ready to practise beyond the basics.,TUE3,6,false,Ms García,garcia@example.test,Dance Studio,Autumn,,MAKER,F,Y10
+MKR15,Invention Incubator,Collaborative projects connect invention incubator with life around the school.,FRI1,24,false,Ms Lin,lin@example.test,,Intensive,600 rmb,MAKER,"F,M,X",
+ACD01,Debate Fundamentals,Short demonstrations are followed by lots of hands-on work.,"MON1,WED1",8,false,Mx Rivera,rivera@example.test,Music Room 2,Autumn,180 rmb,ACADEMIC,,Y11
+ACD02,Competitive Debate,Build confidence through small-group practice and peer feedback.,,30,false,Ms Tanaka,tanaka@example.test,Design Workshop,Intensive,¥120,ACADEMIC,"F,M",
+ACD03,Creative Writing,A mixed-experience group with optional extension challenges.,TUE2,1,true,Mx Rivera,rivera@example.test,Swimming Pool,Semester,Materials included,ACADEMIC,,"Y9,Y10,Y11"
+ACD04,School Newspaper,The group plans one public event or exhibition during the term.,THU3,16,true,,,Online,Spring,Student paid,ACADEMIC,"F,X",Y12
+ACD05,Economics Forum,"Try something unfamiliar in a friendly, low-pressure setting.",TUE1,120,false,Mx Rivera,rivera@example.test,Art Studio 1,Drop-in,,ACADEMIC,,
+ACD06,Model United Nations,A practical introduction to model united nations with a new challenge each week.,"TUE3,THU3",8,false,Ms Tanaka,tanaka@example.test,Library Seminar Room,Full Year,180 rmb,ACADEMIC,"M,X","Y10,Y11,Y12"
+ACD07,Philosophy Café,"Student-led sessions combining technique, reflection, and a final showcase.",MON3,30,false,Mx Rivera,,Dance Studio,Six-week Block,¥120,ACADEMIC,F,"Y9,Y10"
+ACD08,History Detectives,Open to curious beginners; equipment and starter materials are provided.,THU1,1,true,Ms Tanaka,tanaka@example.test,,Season,Materials included,ACADEMIC,"F,M,X",Y9
+ACD09,Geography Challenge,A focused programme for students ready to practise beyond the basics.,MON2,16,false,Mx Rivera,rivera@example.test,Innovation Lab,Autumn,Student paid,ACADEMIC,M,"Y9,Y10,Y11,Y12"
+ACD10,Psychology Seminar,,WED3,120,true,Ms Tanaka,tanaka@example.test,Science Lab 3,Intensive,,ACADEMIC,,"Y10,Y11"
+ACD11,Research Skills,Short demonstrations are followed by lots of hands-on work.,"THU2,FRI2,MON3",8,false,Mx Rivera,rivera@example.test,Room S206,Semester,180 rmb,ACADEMIC,X,Y10
+ACD12,Public Speaking,Build confidence through small-group practice and peer feedback.,WED2,30,false,Ms Tanaka,tanaka@example.test,Community Room,Spring,¥120,ACADEMIC,,
+ACD13,Business Case Club,A mixed-experience group with optional extension challenges.,"MON1,TUE1,WED1,THU1,FRI1",1,true,Mx Rivera,rivera@example.test,Gym 2,Drop-in,Materials included,ACADEMIC,"F,M","Y11,Y12"
+ACD14,Mock Trial,The group plans one public event or exhibition during the term.,WED1,16,false,Ms Tanaka,tanaka@example.test,Black Box,Full Year,Student paid,ACADEMIC,,Y11
+ACD15,Poetry Workshop,"Try something unfamiliar in a friendly, low-pressure setting.",FRI2,120,false,Mx Rivera,rivera@example.test,Courtyard,Six-week Block,,ACADEMIC,"F,X",
+LNG01,Conversational Mandarin,A practical introduction to conversational mandarin with a new challenge each week.,"MON1,WED1",18,true,Ms García,,,Full Year,,LANGUAGE,"F,M,X",Y12
+LNG02,Mandarin Literature,"Student-led sessions combining technique, reflection, and a final showcase.",FRI2,250,false,,,Innovation Lab,Six-week Block,50 rmb,LANGUAGE,M,
+LNG03,Spanish Beginners,Open to curious beginners; equipment and starter materials are provided.,TUE3,10,false,Ms García,garcia@example.test,Science Lab 3,Season,Equipment deposit,LANGUAGE,,"Y10,Y11,Y12"
+LNG04,Spanish Conversation,A focused programme for students ready to practise beyond the basics.,FRI1,40,false,Ms Lin,lin@example.test,Room S206,Autumn,,LANGUAGE,X,"Y9,Y10"
+LNG05,French Beginners,Collaborative projects connect french beginners with life around the school.,TUE2,2,false,Ms García,garcia@example.test,Community Room,Intensive,600 rmb,LANGUAGE,,Y9
+LNG06,French Cinema,Short demonstrations are followed by lots of hands-on work.,,18,false,Ms Lin,lin@example.test,Gym 2,Semester,,LANGUAGE,"F,M","Y9,Y10,Y11,Y12"
+LNG07,Japanese Beginners,Build confidence through small-group practice and peer feedback.,TUE1,250,true,Ms García,garcia@example.test,Black Box,Spring,50 rmb,LANGUAGE,,"Y10,Y11"
+LNG08,Japanese Culture Through Language,A mixed-experience group with optional extension challenges.,THU2,10,false,Ms Lin,lin@example.test,Courtyard,Drop-in,Equipment deposit,LANGUAGE,"F,X",Y10
+LNG09,Korean Conversation,,MON3,40,false,Ms García,garcia@example.test,North Field,Full Year,,LANGUAGE,,
+LNG10,German Beginners,"Try something unfamiliar in a friendly, low-pressure setting.",THU1,2,false,Ms Lin,,Sports Hall,Six-week Block,600 rmb,LANGUAGE,"M,X","Y11,Y12"
+LNG11,Latin Roots,A practical introduction to latin roots with a new challenge each week.,"THU2,MON2",18,false,Ms García,garcia@example.test,Music Room 2,Season,,LANGUAGE,F,Y11
+LNG12,English Theatre,"Student-led sessions combining technique, reflection, and a final showcase.",WED3,250,false,Ms Lin,lin@example.test,Design Workshop,Autumn,50 rmb,LANGUAGE,"F,M,X",
+LNG13,Academic English Clinic,Open to curious beginners; equipment and starter materials are provided.,"FRI1,MON1,TUE2",10,true,Ms García,garcia@example.test,Swimming Pool,Intensive,Equipment deposit,LANGUAGE,M,"Y9,Y10,Y11"
+LNG14,Multilingual Newsroom,A focused programme for students ready to practise beyond the basics.,WED2,40,false,Ms Lin,lin@example.test,Online,Semester,,LANGUAGE,,Y12
+LNG15,Sign Language Basics,Collaborative projects connect sign language basics with life around the school.,FRI3,2,false,,,Art Studio 1,Spring,600 rmb,LANGUAGE,X,
+CUL01,Shanghai Stories,Short demonstrations are followed by lots of hands-on work.,"MON1,WED1",60,false,Ms Tanaka,tanaka@example.test,Courtyard,Semester,180 rmb,CULTURE,"F,X","Y9,Y10"
+CUL02,Chinese Tea Culture,Build confidence through small-group practice and peer feedback.,FRI3,4,false,Mx Rivera,rivera@example.test,North Field,Spring,¥120,CULTURE,,Y9
+CUL03,World Cinema,A mixed-experience group with optional extension challenges.,WED1,20,false,Ms Tanaka,tanaka@example.test,Sports Hall,Drop-in,Materials included,CULTURE,"M,X","Y9,Y10,Y11,Y12"
+CUL04,Museum Explorers,The group plans one public event or exhibition during the term.,FRI2,500,true,Mx Rivera,,Music Room 2,Full Year,Student paid,CULTURE,F,"Y10,Y11"
+CUL05,Traditional Paper Cutting,"Try something unfamiliar in a friendly, low-pressure setting.",TUE3,12,false,Ms Tanaka,tanaka@example.test,Design Workshop,Six-week Block,,CULTURE,"F,M,X",Y10
+CUL06,Folk Dance,A practical introduction to folk dance with a new challenge each week.,"TUE3,THU3",60,false,Mx Rivera,rivera@example.test,Swimming Pool,Season,180 rmb,CULTURE,M,
+CUL07,Global Food Histories,"Student-led sessions combining technique, reflection, and a final showcase.",TUE2,4,false,Ms Tanaka,tanaka@example.test,Online,Autumn,¥120,CULTURE,,"Y11,Y12"
+CUL08,Mythology Circle,,THU3,20,false,Mx Rivera,rivera@example.test,Art Studio 1,Intensive,Materials included,CULTURE,X,Y11
+CUL09,Architecture of Shanghai,A focused programme for students ready to practise beyond the basics.,TUE1,500,false,Ms Tanaka,tanaka@example.test,Library Seminar Room,Semester,Student paid,CULTURE,,
+CUL10,Oral History Project,Collaborative projects connect oral history project with life around the school.,,12,true,Mx Rivera,rivera@example.test,Dance Studio,Spring,,CULTURE,"F,M","Y9,Y10,Y11"
+CUL11,Festival Traditions,Short demonstrations are followed by lots of hands-on work.,"THU2,MON2",60,false,Ms Tanaka,tanaka@example.test,,Drop-in,180 rmb,CULTURE,,Y12
+CUL12,World Religions Forum,Build confidence through small-group practice and peer feedback.,"MON1,TUE1,WED1,THU1,FRI1",4,false,Mx Rivera,rivera@example.test,Innovation Lab,Full Year,¥120,CULTURE,"F,X",
+CUL13,Local Dialects,A mixed-experience group with optional extension challenges.,MON2,20,false,,,Science Lab 3,Six-week Block,Materials included,CULTURE,,"Y10,Y11,Y12"
+CUL14,Heritage Conservation,The group plans one public event or exhibition during the term.,WED3,500,false,Mx Rivera,rivera@example.test,Room S206,Season,Student paid,CULTURE,"M,X","Y9,Y10"
+CUL15,Cultural Exchange Café,"Try something unfamiliar in a friendly, low-pressure setting.","FRI3,MON3,WED1",12,false,Ms Tanaka,tanaka@example.test,Community Room,Autumn,,CULTURE,F,Y9
+SVC01,Peer Tutoring,A practical introduction to peer tutoring with a new challenge each week.,"MON1,WED1",0,true,Ms Lin,lin@example.test,Art Studio 1,Season,,SERVICE,X,"Y10,Y11"
+SVC02,Library Volunteers,"Student-led sessions combining technique, reflection, and a final showcase.",MON1,15,false,Ms García,garcia@example.test,Library Seminar Room,Autumn,50 rmb,SERVICE,,Y10
+SVC03,Campus Garden Service,Open to curious beginners; equipment and starter materials are provided.,WED2,80,false,Ms Lin,lin@example.test,Dance Studio,Intensive,Equipment deposit,SERVICE,"F,M",
+SVC04,Animal Welfare Advocates,A focused programme for students ready to practise beyond the basics.,FRI3,6,false,Ms García,garcia@example.test,,Semester,,SERVICE,,"Y11,Y12"
+SVC05,Community Tech Help,Collaborative projects connect community tech help with life around the school.,WED1,24,false,Ms Lin,lin@example.test,Innovation Lab,Spring,600 rmb,SERVICE,"F,X",Y11
+SVC06,Food Bank Team,Short demonstrations are followed by lots of hands-on work.,"TUE3,THU3",0,true,Ms García,garcia@example.test,Science Lab 3,Drop-in,,SERVICE,,
+SVC07,Accessibility Auditors,,TUE3,15,true,Ms Lin,,Room S206,Full Year,50 rmb,SERVICE,"M,X","Y9,Y10,Y11"
+SVC08,Recycling Crew,A mixed-experience group with optional extension challenges.,FRI1,80,false,Ms García,garcia@example.test,Community Room,Six-week Block,Equipment deposit,SERVICE,F,Y12
+SVC09,Reading Partners,The group plans one public event or exhibition during the term.,TUE2,6,false,Ms Lin,lin@example.test,Gym 2,Season,,SERVICE,"F,M,X",
+SVC10,Charity Event Studio,"Try something unfamiliar in a friendly, low-pressure setting.",THU3,24,false,Ms García,garcia@example.test,Black Box,Autumn,600 rmb,SERVICE,M,"Y10,Y11,Y12"
+SVC11,Elder Stories Project,A practical introduction to elder stories project with a new challenge each week.,"THU2,MON2",0,true,,,Courtyard,Intensive,,SERVICE,,"Y9,Y10"
+SVC12,Welcome Ambassadors,"Student-led sessions combining technique, reflection, and a final showcase.",THU2,15,false,Ms García,garcia@example.test,North Field,Semester,50 rmb,SERVICE,X,Y9
+SVC13,Community Art Outreach,Open to curious beginners; equipment and starter materials are provided.,MON3,80,true,Ms Lin,lin@example.test,Sports Hall,Spring,Equipment deposit,SERVICE,,"Y9,Y10,Y11,Y12"
+SVC14,River Awareness Campaign,A focused programme for students ready to practise beyond the basics.,,6,false,Ms García,garcia@example.test,Music Room 2,Drop-in,,SERVICE,"F,M","Y10,Y11"
+SVC15,Service Project Incubator,Collaborative projects connect service project incubator with life around the school.,MON2,24,false,Ms Lin,lin@example.test,Design Workshop,Full Year,600 rmb,SERVICE,,Y10
+OUT01,Hiking Skills,Short demonstrations are followed by lots of hands-on work.,"MON1,WED1",8,false,Mx Rivera,,Community Room,Drop-in,180 rmb,OUTDOOR,F,"Y11,Y12"
+OUT02,Orienteering,Build confidence through small-group practice and peer feedback.,"MON2,TUE2,WED3",30,false,Ms Tanaka,tanaka@example.test,Gym 2,Full Year,¥120,OUTDOOR,"F,M,X",Y11
+OUT03,Outdoor First Aid,A mixed-experience group with optional extension challenges.,WED3,1,true,Mx Rivera,rivera@example.test,Black Box,Six-week Block,Materials included,OUTDOOR,M,
+OUT04,Kayaking Basics,The group plans one public event or exhibition during the term.,MON1,16,true,Ms Tanaka,tanaka@example.test,Courtyard,Season,Student paid,OUTDOOR,,"Y9,Y10,Y11"
+OUT05,Cycling Adventures,"Try something unfamiliar in a friendly, low-pressure setting.",WED2,120,false,Mx Rivera,rivera@example.test,North Field,Autumn,,OUTDOOR,X,Y12
+OUT06,Camping Craft,,"TUE3,THU3",8,false,Ms Tanaka,tanaka@example.test,Sports Hall,Intensive,180 rmb,OUTDOOR,,
+OUT07,Nature Photography,"Student-led sessions combining technique, reflection, and a final showcase.",WED1,30,false,Mx Rivera,rivera@example.test,Music Room 2,Semester,¥120,OUTDOOR,"F,M","Y10,Y11,Y12"
+OUT08,Birdwatching,Open to curious beginners; equipment and starter materials are provided.,FRI2,1,true,Ms Tanaka,tanaka@example.test,Design Workshop,Spring,Materials included,OUTDOOR,,"Y9,Y10"
+OUT09,Leave No Trace,A focused programme for students ready to practise beyond the basics.,TUE3,16,false,,,Swimming Pool,Drop-in,Student paid,OUTDOOR,"F,X",Y9
+OUT10,Expedition Planning,Collaborative projects connect expedition planning with life around the school.,FRI1,120,true,Ms Tanaka,,Online,Full Year,,OUTDOOR,,"Y9,Y10,Y11,Y12"
+OUT11,Climbing Team,Short demonstrations are followed by lots of hands-on work.,"MON1,TUE1,WED1,THU1,FRI1",8,false,Mx Rivera,rivera@example.test,Art Studio 1,Six-week Block,180 rmb,OUTDOOR,"M,X","Y10,Y11"
+OUT12,Trail Running,Build confidence through small-group practice and peer feedback.,THU3,30,false,Ms Tanaka,tanaka@example.test,Library Seminar Room,Season,¥120,OUTDOOR,F,Y10
+OUT13,Paddle Sports,A mixed-experience group with optional extension challenges.,TUE1,1,true,Mx Rivera,rivera@example.test,Dance Studio,Autumn,Materials included,OUTDOOR,"F,M,X",
+OUT14,Urban Navigation,The group plans one public event or exhibition during the term.,THU2,16,false,Ms Tanaka,tanaka@example.test,,Intensive,Student paid,OUTDOOR,M,"Y11,Y12"
+OUT15,Weekend Trek Preparation,"Try something unfamiliar in a friendly, low-pressure setting.",MON3,120,false,Mx Rivera,rivera@example.test,Innovation Lab,Semester,,OUTDOOR,,Y11
+WLN01,Yoga and Mobility,A practical introduction to yoga and mobility with a new challenge each week.,"MON1,WED1",18,true,Ms García,garcia@example.test,Design Workshop,Intensive,,WELLNESS,,"Y9,Y10,Y11"
+WLN02,Mindfulness Practice,"Student-led sessions combining technique, reflection, and a final showcase.",MON3,250,false,Ms Lin,lin@example.test,Swimming Pool,Semester,50 rmb,WELLNESS,"F,X",Y12
+WLN03,Strength and Conditioning,Open to curious beginners; equipment and starter materials are provided.,,10,false,Ms García,garcia@example.test,Online,Spring,Equipment deposit,WELLNESS,,
+WLN04,Healthy Cooking,A focused programme for students ready to practise beyond the basics.,"TUE1,WED1,THU2",40,false,Ms Lin,,Art Studio 1,Drop-in,,WELLNESS,"M,X","Y10,Y11,Y12"
+WLN05,Sleep Science,,WED3,2,false,Ms García,garcia@example.test,Library Seminar Room,Full Year,600 rmb,WELLNESS,F,"Y9,Y10"
+WLN06,Stress Management,Short demonstrations are followed by lots of hands-on work.,"TUE3,THU3",18,false,Ms Lin,lin@example.test,Dance Studio,Six-week Block,,WELLNESS,"F,M,X",Y9
+WLN07,Pilates,Build confidence through small-group practice and peer feedback.,WED2,250,true,,,,Season,50 rmb,WELLNESS,M,"Y9,Y10,Y11,Y12"
+WLN08,Running for Wellbeing,A mixed-experience group with optional extension challenges.,FRI3,10,false,Ms Lin,lin@example.test,Innovation Lab,Autumn,Equipment deposit,WELLNESS,,"Y10,Y11"
+WLN09,Nutrition Lab,The group plans one public event or exhibition during the term.,WED1,40,false,Ms García,garcia@example.test,Science Lab 3,Intensive,,WELLNESS,X,Y10
+WLN10,Breathwork,"Try something unfamiliar in a friendly, low-pressure setting.",FRI2,2,false,Ms Lin,lin@example.test,Room S206,Semester,600 rmb,WELLNESS,,
+WLN11,Social Connection Lab,A practical introduction to social connection lab with a new challenge each week.,"THU2,MON2",18,false,Ms García,garcia@example.test,Community Room,Spring,,WELLNESS,"F,M","Y11,Y12"
+WLN12,Ergonomics Clinic,"Student-led sessions combining technique, reflection, and a final showcase.",FRI1,250,false,Ms Lin,lin@example.test,Gym 2,Drop-in,50 rmb,WELLNESS,,Y11
+WLN13,Tai Chi,Open to curious beginners; equipment and starter materials are provided.,TUE2,10,true,Ms García,,Black Box,Full Year,Equipment deposit,WELLNESS,"F,X",
+WLN14,Quiet Reading Hour,A focused programme for students ready to practise beyond the basics.,THU3,40,false,Ms Lin,lin@example.test,Courtyard,Six-week Block,,WELLNESS,,"Y9,Y10,Y11"
+WLN15,Wellness Journaling,Collaborative projects connect wellness journaling with life around the school.,TUE1,2,false,Ms García,garcia@example.test,North Field,Season,600 rmb,WELLNESS,"M,X",Y12
+LDR01,Student Council Lab,Short demonstrations are followed by lots of hands-on work.,"MON1,WED1",60,false,Ms Tanaka,tanaka@example.test,Innovation Lab,Six-week Block,180 rmb,LEADERSHIP,,"Y10,Y11,Y12"
+LDR02,House Leadership,Build confidence through small-group practice and peer feedback.,TUE1,4,false,Mx Rivera,rivera@example.test,Science Lab 3,Season,¥120,LEADERSHIP,X,"Y9,Y10"
+LDR03,Event Production,A mixed-experience group with optional extension challenges.,THU2,20,false,Ms Tanaka,tanaka@example.test,Room S206,Autumn,Materials included,LEADERSHIP,,Y9
+LDR04,Team Facilitation,,MON3,500,true,Mx Rivera,rivera@example.test,Community Room,Intensive,Student paid,LEADERSHIP,"F,M","Y9,Y10,Y11,Y12"
+LDR05,Conflict Resolution,"Try something unfamiliar in a friendly, low-pressure setting.",THU1,12,false,,,Gym 2,Semester,,LEADERSHIP,,"Y10,Y11"
+LDR06,Peer Mentoring,A practical introduction to peer mentoring with a new challenge each week.,"TUE3,WED3,FRI1",60,false,Mx Rivera,rivera@example.test,Black Box,Spring,180 rmb,LEADERSHIP,"F,X",Y10
+LDR07,Project Management,"Student-led sessions combining technique, reflection, and a final showcase.",,4,false,Ms Tanaka,,Courtyard,Drop-in,¥120,LEADERSHIP,,
+LDR08,Ethical Leadership,Open to curious beginners; equipment and starter materials are provided.,MON1,20,false,Mx Rivera,rivera@example.test,North Field,Full Year,Materials included,LEADERSHIP,"M,X","Y11,Y12"
+LDR09,Assembly Crew,A focused programme for students ready to practise beyond the basics.,WED2,500,false,Ms Tanaka,tanaka@example.test,Sports Hall,Six-week Block,Student paid,LEADERSHIP,F,Y11
+LDR10,New Student Guides,Collaborative projects connect new student guides with life around the school.,"MON1,TUE1,WED1,THU1,FRI1",12,true,Mx Rivera,rivera@example.test,Music Room 2,Season,,LEADERSHIP,"F,M,X",
+LDR11,Sports Captains Forum,Short demonstrations are followed by lots of hands-on work.,"THU2,MON2",60,false,Ms Tanaka,tanaka@example.test,Design Workshop,Autumn,180 rmb,LEADERSHIP,M,"Y9,Y10,Y11"
+LDR12,Creative Team Leadership,Build confidence through small-group practice and peer feedback.,FRI2,4,false,Mx Rivera,rivera@example.test,Swimming Pool,Intensive,¥120,LEADERSHIP,,Y12
+LDR13,Student Voice Research,A mixed-experience group with optional extension challenges.,TUE3,20,false,Ms Tanaka,tanaka@example.test,Online,Semester,Materials included,LEADERSHIP,X,
+LDR14,Campaign Design,The group plans one public event or exhibition during the term.,FRI1,500,false,Mx Rivera,rivera@example.test,Art Studio 1,Spring,Student paid,LEADERSHIP,,"Y10,Y11,Y12"
+LDR15,Leadership Practicum,"Try something unfamiliar in a friendly, low-pressure setting.",TUE2,12,false,Ms Tanaka,tanaka@example.test,Library Seminar Room,Drop-in,,LEADERSHIP,"F,M","Y9,Y10"

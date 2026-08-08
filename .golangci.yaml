@@ -1,20 +1,53 @@
 version: "2"
 
 linters:
-  default: none
-  enable:
-    - staticcheck
-    - govet
-    - errcheck
-    - gosec
-    - revive
-    - ineffassign
-
-linters-settings:
-  revive:
+  default: all
+  exclusions:
+    paths:
+      - ui
     rules:
-      - name: error-strings
-        disabled: true
+      - path: _test\.go
+        linters:
+          - exhaustruct_v5
+  disable:
+    - depguard # I understand what I'm importing
+    - dupword # Extremely normal in tests
+    - goconst # Too many false positives
+    - mnd # Too many false positives
+    - lll # Common sense is better than strict line-length rules
+    - gosmopolitan # We have CJK symbols and tests
+    - nonamedreturns # Named returns are often good for clarity
+    - wsl # Use wsl_v5
+    - varnamelen # Counters like i make sense even when they span quite a bit
+    - gocyclo # Cyclomatic metrics are not very useful
+    - cyclop # Cyclomatic metrics are not very useful
+    - gocognit # Still too many false positives
+    - godox # TODOs should probably not cause lint failures
+    - funlen # Long functions are allowed
+    - dogsled # Ignoring returns is normal
+    - gomodguard # Deprecated
+    - exhaustruct # Use exhaustruct_v5
+    - ireturn # Too much noise
+    - noinlineerr # Inline errors often actually make sense
+
+  settings:
+    perfsprint:
+      errorf: false
+    tagliatelle:
+      case:
+        rules:
+          json: snake
+    wrapcheck:
+      ignore-interface-regexps:
+        - ^io\.
+      extra-ignore-sigs:
+        - (io.Reader).Read(
+        - (io.Writer).Write(
+        - (io.Closer).Close(
+    revive:
+      rules:
+        - name: error-strings
+          disabled: true
 
 issues:
   max-issues-per-linter: 0

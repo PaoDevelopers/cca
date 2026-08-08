@@ -1,0 +1,348 @@
+/*
+ * This stylesheet *may* use features up to Baseline 2025 newly available such
+ * as native CSS nesting, :has, etc.
+ */
+
+/*
+ * Default box-sizing is content-box on most browsers, which is not how the box
+ * model intuitively works for me. Instead of forcing every element to use
+ * border-box let's set it to use border-box by default and inherit others if
+ * set.
+ */
+
+html {
+	box-sizing: border-box;
+}
+
+*,
+*::before,
+*::after {
+	box-sizing: inherit;
+	line-height: calc(1em + 0.5rem);
+}
+
+/*
+ * Basics. The page colors live in custom properties so components can
+ * derive tints from them with color-mix().
+ */
+
+:root {
+	color-scheme: light dark;
+	--fg: light-dark(oklch(0 0 0), oklch(0.952 0.003 264.5));
+	--bg: light-dark(oklch(0.99 0 0), oklch(0.239 0.004 264.5));
+	/* Error borders and tints; mix with --bg for a background. */
+	--danger: light-dark(oklch(0.55 0.19 27), oklch(0.72 0.16 27));
+	/*
+	 * A raised surface: cards, and anything floating over the page.
+	 * Derived from the two colours above rather than named separately,
+	 * so a theme change cannot leave it behind.
+	 */
+	--surface: color-mix(in oklab, var(--bg) 92%, var(--fg));
+}
+
+html {
+	color: var(--fg);
+	background-color: var(--bg);
+}
+
+body {
+	min-height: 100vh;
+	padding: 8px;
+	margin: 0 auto;
+	font-family: sans-serif;
+}
+
+/* Keep native controls at the same readable size as the surrounding UI. */
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+}
+
+button:not(:disabled),
+summary {
+	cursor: pointer;
+}
+
+/*
+ * Both SPAs mount below #app, while the server-rendered pages use the same
+ * layout directly on body. Let the page content consume the spare height so
+ * the licensing footer rests at the bottom on short pages and follows the
+ * content normally on long ones.
+ */
+
+body,
+#app {
+	display: flex;
+	flex-direction: column;
+
+	> *:has(+ footer) {
+		flex: 1;
+	}
+
+	> footer {
+		margin-top: 1rem;
+		font-size: 0.75rem;
+		color: color-mix(in oklab, var(--fg) 65%, var(--bg));
+
+		a:link,
+		a:visited {
+			color: inherit;
+			text-decoration-color: color-mix(
+				in oklab,
+				currentColor 55%,
+				transparent
+			);
+		}
+	}
+}
+
+#app {
+	flex: 1;
+}
+
+/*
+ * This makes it less ugly than the default of using the same blue color of the
+ * text in the underline while still remaining accessible and making it
+ * possible to distinguish adjacent links.
+ */
+
+a:link,
+a:visited {
+	text-decoration-thickness: 1.89px;
+	text-decoration-color: light-dark(oklch(0.85 0 0), oklch(0.42 0 0));
+	color: light-dark(oklch(0.428 0.088 249.2), oklch(0.78 0.115 248.6));
+}
+
+/*
+ * The card shell: a dim tint of the foreground over the page
+ * background, used by course cards and admin per-entity cards alike.
+ * Internal layout beyond the column flow stays in each component.
+ * Cards live in a .cards grid, which caps their width and lets them
+ * flow; .cards.wide is for cards with tables inside.
+ */
+
+article.card {
+	background-color: color-mix(in oklab, var(--bg) 96%, var(--fg));
+	padding: 0.75rem;
+	display: flex;
+	flex-direction: column;
+	gap: 0.25rem;
+}
+
+div.cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+	gap: 1rem;
+}
+
+div.cards.wide {
+	grid-template-columns: repeat(auto-fill, minmax(28rem, 1fr));
+}
+
+/*
+ * Tables: collapsed, with a border as light as the course card
+ * background. Row-scope header cells align left instead of the
+ * browser-default center.
+ */
+
+/*
+ * A wide table scrolls inside itself rather than taking the page with
+ * it. Below about 700px the student catalogue and every admin table
+ * overflowed with overflow-x: visible all the way up, so the whole
+ * document scrolled sideways and the header, the nav and the footer
+ * went with it. Data tables are exempt from the reflow requirement;
+ * dragging the entire page to read a row is still no way to use one.
+ */
+
+.scrolls {
+	overflow-x: auto;
+}
+
+/*
+ * The three operational admin lists can contain hundreds of rows. Keep
+ * their controls and result count in view while the data scrolls, and keep
+ * the column labels attached to the values they explain.
+ */
+
+.admin-table {
+	max-height: 70vh;
+	overflow: auto;
+	scrollbar-gutter: stable;
+	border-block: 1px solid color-mix(in oklab, var(--bg) 85%, var(--fg));
+
+	table {
+		width: max-content;
+		min-width: 100%;
+	}
+
+	thead th {
+		position: sticky;
+		top: 0;
+		z-index: 1;
+		background: var(--surface);
+		box-shadow: inset 0 -1px
+			color-mix(in oklab, var(--bg) 70%, var(--fg));
+	}
+
+	tbody tr:hover > :is(th, td) {
+		background: color-mix(in oklab, var(--bg) 94%, var(--fg));
+	}
+}
+
+/* Add/import/reset controls belong before a long list, but stay compact. */
+
+.admin-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: 0.5rem;
+	margin: 0.5rem 0 1rem;
+
+	> :is(.create-panel, .data-tools) {
+		margin: 0;
+		padding: 0.35rem 0.6rem;
+		border: 1px solid color-mix(in oklab, var(--bg) 80%, var(--fg));
+		border-radius: 0.25rem;
+		background: var(--surface);
+	}
+
+	> :is(.create-panel, .data-tools)[open] {
+		flex-basis: 100%;
+
+		> summary {
+			margin-bottom: 0.75rem;
+			font-weight: bold;
+		}
+	}
+}
+
+.admin-list-status {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: space-between;
+	align-items: baseline;
+	gap: 0.5rem 1rem;
+
+	p {
+		margin: 0.5rem 0;
+	}
+}
+
+.admin-list-count {
+	margin: 0.5rem 0;
+}
+
+table {
+	border-collapse: collapse;
+
+	th,
+	td {
+		border: 1px solid color-mix(in oklab, var(--bg) 85%, var(--fg));
+		padding: 0.4rem;
+	}
+
+	th[scope="row"] {
+		text-align: left;
+	}
+}
+
+/*
+ * Normal description lists should remain normal,
+ * unless they actually want to be grids.
+ */
+
+dl.grid {
+	display: grid;
+	grid-template-columns: max-content 1fr;
+	column-gap: 1rem;
+	row-gap: 0.5rem;
+
+	dt {
+		font-weight: bold;
+		text-align: right;
+	}
+
+	dd {
+		margin: 0;
+	}
+}
+
+/*
+ * Abbreviations with an expansion carry a native tooltip; mark them.
+ */
+
+abbr[title] {
+	text-decoration: underline dotted;
+	cursor: help;
+}
+
+/*
+ * Popovers, used for details behind dotted-underline trigger buttons.
+ * Anchored ones (anchor-name on the trigger, position-anchor on the
+ * popover, both set inline) open next to their trigger and flip when
+ * they would leave the viewport; anchor positioning is Baseline newly
+ * available since January 2026.
+ */
+
+/*
+ * A floating panel has to be distinguishable from the page under it.
+ *
+ * It was var(--bg) on var(--bg) — the same colour — separated by a
+ * hairline at 2.7:1 in light and 2.2:1 in dark, both under the 3:1
+ * that WCAG asks of a non-text boundary. For a low-vision reader the
+ * help text merged into whatever it was floating over.
+ *
+ * The card tint gives it a surface of its own, the border is taken to
+ * a ratio that holds in both schemes, and the shadow does the rest of
+ * the lifting without being load-bearing.
+ */
+
+[popover] {
+	background: var(--surface);
+	color: var(--fg);
+	border: 1px solid color-mix(in oklab, var(--bg) 45%, var(--fg));
+	border-radius: 0.25rem;
+	box-shadow: 0 0.25rem 0.75rem
+		color-mix(in oklab, black 25%, transparent);
+	padding: 0.75rem;
+}
+
+[popover].anchored {
+	margin: 0.25rem 0;
+	inset: auto;
+	position-area: block-end span-inline-end;
+	position-try-fallbacks: flip-block, flip-inline;
+}
+
+/*
+ * This makes the monospace font not get sized weirdly.
+ */
+
+pre,
+code {
+	font-family: monospace, monospace;
+}
+
+/*
+ * Text for a screen reader and not for the eye.
+ *
+ * Not display:none and not visibility:hidden — both remove the element
+ * from the accessibility tree along with the layout, which is the
+ * opposite of the point. The clip-rect idiom leaves it rendered, one
+ * pixel, out of view, and announced.
+ */
+
+.for-screen-readers {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+	border: 0;
+}

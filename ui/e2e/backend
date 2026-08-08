@@ -1,0 +1,105 @@
+#!/bin/sh
+
+# Brings up a real cca against a scratch database, for the end-to-end
+# tests. Deliberately the production binary and the production schema:
+# a stub backend is a second implementation of the API that drifts from
+# the first, and the drift is invisible until it hides a bug.
+#
+# The harness (harness.ts) supplies the database name, listen address
+# and JWKS URL, and kills this script's process group when it is done;
+# the trap below drops the database on the way out.
+#
+# The written config is also what `cca -session` reads to mint the test
+# cookies. Its path comes in as CCA_E2E_CONF, chosen by the harness; it
+# is still printed on the first line of stdout, for somebody running
+# this script by hand.
+#
+# Mirrors what the internal/db tests do: same schema concatenation, same
+# psql-with-ON_ERROR_STOP.
+
+set -eu
+
+: "${CCA_E2E_DB:?database name required}"
+: "${CCA_E2E_ADDR:?listen address required}"
+: "${CCA_E2E_JWKS:?jwks url required}"
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+
+if [ ! -x "$root/cca" ]; then
+	printf '%s\n' "no cca binary at $root/cca; run make first" >&2
+	exit 1
+fi
+
+# Not mktemp'd into a directory the harness cannot guess: it has to
+# read this file too.
+conf="${CCA_E2E_CONF:-$(mktemp)}"
+cca_pid=""
+
+cleanup() {
+	if [ -n "$cca_pid" ]; then
+		kill "$cca_pid" 2>/dev/null || true
+		wait "$cca_pid" 2>/dev/null || true
+	fi
+	rm -f "$conf"
+	dropdb --if-exists "$CCA_E2E_DB" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT INT TERM
+
+dropdb --if-exists "$CCA_E2E_DB"
+createdb "$CCA_E2E_DB"
+
+cat "$root"/internal/db/schemas/*.sql |
+	psql -v ON_ERROR_STOP=1 -q "$CCA_E2E_DB" >/dev/null
+psql -v ON_ERROR_STOP=1 -q -f "$(dirname -- "$0")/seed.sql" "$CCA_E2E_DB" >/dev/null
+
+# Plain HTTP on loopback: the tests drive a browser, not a proxy, and
+# TLS here would only add a certificate to manage. Every directive the
+# config struct declares has to be present, including the TLS paths
+# that the plain transport never reads.
+cat >"$conf" <<EOF
+database {
+	url postgres:///$CCA_E2E_DB
+	max_conns 10
+	min_conns 1
+	max_conn_lifetime 14400000000000
+	max_conn_idle_time 1200000000000
+	health_check_period 60000000000
+	connect_timeout 5000000000
+}
+
+listen {
+	protocol http
+	network tcp
+	address $CCA_E2E_ADDR
+	transport plain
+	tls {
+		cert /nonexistent
+		key /nonexistent
+	}
+}
+
+session {
+	# Fixed rather than random: the harness mints cookies against the
+	# same file, and a fixed key makes a failing run reproducible.
+	# Never a real deployment's key.
+	key 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
+}
+
+oidc {
+	client e2e
+	authorize http://127.0.0.1:1/authorize
+	jwks $CCA_E2E_JWKS
+}
+
+admins {
+	e2e.admin
+}
+EOF
+
+# Announced before the server starts, so the harness can mint cookies
+# while it waits for the port.
+printf 'config %s\n' "$conf"
+
+"$root/cca" -c "$conf" &
+cca_pid=$!
+wait "$cca_pid"

@@ -1,0 +1,59 @@
+End-to-end tests: a browser driving a real cca.
+
+Run them with `make check-e2e` from the repository root, which builds
+the binary first. They need PostgreSQL (the same setup the
+internal/db tests want) and a browser in PATH: chromium, chromium-browser or
+google-chrome, or one named by CCA_E2E_CHROMIUM. A browser is never
+downloaded, and a missing one is an error rather than a skip — a suite
+that quietly does not run is worse than one that fails.
+
+What is real and what is not
+----------------------------
+
+Real: the cca binary, the production schema from internal/db/schemas,
+the JSON API, the websocket, and the frontends. There is no stub
+backend. A stub is a second implementation of the API, and it drifts
+from the first silently — the drift is only noticed when it hides a
+bug rather than when it is introduced.
+
+Not real: the identity provider. The tests serve an empty JWKS so the
+server gets past startup, and mint the cookie the OIDC callback would
+have set by shelling out to `cca -session`. Nothing is seeded into the
+database for this, because there is nothing to seed: a session is a
+signed cookie and no table records one. Nothing under test lives on
+that path.
+
+Why these tests and not more
+----------------------------
+
+Anything one process can answer belongs in a cheaper test:
+internal/db/*_test.go for the schema rules and for what they do under
+concurrent sessions, internal/web/*_test.go
+for the handlers and the hub, svelte-check and eslint for the frontend.
+What is left over, and what lives here, is the joins between them: that
+the JSON the handlers emit is the shape the components read, that a rule
+the database enforces is also shown to the user before they hit it, and
+that an event travels from one browser through the hub to another.
+
+The frontends are embedded in the binary
+----------------------------------------
+
+ui/embed.go embeds student/dist and admin/dist at compile time, so a
+frontend change is not visible to these tests until the *binary* is
+rebuilt. `make check-e2e` depends on the binary for that reason; running
+`npm run check:e2e` by hand after editing a component will silently test
+the previously embedded bundle.
+
+Layout
+------
+
+backend         POSIX sh: scratch database, schema, seed, run ./cca
+seed.sql        the fixture: vocabulary, courses, students. No
+                sessions; harness.ts mints those cookies with
+                `cca -session`
+harness.ts      per-file stack: jwks stub, backend, browser, teardown
+*.test.ts       node:test specs
+
+They compile to node_modules/.e2e with the repository's own typescript
+and run under node --test. playwright-core is used rather than
+playwright because it never downloads a browser.
