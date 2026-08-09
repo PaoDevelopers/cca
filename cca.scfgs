@@ -30,7 +30,7 @@ test_auth {
 	// Keep disabled in production. When allow_remote is false, the test login
 	// is available only through localhost. A non-empty access_key is required
 	// on every test login, including localhost.
-	enabled true
+	enabled false
 	allow_remote false
 	access_key "Abcd1234"
 }
