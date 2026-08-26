@@ -42,8 +42,9 @@
 	}
 
 	interface Row {
-		// Identifies the row for keying; prefixed so that a period
-		// called "Unscheduled" stays distinct from the trailing row.
+		// Identifies the row for keying; period IDs and course IDs are
+		// drawn from the same namespace as each other's labels, so the
+		// prefix keeps a period called "Unscheduled" distinct.
 		key: string
 		label: string
 		entries: Entry[]
@@ -62,16 +63,18 @@
 				)
 				.map(entry),
 		}))
-		const unscheduled = mine.filter((e): boolean => {
-			const course = courseByID.get(e.course_id)
-			return course === undefined || course.period_ids.length === 0
-		})
-		if (unscheduled.length > 0) {
-			out.push({
-				key: "unscheduled",
-				label: "Unscheduled",
-				entries: unscheduled.map(entry),
-			})
+		// One row per unscheduled course rather than one row listing
+		// them all: they share no period, so nothing is said by
+		// putting them on the same line.
+		for (const enrollment of mine) {
+			const course = courseByID.get(enrollment.course_id)
+			if (course === undefined || course.period_ids.length === 0) {
+				out.push({
+					key: `unscheduled:${enrollment.course_id}`,
+					label: "Unscheduled",
+					entries: [entry(enrollment)],
+				})
+			}
 		}
 		return out
 	})
