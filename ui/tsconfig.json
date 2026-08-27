@@ -18,10 +18,12 @@
 		"forceConsistentCasingInFileNames": true,
 		"noFallthroughCasesInSwitch": true,
 		"noEmit": true,
+		"jsx": "react-jsx",
 		"types": ["svelte", "vite/client"],
 		"baseUrl": ".",
 		"paths": {
-			"@common/*": ["common/src/*"]
+			"@common/*": ["common/src/*"],
+			"@/*": ["student/src/*"]
 		}
 	},
 	"include": [
@@ -30,9 +32,11 @@
 		"student/src/**/*.ts",
 		"student/src/**/*.d.ts",
 		"student/src/**/*.svelte",
+		"student/src/**/*.tsx",
 		"admin/src/**/*.ts",
 		"admin/src/**/*.d.ts",
 		"admin/src/**/*.svelte",
+		"admin/src/**/*.tsx",
 		"dev.ts",
 		"student/vite.config.ts",
 		"admin/vite.config.ts",

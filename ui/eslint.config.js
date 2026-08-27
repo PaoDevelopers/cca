@@ -3,6 +3,7 @@ import sveltePlugin from "eslint-plugin-svelte"
 import tsParser from "@typescript-eslint/parser"
 import tsPlugin from "@typescript-eslint/eslint-plugin"
 import prettierPlugin from "eslint-plugin-prettier"
+import reactHooksPlugin from "eslint-plugin-react-hooks"
 import globals from "globals"
 
 const tsRules = {
@@ -106,7 +107,7 @@ const svelteRules = {
 
 export default [
 	{
-		files: ["**/src/**/*.ts"],
+		files: ["**/src/**/*.ts", "**/src/**/*.tsx"],
 		ignores: ["**/dist/**", "node_modules/**"],
 		languageOptions: {
 			parser: tsParser,
@@ -208,6 +209,44 @@ export default [
 			// runes and is otherwise identical.
 			"prefer-const": "off",
 			"svelte/prefer-const": "error",
+		},
+	},
+	{
+		// React components and the hooks they call. The block above
+		// already supplies the parser and the shared TypeScript rules;
+		// this one only adds what the core rules cannot see — the hook
+		// rules, which are the whole of what React itself enforces.
+		//
+		// .ts as well as .tsx: a custom hook is a function, not markup,
+		// and lives in a plain module. Scoped to .tsx alone, the rules
+		// silently did not apply to it — and an eslint-disable naming
+		// one of them became an error for a rule that was not loaded.
+		files: ["**/src/**/*.ts", "**/src/**/*.tsx"],
+		ignores: ["**/dist/**", "node_modules/**"],
+		plugins: {
+			"react-hooks": reactHooksPlugin,
+		},
+		rules: {
+			"react-hooks/rules-of-hooks": "error",
+			"react-hooks/exhaustive-deps": "error",
+		},
+	},
+	{
+		// Vendored shadcn primitives, written out by `shadcn add` and
+		// replaced wholesale by the next one. Two rules are turned off
+		// for them and nothing else: a return type on a function whose
+		// body is a JSX literal states what the reader can already see,
+		// and the generated fallbacks are `||` on purpose, since an
+		// empty-string variant should fall through to the default the
+		// same way undefined does.
+		//
+		// Scoped to this directory so the rules keep their full force on
+		// every line anybody here actually writes.
+		files: ["**/src/components/ui/**/*.tsx"],
+		rules: {
+			"@typescript-eslint/explicit-function-return-type": "off",
+			"@typescript-eslint/prefer-nullish-coalescing": "off",
+			"@typescript-eslint/strict-boolean-expressions": "off",
 		},
 	},
 ]

@@ -8,51 +8,16 @@
 // would drift from the first, and the drift is noticed when it hides a
 // rejection rather than when it is introduced.
 //
-// What is left here is arrangement: laying enrollments out over the
-// week, reading the server's verdicts, and filtering the list.
+// What is left here is arrangement: reading the server's verdicts and
+// filtering the list.
 
 import type {
 	Course,
 	Eligibility,
 	Enrollment,
 	EntityID,
-	Period,
 	Violation,
 } from "@common/types"
-
-export interface ScheduleRow {
-	// Identifies the row for keying. Period IDs and course IDs are
-	// drawn from the same namespace as each other's labels, so the
-	// prefix keeps a period called "Unscheduled" distinct.
-	key: string
-	label: string
-	courses: Course[]
-}
-
-// One row per period in server-provided order, then one row per
-// enrolled course without any scheduled periods.
-export function scheduleRows(
-	periods: Period[],
-	enrolled: Course[],
-): ScheduleRow[] {
-	const rows = periods.map((period): ScheduleRow => ({
-		key: `period:${period.id}`,
-		label: period.name,
-		courses: enrolled.filter((c): boolean =>
-			c.period_ids.includes(period.id),
-		),
-	}))
-	for (const course of enrolled) {
-		if (course.period_ids.length === 0) {
-			rows.push({
-				key: `unscheduled:${course.id}`,
-				label: "Unscheduled",
-				courses: [course],
-			})
-		}
-	}
-	return rows
-}
 
 // The server's verdict for one course: why the student may not take
 // it, or an empty list if they may.
@@ -148,6 +113,104 @@ export function swappable(
 	return clashes.every((id): boolean => droppable.get(id) === true)
 }
 
+// What one course currently is to this student, in the four terms the
+// card and the action buttons both need.
+//
+// Shared rather than worked out twice: the Vue layout puts the buttons
+// in the card header and the reasons at its foot, so two components
+// need the same verdict, and two derivations of "barred" that disagree
+// would show a button the server refuses.
+export interface EnrollmentState {
+	selected: boolean
+	// An enrollment the student may not drop: an administrator placed
+	// them and did not leave the door open.
+	fixed: boolean
+	barred: boolean
+	reasons: string[]
+	// The word for what they hold, empty when they hold nothing.
+	status: string
+}
+
+function enrollmentState(
+	course: Course,
+	enrollment: Enrollment | null,
+	violations: Violation[],
+	canSwap: boolean,
+): EnrollmentState {
+	const selected = enrollment !== null
+	const fixed = enrollment !== null && !enrollment.student_droppable
+
+	// Invite-only is a gate rather than a negotiable rule, so it does
+	// not appear among the violations and is read from the course.
+	const barred = course.invite_only || (violations.length > 0 && !canSwap)
+
+	const reasons = violations.map((v): string => v.detail)
+	if (course.invite_only) {
+		reasons.push("invitation required")
+	}
+
+	let status = ""
+	if (fixed) {
+		status = "Placed by an administrator"
+	} else if (enrollment !== null && !enrollment.counts_toward_budget) {
+		status = "Invited"
+	} else if (selected) {
+		status = "Selected"
+	}
+
+	return { selected, fixed, barred, reasons, status }
+}
+
+// One course as every component below needs it: the course itself, what
+// the student holds, what the server said about it, and the verdict all
+// three imply.
+//
+// Built once per render and passed down whole. The card, the table row
+// and the action buttons all used to take these as four separate props
+// and recompute enrollmentState independently, which meant a change to
+// what "barred" means had to be made in more than one place to take
+// effect.
+export interface CourseRow {
+	course: Course
+	enrollment: Enrollment | null
+	violations: Violation[]
+	canSwap: boolean
+	state: EnrollmentState
+}
+
+// The handlers and the two flags that every course in a list shares.
+// One object rather than five props threaded through three components.
+export interface CourseActions {
+	// Whether the student's own enrollment window is open. Closed, they
+	// may look but not act.
+	windowOpen: boolean
+	// Whether any write is in flight; all of them disable while one is.
+	updating: boolean
+	onenroll: (course: Course) => void
+	ondrop: (course: Course) => void
+	onswap?: ((course: Course) => void) | undefined
+}
+
+export function courseRows(
+	courses: Course[],
+	enrollmentOf: (course: Course) => Enrollment | null,
+	violationsOf: (course: Course) => Violation[],
+	canSwapOf: (course: Course) => boolean,
+): CourseRow[] {
+	return courses.map((course): CourseRow => {
+		const enrollment = enrollmentOf(course)
+		const violations = violationsOf(course)
+		const canSwap = canSwapOf(course)
+		return {
+			course,
+			enrollment,
+			violations,
+			canSwap,
+			state: enrollmentState(course, enrollment, violations, canSwap),
+		}
+	})
+}
+
 export interface CourseFilter {
 	search: string
 	categories: string[]
@@ -162,6 +225,7 @@ export function filterCourses(
 	courses: Course[],
 	filter: CourseFilter,
 	violations: (course: Course) => Violation[],
+	selected: (course: Course) => boolean,
 ): Course[] {
 	const query = filter.search.trim().toLowerCase()
 	return courses.filter((c): boolean => {
@@ -188,6 +252,12 @@ export function filterCourses(
 			!c.period_ids.some((p): boolean => filter.periods.includes(p))
 		) {
 			return false
+		}
+		// These four switches describe whether a course is available to
+		// take. They must not make a course the student already holds
+		// disappear from the combined catalogue.
+		if (selected(c)) {
+			return true
 		}
 		// Fullness is the one verdict the client may compute: it is
 		// arithmetic over a count the browser already has from the

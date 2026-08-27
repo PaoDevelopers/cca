@@ -34,7 +34,7 @@ describe("student", (): void => {
 	}
 
 	async function openAvailable(page: Page): Promise<void> {
-		await page.getByRole("button", { name: /Available courses/ }).click()
+		await page.getByRole("button", { name: /All courses/ }).click()
 		await page.locator("article.card").first().waitFor()
 	}
 
@@ -42,9 +42,11 @@ describe("student", (): void => {
 		const page = await studentPage()
 
 		// Straight from the seeded row, through /student/api/user_info.
+		// The header names whoever is signed in, on every page. The
+		// grade is its id rather than its name, which is what fits.
 		await page.getByText("Alice Example").waitFor()
-		const account = await page.locator("section").first().innerText()
-		assert.match(account, /Year 9/)
+		const account = await page.getByRole("banner").innerText()
+		assert.match(account, /Y9/)
 		assert.match(account, /s1001/)
 	})
 
@@ -129,23 +131,51 @@ describe("student", (): void => {
 			.getByRole("button", { name: /Enroll\b.*\bin Chess/ })
 			.click()
 
-		// Moves out of the catalogue and into the student's own list.
-		await page.getByRole("button", { name: /Your courses \(1\)/ }).waitFor()
-		await page.getByRole("button", { name: /Your courses/ }).click()
+		// Appears in the student's own list, and stays in the catalogue
+		// marked as theirs rather than disappearing out from under the
+		// card they just acted on.
+		await page
+			.getByRole("button", { name: /Your selections \(1\)/ })
+			.waitFor()
+		await chess.getByText("Selected").waitFor()
+		const remaining = await page.locator("article.card").allInnerTexts()
+		assert.equal(remaining.length, 3)
+
+		await page.getByRole("button", { name: /Your selections/ }).click()
 		await page.getByText("Chess").first().waitFor()
 
-		await page.getByRole("button", { name: /Available courses/ }).click()
-		await openAvailable(page)
-		const remaining = await page.locator("article.card").allInnerTexts()
-		assert.equal(remaining.length, 2)
-
 		// Put the fixture back for the other tests.
-		await page.getByRole("button", { name: /Your courses/ }).click()
 		await page.getByRole("button", { name: /Drop\b.*\bChess/ }).click()
 		await page
 			.getByRole("button", { name: /Confirm dropping Chess/ })
 			.click()
-		await page.getByRole("button", { name: /Your courses \(0\)/ }).waitFor()
+		await page
+			.getByRole("button", { name: /Your selections \(0\)/ })
+			.waitFor()
+	})
+
+	it("does not hide a selected course when it becomes full", async (): Promise<void> => {
+		assert.ok(harness !== null)
+		const stack = harness
+		stack.exec("UPDATE courses SET max_students = 1 WHERE id = 'CH'")
+
+		try {
+			const page = await studentPage()
+			await openAvailable(page)
+			const chess = page.locator("article.card", { hasText: "Chess" })
+
+			await chess
+				.getByRole("button", { name: /Enroll\b.*\bin Chess/ })
+				.click()
+			await page
+				.getByRole("button", { name: /Your selections \(1\)/ })
+				.waitFor()
+			await page.getByRole("checkbox", { name: "Hide full" }).check()
+			await chess.getByText("Selected").waitFor()
+		} finally {
+			stack.exec("DELETE FROM enrollments WHERE student_id = 's1001'")
+			stack.exec("UPDATE courses SET max_students = 10 WHERE id = 'CH'")
+		}
 	})
 
 	// A student working by keyboard, which is the case that had nothing
@@ -165,31 +195,31 @@ describe("student", (): void => {
 				(n): string => (n as HTMLElement).dataset["courseAction"] ?? "",
 			),
 		)
-		assert.ok(listed.length >= 2, "need a list to be moved around in")
+		assert.ok(listed.length >= 2, "need a list to act within")
+		const [acting] = listed
+		assert.ok(acting !== undefined)
 
 		const first = page.locator(acted).first()
 		await first.focus()
 		await first.click()
 
-		// The card this acted on is gone from Available. The focus goes
-		// to whatever took its position, not to nowhere and not back to
-		// the top of the document.
+		// The card stays in the catalogue, so the useful place is the
+		// course that was acted on: its button is still there, now
+		// offering the opposite action. The focus follows it rather than
+		// being dropped or thrown to the top of the document.
+		//
+		// It does move for real: the button is blurred for the width of
+		// the write, so this waits through <body> rather than reading
+		// the focus the click left behind.
 		await page.waitForFunction(
-			(): boolean =>
+			(expected: string): boolean =>
 				document.activeElement instanceof HTMLElement &&
-				document.activeElement.dataset["courseAction"] !== undefined,
-			undefined,
+				document.activeElement.dataset["courseAction"] === expected &&
+				document.activeElement
+					.getAttribute("aria-label")
+					?.startsWith("Drop") === true,
+			acting,
 			{ timeout: 5000 },
-		)
-		assert.equal(
-			await page.evaluate(
-				(): string =>
-					(document.activeElement as HTMLElement).dataset[
-						"courseAction"
-					] ?? "",
-			),
-			listed[1],
-			"the focus should be on the course that took the acted-on one's place",
 		)
 
 		// And a polite region says what happened, because nothing else
@@ -207,7 +237,7 @@ describe("student", (): void => {
 		// Arming a confirmation replaces the button that was pressed;
 		// the focus follows to the button that must be pressed next
 		// rather than being dropped between them.
-		await page.getByRole("button", { name: /Your courses/ }).click()
+		await page.getByRole("button", { name: /Your selections/ }).click()
 		const drop = page.locator(acted).first()
 		await drop.focus()
 		await drop.click()
@@ -229,7 +259,9 @@ describe("student", (): void => {
 			{ timeout: 5000 },
 		)
 
-		await page.getByRole("button", { name: /Your courses \(0\)/ }).waitFor()
+		await page
+			.getByRole("button", { name: /Your selections \(0\)/ })
+			.waitFor()
 	})
 
 	// Basketball and Baking both meet in MON1. The database would
@@ -252,7 +284,9 @@ describe("student", (): void => {
 		await basketball
 			.getByRole("button", { name: /Enroll\b.*\bin Basketball/ })
 			.click()
-		await page.getByRole("button", { name: /Your courses \(1\)/ }).waitFor()
+		await page
+			.getByRole("button", { name: /Your selections \(1\)/ })
+			.waitFor()
 
 		const baking = page.locator("article.card", { hasText: "Baking" })
 		// The wording is the database's: enrollment_violations builds
@@ -279,13 +313,23 @@ describe("student", (): void => {
 				name: /Swap in\b.*\bBaking clashes with/,
 			})
 			.waitFor()
+		await page.getByRole("button", { name: "Table" }).click()
+		assert.equal(
+			await page
+				.getByRole("row", { name: /Baking/ })
+				.getByRole("button", { name: /Swap in\b/ })
+				.innerText(),
+			"Swap",
+		)
 
-		await page.getByRole("button", { name: /Your courses/ }).click()
+		await page.getByRole("button", { name: /Your selections/ }).click()
 		await page.getByRole("button", { name: /Drop\b.*\bBasketball/ }).click()
 		await page
 			.getByRole("button", { name: /Confirm dropping Basketball/ })
 			.click()
-		await page.getByRole("button", { name: /Your courses \(0\)/ }).waitFor()
+		await page
+			.getByRole("button", { name: /Your selections \(0\)/ })
+			.waitFor()
 	})
 
 	// A student at their budget cap was never offered Swap, because
@@ -316,7 +360,7 @@ describe("student", (): void => {
 				.getByRole("button", { name: /Enroll\b.*\bin Basketball/ })
 				.click()
 			await page
-				.getByRole("button", { name: /Your courses \(1\)/ })
+				.getByRole("button", { name: /Your selections \(1\)/ })
 				.waitFor()
 
 			// Baking clashes with Basketball *and* would put Alice over
@@ -333,9 +377,9 @@ describe("student", (): void => {
 
 			// And it went through: Basketball is gone, Baking is held.
 			await page
-				.getByRole("button", { name: /Your courses \(1\)/ })
+				.getByRole("button", { name: /Your selections \(1\)/ })
 				.waitFor()
-			await page.getByRole("button", { name: /Your courses/ }).click()
+			await page.getByRole("button", { name: /Your selections/ }).click()
 			await page
 				.getByRole("button", { name: /Drop\b.*\bBaking/ })
 				.waitFor()
@@ -345,7 +389,7 @@ describe("student", (): void => {
 				.getByRole("button", { name: /Confirm dropping Baking/ })
 				.click()
 			await page
-				.getByRole("button", { name: /Your courses \(0\)/ })
+				.getByRole("button", { name: /Your selections \(0\)/ })
 				.waitFor()
 		} finally {
 			stack.exec(

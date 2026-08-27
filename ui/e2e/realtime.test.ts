@@ -38,9 +38,7 @@ describe("realtime", (): void => {
 		// a timeout here means the page was not the app at all. Say what
 		// it was instead of leaving a bare locator timeout.
 		try {
-			await alice
-				.getByRole("button", { name: /Available courses/ })
-				.click()
+			await alice.getByRole("button", { name: /All courses/ }).click()
 		} catch (err) {
 			throw new Error(
 				`${String(err)}\n--- alice's page ---\n${await harness.describe(alice)}`,
@@ -50,33 +48,35 @@ describe("realtime", (): void => {
 		const basketball = alice.locator("article.card", {
 			hasText: "Basketball",
 		})
-		await basketball.getByText("(0/2)").waitFor()
+		await basketball.getByText("0/2").waitFor()
 
 		// Bob enrols in his own session. Alice never reloads.
 		const bobContext = await harness.contextFor("student", subjects.bob)
 		const bob = await bobContext.newPage()
 		await bob.goto("/student/")
-		await bob.getByRole("button", { name: /Available courses/ }).click()
+		await bob.getByRole("button", { name: /All courses/ }).click()
 		await bob
 			.locator("article.card", { hasText: "Basketball" })
 			.getByRole("button", { name: /Enroll\b.*\bin Basketball/ })
 			.click()
-		await bob.getByRole("button", { name: /Your courses \(1\)/ }).waitFor()
+		await bob
+			.getByRole("button", { name: /Your selections \(1\)/ })
+			.waitFor()
 
 		// Arrives over the socket as course_count_update, not by polling.
-		await basketball.getByText("(1/2)").waitFor({ timeout: 10_000 })
+		await basketball.getByText("1/2").waitFor({ timeout: 10_000 })
 
 		const seats = await basketball.innerText()
 		assert.match(seats, /1\/2/)
 
-		await bob.getByRole("button", { name: /Your courses/ }).click()
+		await bob.getByRole("button", { name: /Your selections/ }).click()
 		await bob.getByRole("button", { name: /Drop\b.*\bBasketball/ }).click()
 		await bob
 			.getByRole("button", { name: /Confirm dropping Basketball/ })
 			.click()
 
 		// And back down again, so the fan-out is not a one-way effect.
-		await basketball.getByText("(0/2)").waitFor({ timeout: 10_000 })
+		await basketball.getByText("0/2").waitFor({ timeout: 10_000 })
 
 		await aliceContext.close()
 		await bobContext.close()
@@ -104,7 +104,7 @@ describe("realtime", (): void => {
 		const context = await stack.contextFor("student", subjects.alice)
 		const page = await context.newPage()
 		await page.goto("/student/")
-		await page.getByRole("button", { name: /Available courses/ }).click()
+		await page.getByRole("button", { name: /All courses/ }).click()
 		await page
 			.getByText(/Enrollment closed/)
 			.first()

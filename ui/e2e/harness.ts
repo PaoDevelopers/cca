@@ -9,8 +9,9 @@
 // keep passing after the real one changed. Every request the browser
 // makes is answered by the production handlers.
 //
-// Chromium is taken from PATH and never downloaded, which is why the
-// dependency is playwright-core rather than playwright.
+// Chromium is taken from PATH or the standard macOS application path
+// and never downloaded, which is why the dependency is playwright-core
+// rather than playwright.
 
 import { execFileSync, spawn, type ChildProcess } from "node:child_process"
 import { accessSync, constants, rmSync } from "node:fs"
@@ -28,9 +29,8 @@ import {
 
 const e2eDir = dirname(fileURLToPath(import.meta.url))
 
-// The compiled tests run from node_modules/.e2e, so the scripts they
-// spawn are found relative to the source tree instead.
-const scriptDir = join(e2eDir, "..", "..", "..", "ui", "e2e")
+// The compiled tests run from ui/.e2e, beside the source directory.
+const scriptDir = join(e2eDir, "..", "e2e")
 
 export interface Harness {
 	baseURL: string
@@ -91,6 +91,16 @@ function chromiumPath(): string {
 		const found = which(name)
 		if (found !== null) {
 			return found
+		}
+	}
+	if (process.platform === "darwin") {
+		const chrome =
+			"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+		try {
+			accessSync(chrome, constants.X_OK)
+			return chrome
+		} catch {
+			// Continue to the useful environment error below.
 		}
 	}
 
