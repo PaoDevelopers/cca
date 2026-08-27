@@ -1,17 +1,17 @@
-import type { ReactElement } from "react"
+import type { ReactElement, ReactNode } from "react"
 import { CircleAlert, CircleCheck } from "lucide-react"
 import type { Category, Grade, StudentInfo } from "@common/types"
 import { Badge } from "@/components/ui/badge"
+import {
+	Card,
+	CardAction,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table"
+import { RequirementsOverview } from "./Requirements"
 
 interface Props {
 	user: StudentInfo | null
@@ -26,16 +26,18 @@ function Section({
 }: {
 	title: string
 	action?: ReactElement
-	children: React.ReactNode
+	children: ReactNode
 }): ReactElement {
 	return (
-		<section className="rounded-lg border bg-card p-6">
-			<div className="mb-5 flex items-center justify-between gap-3">
-				<h2 className="text-lg font-semibold">{title}</h2>
-				{action}
-			</div>
-			{children}
-		</section>
+		<Card>
+			<CardHeader>
+				<CardTitle>
+					<h2 className="text-lg">{title}</h2>
+				</CardTitle>
+				{action !== undefined && <CardAction>{action}</CardAction>}
+			</CardHeader>
+			<CardContent>{children}</CardContent>
+		</Card>
 	)
 }
 
@@ -82,24 +84,6 @@ function greeting(hour: number): string {
 // /student/api/user_info. The rules have one definition, and this is a
 // view of it.
 export function HomePage({ user, grade, categories }: Props): ReactElement {
-	// Requirements name category ids; the labels come from the
-	// categories list, which is the consumer's job to map.
-	const categoryName = new Map(
-		categories.map((c): [string, string] => [c.id, c.name]),
-	)
-
-	function requirementLabel(id: number): string {
-		const requirement = grade?.requirements.find(
-			(r): boolean => r.id === id,
-		)
-		if (requirement === undefined) {
-			return ""
-		}
-		return requirement.category_ids
-			.map((c): string => categoryName.get(c) ?? c)
-			.join(" / ")
-	}
-
 	const allMet =
 		user !== null &&
 		user.requirements.every((r): boolean => r.met) &&
@@ -241,56 +225,12 @@ export function HomePage({ user, grade, categories }: Props): ReactElement {
 				)}
 			</div>
 
-			{user !== null && user.requirements.length > 0 && (
-				<Section title="Requirements">
-					<div className="overflow-x-auto rounded-lg border">
-						<Table>
-							<TableHeader>
-								<TableRow>
-									<TableHead scope="col" rowSpan={2}>
-										Categories
-									</TableHead>
-									<TableHead scope="colgroup" colSpan={2}>
-										Periods
-									</TableHead>
-									<TableHead scope="col" rowSpan={2}>
-										Status
-									</TableHead>
-								</TableRow>
-								<TableRow>
-									<TableHead scope="col">Enrolled</TableHead>
-									<TableHead scope="col">Required</TableHead>
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{user.requirements.map((req): ReactElement => (
-									<TableRow key={req.id}>
-										<TableHead scope="row">
-											{requirementLabel(req.id)}
-										</TableHead>
-										<TableCell className="tabular-nums">
-											{req.satisfied_periods}
-										</TableCell>
-										<TableCell className="tabular-nums">
-											{req.min_period_count}
-										</TableCell>
-										<TableCell>
-											<Badge
-												variant={
-													req.met
-														? "default"
-														: "secondary"
-												}
-											>
-												{req.met ? "OK" : "Unsatisfied"}
-											</Badge>
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</div>
-				</Section>
+			{user !== null && (
+				<RequirementsOverview
+					user={user}
+					grade={grade}
+					categories={categories}
+				/>
 			)}
 		</div>
 	)

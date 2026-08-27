@@ -6,6 +6,7 @@ import { CourseList } from "./components/CourseList"
 import { ErrorPopup } from "./components/ErrorPopup"
 import { Footer } from "./components/Footer"
 import { HomePage } from "./components/HomePage"
+import { RequirementsProgress } from "./components/Requirements"
 import { Sidebar } from "./components/Sidebar"
 import { ViewToggle } from "./components/ViewToggle"
 import { Button } from "@/components/ui/button"
@@ -15,6 +16,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Separator } from "@/components/ui/separator"
 import { courseRows, type CourseActions } from "./lib/enrollment"
 import { useStudentData } from "./lib/useStudentData"
 import { cn } from "./lib/utils"
@@ -141,17 +143,36 @@ export function App(): ReactElement {
 		)
 	} else if (page === "mine") {
 		content = (
-			<section aria-labelledby="mine-heading">
-				<PageHeading id="mine-heading" view={view} onview={setView}>
-					Your selections
-				</PageHeading>
-				<CourseList
-					rows={selectedRows}
-					categories={data.categories}
-					empty="You have not selected any courses."
-					view={view}
-					actions={actions}
-				/>
+			<section
+				aria-labelledby="mine-heading"
+				className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_1px_20rem] xl:grid-cols-[minmax(0,1fr)_1px_22rem]"
+			>
+				<div className="min-w-0">
+					<PageHeading id="mine-heading" view={view} onview={setView}>
+						Your selections
+					</PageHeading>
+					<div className="min-w-0">
+						<CourseList
+							rows={selectedRows}
+							categories={data.categories}
+							empty="You have not selected any courses."
+							view={view}
+							actions={actions}
+						/>
+					</div>
+				</div>
+				<Separator className="lg:hidden" />
+				<Separator orientation="vertical" className="hidden lg:block" />
+				<aside
+					aria-label="Requirements progress"
+					className="lg:sticky lg:top-6"
+				>
+					<RequirementsProgress
+						user={data.user}
+						grade={data.grade}
+						categories={data.categories}
+					/>
+				</aside>
 			</section>
 		)
 	} else {
@@ -197,7 +218,7 @@ export function App(): ReactElement {
 				{data.announcement}
 			</p>
 
-			<header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b px-6 py-4">
+			<header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b px-4 py-4 sm:px-6">
 				<h1 className="text-xl">YKPao CCA Selection</h1>
 				{data.user !== null && (
 					<>
@@ -255,7 +276,7 @@ export function App(): ReactElement {
 			</header>
 
 			{!data.unauthenticated && !data.loading && (
-				<div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-6">
+				<div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b px-4 sm:px-6">
 					{/*
 						Buttons rather than links: these switch in-page
 						state and have no URL of their own. aria-current
@@ -310,7 +331,7 @@ export function App(): ReactElement {
 				</div>
 			)}
 
-			<main className="flex-1 px-6 py-8">{content}</main>
+			<main className="flex-1 px-4 py-6 sm:px-6 sm:py-8">{content}</main>
 
 			<Footer />
 

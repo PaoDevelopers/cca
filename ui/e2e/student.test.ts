@@ -50,6 +50,115 @@ describe("student", (): void => {
 		assert.match(account, /s1001/)
 	})
 
+	it("returns the student's database-backed requirements", async (): Promise<void> => {
+		assert.ok(harness !== null)
+		const stack = harness
+
+		stack.exec(`
+			WITH requirement AS (
+				INSERT INTO grade_requirement_groups
+					(grade_id, min_period_count)
+				VALUES ('Y9', 1)
+				RETURNING id
+			)
+			INSERT INTO grade_requirement_group_categories
+				(requirement_category_id, category_id)
+			SELECT id, 'SPORT' FROM requirement;
+
+			INSERT INTO enrollments
+				(student_id, course_id, student_droppable, counts_toward_budget)
+			VALUES ('s1001', 'BB', TRUE, TRUE);
+		`)
+
+		try {
+			const page = await studentPage()
+			const result = await page.evaluate(
+				async (): Promise<{
+					status: number
+					requirements: Array<{
+						id: number
+						min_period_count: number
+						satisfied_periods: number
+						met: boolean
+					}>
+				}> => {
+					const response = await fetch("/student/api/user_info")
+					const body = (await response.json()) as {
+						requirements: Array<{
+							id: number
+							min_period_count: number
+							satisfied_periods: number
+							met: boolean
+						}>
+					}
+					return {
+						status: response.status,
+						requirements: body.requirements,
+					}
+				},
+			)
+
+			assert.equal(result.status, 200)
+			assert.equal(result.requirements.length, 1)
+			const [requirement] = result.requirements
+			assert.ok(requirement !== undefined)
+			assert.ok(Number.isInteger(requirement.id))
+			assert.deepEqual(
+				{
+					min_period_count: requirement.min_period_count,
+					satisfied_periods: requirement.satisfied_periods,
+					met: requirement.met,
+				},
+				{ min_period_count: 1, satisfied_periods: 1, met: true },
+			)
+
+			const overview = page.locator('[data-slot="card"]', {
+				has: page.getByRole("heading", { name: "Requirements" }),
+			})
+			await overview.getByText("Sport", { exact: true }).waitFor()
+			await overview.getByText("At least 1 period").waitFor()
+			assert.equal(await overview.getByRole("progressbar").count(), 0)
+
+			await page.getByRole("button", { name: /Your selections/ }).click()
+			const progress = page.getByRole("complementary", {
+				name: "Requirements progress",
+			})
+			await progress
+				.getByRole("heading", { name: "Requirements progress" })
+				.waitFor()
+			assert.equal(
+				await progress.locator('[data-slot="card"]').count(),
+				0,
+			)
+			await progress.getByText("1 of 1 period").waitFor()
+			assert.equal(
+				await progress.locator('[data-slot="badge"]').count(),
+				0,
+			)
+			await progress
+				.getByRole("progressbar", { name: "Sport: 1 of 1 period" })
+				.waitFor()
+		} finally {
+			stack.exec(
+				"DELETE FROM enrollments WHERE student_id = 's1001' AND course_id = 'BB'",
+			)
+			stack.exec(
+				`DELETE FROM grade_requirement_groups
+				 WHERE id = (
+					 SELECT requirement.id
+					 FROM grade_requirement_groups requirement
+					 JOIN grade_requirement_group_categories member
+						ON member.requirement_category_id = requirement.id
+					 WHERE requirement.grade_id = 'Y9'
+						AND requirement.min_period_count = 1
+						AND member.category_id = 'SPORT'
+					 ORDER BY requirement.id DESC
+					 LIMIT 1
+				 )`,
+			)
+		}
+	})
+
 	it("lists the catalogue with the fields the API sends", async (): Promise<void> => {
 		const page = await studentPage()
 		await openAvailable(page)
