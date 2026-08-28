@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { CourseInput } from "@common/adminApi"
+	import { capacityLabel } from "@common/capacity"
 	import type { Course } from "@common/types"
 	import ConfirmButton from "./ConfirmButton.svelte"
 	import CourseEditor from "./CourseEditor.svelte"
@@ -51,7 +52,7 @@
 		{course.period_ids.join(", ")}
 	</td>
 	<td>{course.term}</td>
-	<td>{course.current_students}/{course.max_students}</td>
+	<td>{course.current_students}/{capacityLabel(course.max_students)}</td>
 	<td>{course.invite_only ? "Yes" : "No"}</td>
 	<td>
 		<button

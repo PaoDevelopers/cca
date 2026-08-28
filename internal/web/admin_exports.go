@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // Exports are the inverse of the imports and share their columns, so
@@ -87,6 +89,20 @@ func (app *Server) handleAdmStudentsExport(w http.ResponseWriter, r *http.Reques
 	}
 }
 
+// exportCount spells a capacity for the import to read back.
+//
+// No cap is NULL, and the word is written rather than the blank cell
+// that also means it: a blank in a capacity column reads as an
+// oversight, and this file is the one an administrator edits and
+// re-uploads. The importer takes either.
+func exportCount(v pgtype.Int8) string {
+	if !v.Valid {
+		return "unlimited"
+	}
+
+	return strconv.FormatInt(v.Int64, 10)
+}
+
 func (app *Server) handleAdmCoursesExport(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
 	app.logRequestStart(r, "handleAdmCoursesExport", slog.String("admin_username", aui.Username))
 
@@ -113,7 +129,7 @@ func (app *Server) handleAdmCoursesExport(w http.ResponseWriter, r *http.Request
 			course.Name,
 			course.Description,
 			strings.Join(course.PeriodIds, ","),
-			strconv.FormatInt(course.MaxStudents, 10),
+			exportCount(course.MaxStudents),
 			strconv.FormatBool(course.InviteOnly),
 			course.Teacher,
 			course.TeacherEmail,

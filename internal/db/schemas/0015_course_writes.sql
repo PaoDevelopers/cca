@@ -70,7 +70,7 @@ CREATE FUNCTION create_course(
 	p_teacher trimmed_text_opt,
 	p_teacher_email trimmed_text_opt,
 	p_location trimmed_text_opt,
-	p_term trimmed_text,
+	p_term trimmed_text_opt,
 	p_cost trimmed_text_opt,
 	p_invite_only BOOLEAN,
 	p_max_students count_value,
@@ -134,7 +134,7 @@ CREATE FUNCTION update_course(
 	p_teacher trimmed_text_opt,
 	p_teacher_email trimmed_text_opt,
 	p_location trimmed_text_opt,
-	p_term trimmed_text,
+	p_term trimmed_text_opt,
 	p_cost trimmed_text_opt,
 	p_invite_only BOOLEAN,
 	p_max_students count_value,
@@ -513,8 +513,18 @@ BEGIN
 			INTO v_new_grades
 			FROM jsonb_array_elements_text(e->'grade_ids') AS u;
 
+			-- A blank cell and the word "unlimited" both mean no
+			-- cap, which is NULL. A spreadsheet spells the absence
+			-- of a limit both ways -- most rows leave the column
+			-- empty, and the one that means it says so -- and
+			-- neither spelling is a number, so both used to be a
+			-- cast failure on every row that had no cap to state.
+			-- Trimmed and folded first, because a spreadsheet's
+			-- "Unlimited " is the same answer.
 			v_field := 'max_students';
-			v_new_max := (e->>'max_students')::count_value;
+			v_new_max := NULLIF(NULLIF(
+				lower(btrim(COALESCE(e->>'max_students', ''))),
+				''), 'unlimited')::count_value;
 
 			-- NULLIF before the cast, so an unfilled column means
 			-- "not invite-only" rather than a cast failure: a

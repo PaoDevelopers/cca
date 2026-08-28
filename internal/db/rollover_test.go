@@ -251,7 +251,7 @@ func TestCancellingOneCourseAndResettingThemAllDifferDeliberately(t *testing.T) 
 
 		if err := q.CreateCourse(ctx, db.CreateCourseParams{
 			PCourseID: courseID, PName: "Course " + courseID, PDescription: "",
-			PCategoryID: "CAT", PTerm: "2026", PMaxStudents: 10,
+			PCategoryID: "CAT", PTerm: "2026", PMaxStudents: capacity(10),
 			PPeriodIds: []string{}, PGradeIds: []string{},
 		}); err != nil {
 			t.Fatalf("create course %s: %v", courseID, err)

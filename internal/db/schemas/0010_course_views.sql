@@ -31,6 +31,10 @@ SELECT
 	c.location,
 	c.term,
 	c.cost,
+	-- NULL means no cap; see 0007. Published as it is, so that every
+	-- reader decides for itself what "no cap" looks like, rather than
+	-- this view inventing a sentinel that a comparison would then
+	-- have to know about.
 	c.max_students,
 	c.invite_only,
 	(SELECT count(*)

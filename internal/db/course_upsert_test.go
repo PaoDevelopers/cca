@@ -636,3 +636,96 @@ func TestUpsertCoursesStillCatchesAClashItCreates(t *testing.T) {
 		t.Error("a refused import still moved a course")
 	}
 }
+
+// A blank capacity cell and the word "unlimited" both mean no cap,
+// which is NULL. A department that has no limit in mind writes one or
+// the other, and neither is a number: both used to be a cast failure
+// on every row that had no cap to state, which is not a mistake in the
+// file. NULL is also a different setting from 0, which is a real cap
+// that admits nobody.
+func TestUpsertCoursesReadsAnAbsentCapacity(t *testing.T) {
+	t.Parallel()
+	pool, q := fresh(t)
+	seedCourseUpsert(t, pool)
+
+	if err := upsertCourses(q, []courseSpec{
+		course("BLANK", courseSpec{"max_students": ""}),
+		course("WORD", courseSpec{"max_students": "unlimited"}),
+		// A spreadsheet's own capitalisation and padding.
+		course("SHOUTED", courseSpec{"max_students": " Unlimited "}),
+		course("ZERO", courseSpec{"max_students": 0}),
+		course("TEN", courseSpec{"max_students": "10"}),
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	for _, id := range []string{"BLANK", "WORD", "SHOUTED"} {
+		if n := count(t, pool, `SELECT count(*) FROM courses
+			WHERE id = '`+id+`' AND max_students IS NULL`); n != 1 {
+			t.Errorf("%s did not come out uncapped", id)
+		}
+	}
+
+	if n := count(t, pool, `SELECT count(*) FROM courses
+		WHERE id = 'ZERO' AND max_students = 0`); n != 1 {
+		t.Error("0 was read as no cap; it is a cap that admits nobody")
+	}
+
+	if n := count(t, pool, `SELECT count(*) FROM courses
+		WHERE id = 'TEN' AND max_students = 10`); n != 1 {
+		t.Error("a plain number stopped being a plain number")
+	}
+
+	// Not every non-number, though: only the two that mean absence.
+	ms := expectMalformed(t,
+		upsertCourses(q, []courseSpec{
+			course("LOTS", courseSpec{"max_students": "lots"}),
+		}), 1)
+	if ms[0].Field != "max_students" {
+		t.Errorf("reported column %q, want max_students", ms[0].Field)
+	}
+}
+
+// An uncapped course never reports being full, and the capacity rule
+// gets there by reading the absence rather than testing for it:
+// current_students >= NULL is NULL, so the rule yields no row.
+func TestUncappedCourseIsNeverFull(t *testing.T) {
+	t.Parallel()
+	pool, q := fresh(t)
+	seedCourseUpsert(t, pool)
+
+	if err := upsertCourses(q, []courseSpec{
+		course("OPEN", courseSpec{
+			"max_students": "unlimited",
+			"period_ids":   []string{"WED1"},
+		}),
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+
+	// Both seeded students in, then a capacity verdict asked for a
+	// third: a capped course of 0 would refuse, and this must not.
+	exec(t, pool, `INSERT INTO enrollments
+		(student_id, course_id, student_droppable, counts_toward_budget)
+		VALUES ('s1', 'OPEN', TRUE, TRUE), ('s2', 'OPEN', TRUE, TRUE)`)
+
+	if c := violationCodes(t, q, "capacity",
+		violations("s1", "OPEN", false)); len(c) != 0 {
+		t.Errorf("an uncapped course reported itself full: %v", c)
+	}
+
+	// And lowering it to a real cap it is already over does report,
+	// which is what proves the silence above was the NULL and not the
+	// rule being switched off.
+	err := upsertCourses(q, []courseSpec{
+		course("OPEN", courseSpec{
+			"max_students": 1,
+			"period_ids":   []string{"WED1"},
+		}),
+	})
+	if err == nil {
+		t.Fatal("dropping the cap below the roll was accepted silently")
+	}
+
+	expectCodes(t, err, "overfull:OPEN")
+}

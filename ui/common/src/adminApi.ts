@@ -205,7 +205,8 @@ export interface CourseInput {
 	location: string
 	term: string
 	cost: string
-	max_students: number
+	// null asks for a course with no cap; see @common/capacity.
+	max_students: number | null
 	invite_only: boolean
 	period_ids: PeriodID[]
 	allowed_legal_sexes: LegalSex[]

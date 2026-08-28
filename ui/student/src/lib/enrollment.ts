@@ -11,6 +11,7 @@
 // What is left here is arrangement: reading the server's verdicts and
 // filtering the list.
 
+import { isFull } from "@common/capacity"
 import type {
 	Course,
 	Eligibility,
@@ -263,7 +264,7 @@ export function filterCourses(
 		// arithmetic over a count the browser already has from the
 		// realtime stream, not a restatement of a rule, and it is the
 		// one that changes at enrollment speed.
-		if (filter.hideFull && c.current_students >= c.max_students) {
+		if (filter.hideFull && isFull(c)) {
 			return false
 		}
 		if (filter.hideInviteOnly && c.invite_only) {

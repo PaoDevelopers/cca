@@ -1,4 +1,5 @@
 import { useId, type ReactElement, type ReactNode } from "react"
+import { capacityLabel } from "@common/capacity"
 import type { CourseActions, CourseRow } from "@/lib/enrollment"
 import { EnrollmentActions } from "./EnrollmentActions"
 
@@ -96,7 +97,8 @@ export function CourseCard({
 					the seat count is visible.
 				*/}
 				<Fact label="Capacity">
-					{course.current_students}/{course.max_students}
+					{course.current_students}/
+					{capacityLabel(course.max_students)}
 				</Fact>
 			</dl>
 

@@ -324,9 +324,17 @@ func TestAdminWriteRejectsBadPayloads(t *testing.T) {
 func TestCourseInputValidatesOnlyWhatSQLCannot(t *testing.T) {
 	t.Parallel()
 
+	negative := int64(-1)
+
 	//exhaustruct:ignore
-	if message := (courseInput{MaxStudents: -1}).validate(); message == "" {
+	if message := (courseInput{MaxStudents: &negative}).validate(); message == "" {
 		t.Error("a negative capacity was accepted")
+	}
+
+	// No cap at all is a real setting, not a missing one.
+	//exhaustruct:ignore
+	if message := (courseInput{MaxStudents: nil}).validate(); message != "" {
+		t.Errorf("an uncapped course was refused: %q", message)
 	}
 
 	// An ill-formed id, an unknown category and a blank name all pass

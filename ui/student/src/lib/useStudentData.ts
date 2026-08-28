@@ -19,6 +19,7 @@ import {
 	useState,
 } from "react"
 import { flushSync } from "react-dom"
+import { isFull } from "@common/capacity"
 import { connectEvents } from "@common/events"
 import { AuthError, errorMessage } from "@common/http"
 import {
@@ -263,13 +264,14 @@ export function useStudentData(): StudentData {
 						const before = previous.find(
 							(c): boolean => c.id === courseID,
 						)
-						const wasFull =
+						const wasFull = before !== undefined && isFull(before)
+						const nowFull =
 							before !== undefined &&
-							before.current_students >= before.max_students
-						const isFull =
-							before !== undefined &&
-							currentStudents >= before.max_students
-						if (wasFull !== isFull) {
+							isFull({
+								current_students: currentStudents,
+								max_students: before.max_students,
+							})
+						if (wasFull !== nowFull) {
 							eligibilityPull.trigger()
 						}
 						return previous.map((c): Course =>

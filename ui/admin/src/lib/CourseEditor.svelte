@@ -42,7 +42,11 @@
 	let cost = $state(base?.cost ?? "")
 	let categoryID = $state(base?.category_id ?? "")
 	let inviteOnly = $state(base?.invite_only ?? false)
-	let maxStudents = $state(String(base?.max_students ?? ""))
+	// The empty box is a real setting — no cap — so the draft is the
+	// text, not a number: coercing it would turn "" into 0, which is
+	// the opposite setting and admits nobody.
+	const baseMax = base?.max_students ?? null
+	let maxStudents = $state(baseMax === null ? "" : String(baseMax))
 	let selectedPeriods = $state<string[]>([...(base?.period_ids ?? [])])
 	let allowedSexes = $state<LegalSex[]>([
 		...(base?.allowed_legal_sexes ?? []),
@@ -56,8 +60,12 @@
 	class="editor"
 	onsubmit={(event): void => {
 		event.preventDefault()
-		const max = Number.parseInt(maxStudents, 10)
-		if (Number.isNaN(max) || max < 0) {
+		// An empty box, and the word the import takes for it, both mean
+		// no cap.
+		const raw = maxStudents.trim().toLowerCase()
+		const max =
+			raw === "" || raw === "unlimited" ? null : Number.parseInt(raw, 10)
+		if (max !== null && (Number.isNaN(max) || max < 0)) {
 			return
 		}
 		// The accept list is filled in by the caller if the server
@@ -144,11 +152,19 @@
 		</label>
 		<label>
 			Capacity
+			<!--
+				Left empty, the course takes everyone. Not a number
+				input: Svelte coerces bind:value on one, and an empty
+				box would arrive as null indistinguishably from a box
+				holding nothing yet — and the word "unlimited", which
+				the import accepts, could not be typed into it at all.
+			-->
 			<input
-				type="number"
-				min="0"
+				type="text"
+				inputmode="numeric"
+				placeholder="unlimited"
+				aria-label="Capacity, empty for no limit"
 				bind:value={maxStudents}
-				required
 				class="narrow"
 			/>
 		</label>

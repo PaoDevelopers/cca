@@ -7,30 +7,36 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createCourse = `-- name: CreateCourse :exec
-SELECT create_course($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-	$12, $13, $14)
+SELECT create_course($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+	$11, $12, $13, $14)
 `
 
 type CreateCourseParams struct {
-	PCourseID     string     `json:"p_course_id"`
-	PName         string     `json:"p_name"`
-	PDescription  string     `json:"p_description"`
-	PCategoryID   string     `json:"p_category_id"`
-	PTeacher      string     `json:"p_teacher"`
-	PTeacherEmail string     `json:"p_teacher_email"`
-	PLocation     string     `json:"p_location"`
-	PTerm         string     `json:"p_term"`
-	PCost         string     `json:"p_cost"`
-	PInviteOnly   bool       `json:"p_invite_only"`
-	PMaxStudents  int64      `json:"p_max_students"`
-	PPeriodIds    []string   `json:"p_period_ids"`
-	PLegalSexes   []LegalSex `json:"p_legal_sexes"`
-	PGradeIds     []string   `json:"p_grade_ids"`
+	PCourseID     string      `json:"p_course_id"`
+	PName         string      `json:"p_name"`
+	PDescription  string      `json:"p_description"`
+	PCategoryID   string      `json:"p_category_id"`
+	PTeacher      string      `json:"p_teacher"`
+	PTeacherEmail string      `json:"p_teacher_email"`
+	PLocation     string      `json:"p_location"`
+	PTerm         string      `json:"p_term"`
+	PCost         string      `json:"p_cost"`
+	PInviteOnly   bool        `json:"p_invite_only"`
+	PMaxStudents  pgtype.Int8 `json:"p_max_students"`
+	PPeriodIds    []string    `json:"p_period_ids"`
+	PLegalSexes   []LegalSex  `json:"p_legal_sexes"`
+	PGradeIds     []string    `json:"p_grade_ids"`
 }
 
+// p_max_students is named rather than positional because it is the
+// one nullable argument here, and sqlc reads a function parameter as
+// NOT NULL unless it is told: NULL is no cap, and passing it is the
+// only way to say so.
 func (q *Queries) CreateCourse(ctx context.Context, arg CreateCourseParams) error {
 	_, err := q.db.Exec(ctx, createCourse,
 		arg.PCourseID,
@@ -153,26 +159,26 @@ func (q *Queries) RenameCourseID(ctx context.Context, arg RenameCourseIDParams) 
 }
 
 const updateCourse = `-- name: UpdateCourse :exec
-SELECT update_course($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-	$12, $13, $14, $15)
+SELECT update_course($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+	$11, $12, $13, $14, $15)
 `
 
 type UpdateCourseParams struct {
-	PCourseID     string     `json:"p_course_id"`
-	PName         string     `json:"p_name"`
-	PDescription  string     `json:"p_description"`
-	PCategoryID   string     `json:"p_category_id"`
-	PTeacher      string     `json:"p_teacher"`
-	PTeacherEmail string     `json:"p_teacher_email"`
-	PLocation     string     `json:"p_location"`
-	PTerm         string     `json:"p_term"`
-	PCost         string     `json:"p_cost"`
-	PInviteOnly   bool       `json:"p_invite_only"`
-	PMaxStudents  int64      `json:"p_max_students"`
-	PPeriodIds    []string   `json:"p_period_ids"`
-	PLegalSexes   []LegalSex `json:"p_legal_sexes"`
-	PGradeIds     []string   `json:"p_grade_ids"`
-	PAccept       []string   `json:"p_accept"`
+	PCourseID     string      `json:"p_course_id"`
+	PName         string      `json:"p_name"`
+	PDescription  string      `json:"p_description"`
+	PCategoryID   string      `json:"p_category_id"`
+	PTeacher      string      `json:"p_teacher"`
+	PTeacherEmail string      `json:"p_teacher_email"`
+	PLocation     string      `json:"p_location"`
+	PTerm         string      `json:"p_term"`
+	PCost         string      `json:"p_cost"`
+	PInviteOnly   bool        `json:"p_invite_only"`
+	PMaxStudents  pgtype.Int8 `json:"p_max_students"`
+	PPeriodIds    []string    `json:"p_period_ids"`
+	PLegalSexes   []LegalSex  `json:"p_legal_sexes"`
+	PGradeIds     []string    `json:"p_grade_ids"`
+	PAccept       []string    `json:"p_accept"`
 }
 
 func (q *Queries) UpdateCourse(ctx context.Context, arg UpdateCourseParams) error {

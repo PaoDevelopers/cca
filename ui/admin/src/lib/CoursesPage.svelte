@@ -171,12 +171,13 @@
 				location: "room or venue",
 				invite_only: "invite-only (boolean)",
 				periods: "list of meeting period IDs",
-				max_students: "capacity (number)",
+				max_students: "capacity (number), null when uncapped",
+				full: "at or over capacity (boolean); false when uncapped",
 				current_students: "enrolled count (number)",
 				allowed_grades: "list of permitted year groups",
 				allowed_legal_sexes: "list of permitted legal sexes",
 			}}
-			celExample={'term == "Semester" && current_students >= max_students'}
+			celExample={'term == "Semester" && full'}
 		/>
 
 		<div class="admin-list-status">

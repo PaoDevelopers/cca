@@ -186,7 +186,9 @@
 				"course.cost": "cost text, empty when free",
 				"course.invite_only": "invite-only (boolean)",
 				"course.periods": "list of meeting period IDs",
-				"course.max_students": "capacity (number)",
+				"course.max_students": "capacity (number), null when uncapped",
+				"course.full":
+					"at or over capacity (boolean); false when uncapped",
 				"course.current_students": "enrolled count (number)",
 				droppable: "may the student drop it (boolean)",
 				budgeted: "does it charge their budget (boolean)",

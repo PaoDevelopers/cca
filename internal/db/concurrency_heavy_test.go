@@ -1032,7 +1032,7 @@ func TestVocabularyDeletionDoesNotDeadlockAgainstCourseWrites(t *testing.T) {
 		default:
 			return q.CreateCourse(ctx, db.CreateCourseParams{
 				PCourseID: fmt.Sprintf("NEW%02d", i), PName: "New",
-				PCategoryID: "SPORT", PTerm: "Season", PMaxStudents: 10,
+				PCategoryID: "SPORT", PTerm: "Season", PMaxStudents: capacity(10),
 				PPeriodIds: []string{"MON1", "KEEP"},
 				PGradeIds:  []string{"Y9"},
 			})

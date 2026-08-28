@@ -68,7 +68,9 @@ export interface Course {
 	location: string
 	term: string
 	cost: string
-	max_students: number
+	// null means no cap: the course takes everyone. Distinct from 0,
+	// which is a cap that admits nobody. See @common/capacity.
+	max_students: number | null
 	invite_only: boolean
 	current_students: number
 	period_ids: PeriodID[]

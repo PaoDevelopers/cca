@@ -1,5 +1,6 @@
 import { useCallback, useState, type ReactElement } from "react"
 import { ArrowLeftRight, Minus, Plus, X } from "lucide-react"
+import { capacitySpoken } from "@common/capacity"
 import type { CourseActions, CourseRow } from "@/lib/enrollment"
 import { Button } from "@/components/ui/button"
 
@@ -55,7 +56,9 @@ export function EnrollmentActions({
 	// which overrides the button's own text, so the seat count was
 	// simply not there for anyone using a screen reader.
 	const count = icon
-		? ` (${String(course.current_students)}/${String(course.max_students)})`
+		? ` (${String(course.current_students)}/${capacitySpoken(
+				course.max_students,
+			)})`
 		: ""
 
 	if (!windowOpen) {

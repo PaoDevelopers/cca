@@ -1,13 +1,17 @@
 -- name: GetCourses :many
 SELECT * FROM v_courses ORDER BY id;
 
+-- p_max_students is named rather than positional because it is the
+-- one nullable argument here, and sqlc reads a function parameter as
+-- NOT NULL unless it is told: NULL is no cap, and passing it is the
+-- only way to say so.
 -- name: CreateCourse :exec
-SELECT create_course($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-	$12, $13, $14);
+SELECT create_course($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+	sqlc.narg(p_max_students), $12, $13, $14);
 
 -- name: UpdateCourse :exec
-SELECT update_course($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
-	$12, $13, $14, $15);
+SELECT update_course($1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+	sqlc.narg(p_max_students), $12, $13, $14, $15);
 
 -- name: RenameCourseID :execrows
 UPDATE courses SET id = $2 WHERE id = $1;

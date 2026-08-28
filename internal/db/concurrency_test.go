@@ -122,13 +122,13 @@ func TestCapacityHoldsUnderConcurrentEnrollment(t *testing.T) {
 // and capacity the caller wants to move it to. Editing is
 // declarative, so a caller that wants to change one thing still
 // names the whole course.
-func raceCourse(periods []string, capacity int64) db.UpdateCourseParams {
+func raceCourse(periods []string, seats int64) db.UpdateCourseParams {
 	return db.UpdateCourseParams{
 		PCourseID:    "RACE",
 		PName:        "Contested",
 		PCategoryID:  "SPORT",
 		PTerm:        "Season",
-		PMaxStudents: capacity,
+		PMaxStudents: capacity(seats),
 		PPeriodIds:   periods,
 		PAccept:      []string{},
 	}

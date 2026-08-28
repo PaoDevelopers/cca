@@ -49,7 +49,7 @@ func TestNilArraysReadAsEmpty(t *testing.T) {
 	// the course now holds more than it says it can.
 	err = q.UpdateCourse(ctx, db.UpdateCourseParams{
 		PCourseID: "TINY", PName: "One seat", PCategoryID: "ART",
-		PTerm: "Season", PMaxStudents: 0,
+		PTerm: "Season", PMaxStudents: capacity(0),
 		PPeriodIds: []string{"WED1"}, PAccept: nil,
 	})
 	expectCodes(t, err, "overfull:TINY")

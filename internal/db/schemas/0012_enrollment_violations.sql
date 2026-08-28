@@ -119,6 +119,11 @@ FROM (
 	--
 	-- current_students comes from v_courses,
 	-- the single definition of the count.
+	--
+	-- An uncapped course has max_students NULL, and the comparison
+	-- below is then NULL rather than true, so it yields no row: no
+	-- test for the absence is needed or wanted. The format() above is
+	-- never reached for such a course.
 	SELECT 'capacity',
 		'capacity:' || p_student_id || ':' || p_course_id,
 		NULL, NULL,

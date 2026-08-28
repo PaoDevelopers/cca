@@ -1,5 +1,6 @@
 // Per-enrollment derivations for the enrollments table.
 
+import { capacityLabel, isFull } from "@common/capacity"
 import type { Course, Enrollment } from "@common/types"
 
 // The pair is the table's primary key; used for selection and keyed
@@ -17,7 +18,9 @@ export function courseLabel(
 	const course = courseByID.get(id)
 	return course === undefined
 		? name
-		: `${name} (${course.current_students}/${course.max_students})`
+		: `${name} (${course.current_students}/${capacityLabel(
+				course.max_students,
+			)})`
 }
 
 // The two policy bits, as one short label. They are independent and
@@ -53,7 +56,10 @@ export function enrollmentCelContext(
 			cost: course?.cost ?? "",
 			invite_only: course?.invite_only ?? false,
 			periods: course?.period_ids ?? [],
-			max_students: course?.max_students ?? 0,
+			// null where the course has no cap; see courseCelContext
+			// for why `full` carries the comparison instead.
+			max_students: course?.max_students ?? null,
+			full: course !== undefined && isFull(course),
 			current_students: course?.current_students ?? 0,
 		},
 		droppable: e.student_droppable,

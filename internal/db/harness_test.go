@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/PaoDevelopers/cca/internal/db"
@@ -279,3 +280,18 @@ func count(t *testing.T, pool *pgxpool.Pool, sql string) int64 {
 
 	return n
 }
+
+// capacity spells a course's cap for the write functions, whose
+// max_students is nullable: NULL is no cap at all, and is a different
+// setting from 0, which is a cap that admits nobody. Tests say which
+// they mean rather than leaving a zero value to decide.
+func capacity(n int64) pgtype.Int8 {
+	//exhaustruct:ignore
+	return pgtype.Int8{Int64: n, Valid: true}
+}
+
+// uncapped is the course that takes everyone.
+//
+//nolint:gochecknoglobals
+//exhaustruct:ignore
+var uncapped = pgtype.Int8{Valid: false}

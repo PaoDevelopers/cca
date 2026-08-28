@@ -60,17 +60,17 @@ type Category struct {
 }
 
 type Course struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Description  string `json:"description"`
-	MaxStudents  int64  `json:"max_students"`
-	InviteOnly   bool   `json:"invite_only"`
-	Teacher      string `json:"teacher"`
-	TeacherEmail string `json:"teacher_email"`
-	Location     string `json:"location"`
-	Term         string `json:"term"`
-	Cost         string `json:"cost"`
-	CategoryID   string `json:"category_id"`
+	ID           string      `json:"id"`
+	Name         string      `json:"name"`
+	Description  string      `json:"description"`
+	MaxStudents  pgtype.Int8 `json:"max_students"`
+	InviteOnly   bool        `json:"invite_only"`
+	Teacher      string      `json:"teacher"`
+	TeacherEmail string      `json:"teacher_email"`
+	Location     string      `json:"location"`
+	Term         string      `json:"term"`
+	Cost         string      `json:"cost"`
+	CategoryID   string      `json:"category_id"`
 }
 
 type CourseAllowedGrade struct {
@@ -135,21 +135,21 @@ type Student struct {
 }
 
 type VCourse struct {
-	ID                string     `json:"id"`
-	Name              string     `json:"name"`
-	Description       string     `json:"description"`
-	CategoryID        string     `json:"category_id"`
-	Teacher           string     `json:"teacher"`
-	TeacherEmail      string     `json:"teacher_email"`
-	Location          string     `json:"location"`
-	Term              string     `json:"term"`
-	Cost              string     `json:"cost"`
-	MaxStudents       int64      `json:"max_students"`
-	InviteOnly        bool       `json:"invite_only"`
-	CurrentStudents   int64      `json:"current_students"`
-	PeriodIds         []string   `json:"period_ids"`
-	AllowedLegalSexes []LegalSex `json:"allowed_legal_sexes"`
-	AllowedGradeIds   []string   `json:"allowed_grade_ids"`
+	ID                string      `json:"id"`
+	Name              string      `json:"name"`
+	Description       string      `json:"description"`
+	CategoryID        string      `json:"category_id"`
+	Teacher           string      `json:"teacher"`
+	TeacherEmail      string      `json:"teacher_email"`
+	Location          string      `json:"location"`
+	Term              string      `json:"term"`
+	Cost              string      `json:"cost"`
+	MaxStudents       pgtype.Int8 `json:"max_students"`
+	InviteOnly        bool        `json:"invite_only"`
+	CurrentStudents   int64       `json:"current_students"`
+	PeriodIds         []string    `json:"period_ids"`
+	AllowedLegalSexes []LegalSex  `json:"allowed_legal_sexes"`
+	AllowedGradeIds   []string    `json:"allowed_grade_ids"`
 }
 
 type VEnrollment struct {

@@ -59,7 +59,7 @@ func mainCourse() db.UpdateCourseParams {
 		PName:        "Main course",
 		PCategoryID:  "SPORT",
 		PTerm:        "Season",
-		PMaxStudents: 10,
+		PMaxStudents: capacity(10),
 		PPeriodIds:   []string{"MON1"},
 	}
 }
@@ -105,7 +105,7 @@ func TestCreateCourse(t *testing.T) {
 		PCategoryID:  "ART",
 		PTeacher:     "Ms Smith",
 		PTerm:        "Season",
-		PMaxStudents: 5,
+		PMaxStudents: capacity(5),
 		PInviteOnly:  true,
 		PPeriodIds:   []string{"WED1", "THU1", "WED1"},
 		PLegalSexes:  []db.LegalSex{db.LegalSexF},
@@ -116,7 +116,7 @@ func TestCreateCourse(t *testing.T) {
 
 	c := courseByID(t, q, "NEW")
 	if c.Name != "New course" || c.Teacher != "Ms Smith" ||
-		c.MaxStudents != 5 || !c.InviteOnly || c.CategoryID != "ART" {
+		c.MaxStudents.Int64 != 5 || !c.InviteOnly || c.CategoryID != "ART" {
 		t.Fatalf("attributes must be stored as given: %+v", c)
 	}
 
@@ -127,6 +127,21 @@ func TestCreateCourse(t *testing.T) {
 	if n := count(t, pool, `SELECT count(*) FROM course_allowed_grades
 		WHERE course_id = 'NEW'`); n != 1 {
 		t.Fatalf("restrictions must be stored with the course; %d rows", n)
+	}
+
+	// No cap is a setting the form can ask for, and it is not 0.
+	if err := q.CreateCourse(ctx, db.CreateCourseParams{
+		PCourseID:    "OPEN",
+		PName:        "Takes everyone",
+		PCategoryID:  "ART",
+		PTerm:        "Season",
+		PMaxStudents: uncapped,
+	}); err != nil {
+		t.Fatalf("create uncapped: %v", err)
+	}
+
+	if open := courseByID(t, q, "OPEN"); open.MaxStudents.Valid {
+		t.Fatalf("no cap was stored as %d", open.MaxStudents.Int64)
 	}
 
 	// A new course has no enrollees, so nothing can be violated and
@@ -326,7 +341,7 @@ func TestUpdateCourseCapacity(t *testing.T) {
 	// Shrinking below the enrollment is one course-level violation,
 	// not one per enrollee: its code names the course alone.
 	p := mainCourse()
-	p.PMaxStudents = 2
+	p.PMaxStudents = capacity(2)
 	expectCodes(t, q.UpdateCourse(ctx, p), "overfull:MAIN")
 
 	if n := count(t, pool, `SELECT max_students FROM courses WHERE id = 'MAIN'`); n != 10 {
@@ -338,7 +353,7 @@ func TestUpdateCourseCapacity(t *testing.T) {
 		t.Fatalf("accepted shrink: %v", err)
 	}
 
-	if c := courseByID(t, q, "MAIN"); c.MaxStudents != 2 || c.CurrentStudents != 3 {
+	if c := courseByID(t, q, "MAIN"); c.MaxStudents.Int64 != 2 || c.CurrentStudents != 3 {
 		t.Fatalf("shrink must apply and stay visible: %+v", c)
 	}
 
@@ -351,7 +366,7 @@ func TestUpdateCourseCapacity(t *testing.T) {
 	}
 
 	// Shrinking to exactly the enrollment needs no accepts.
-	p.PMaxStudents = 3
+	p.PMaxStudents = capacity(3)
 	if err := q.UpdateCourse(ctx, p); err != nil {
 		t.Fatalf("a cap meeting the enrollment exactly must pass: %v", err)
 	}

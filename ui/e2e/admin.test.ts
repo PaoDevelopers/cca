@@ -47,7 +47,8 @@ interface SeededCategory {
 
 interface SeededCourse {
 	id: string
-	max_students: number
+	// null for a course with no cap; see internal/db/schemas/0007.
+	max_students: number | null
 }
 
 describe("admin", (): void => {
@@ -695,6 +696,67 @@ describe("admin", (): void => {
 		assert.deepEqual(only.allowed_grade_ids, ["Y9"])
 
 		await page.request.delete("/admin/api/courses/YOGA")
+	})
+
+	it("imports an uncapped course and exports it as unlimited", async (): Promise<void> => {
+		const page = await adminPage("#/courses")
+		await page.getByText("Basketball").waitFor()
+
+		// The blank cell and the word both mean no cap, and a real 0
+		// still means a cap that admits nobody.
+		const file = [
+			courseImportColumns.join(","),
+			"OPEN1,Open one,,WED3,,false,,,,Season,,SPORT,,",
+			"OPEN2,Open two,,WED3,unlimited,false,,,,Season,,SPORT,,",
+			"SHUT,Shut,,WED3,0,false,,,,Season,,SPORT,,",
+			"",
+		].join("\n")
+
+		const sent = await page.request.post("/admin/api/courses/import", {
+			multipart: {
+				spreadsheet: {
+					name: "courses.csv",
+					mimeType: "text/csv",
+					buffer: Buffer.from(file),
+				},
+			},
+		})
+		assert.equal(sent.status(), 204, await sent.text())
+
+		const courses = (await (
+			await page.request.get("/admin/api/courses")
+		).json()) as SeededCourse[]
+		const capOf = (id: string): number | null | undefined =>
+			courses.find((c): boolean => c.id === id)?.max_students
+
+		assert.equal(capOf("OPEN1"), null, "a blank cell means no cap")
+		assert.equal(capOf("OPEN2"), null, '"unlimited" means no cap')
+		assert.equal(capOf("SHUT"), 0, "0 is a cap that admits nobody")
+
+		// The export says the word rather than leaving the cell blank,
+		// so the file an administrator edits does not read as an
+		// oversight. Either spelling comes back in.
+		const exported = await (
+			await page.request.get("/admin/api/courses/export")
+		).text()
+		const capacityCell = (id: string): string | undefined =>
+			exported
+				.split("\n")
+				.find((line): boolean => line.startsWith(`${id},`))
+				?.split(",")[4]
+
+		assert.equal(capacityCell("OPEN1"), "unlimited")
+		assert.equal(capacityCell("OPEN2"), "unlimited")
+		assert.equal(capacityCell("SHUT"), "0")
+
+		// And the table renders the absence rather than the word null.
+		await page.reload()
+		const row = page.locator("tr", { hasText: "Open one" })
+		await row.getByText("0/∞").waitFor()
+
+		for (const id of ["OPEN1", "OPEN2", "SHUT"]) {
+			await page.request.delete(`/admin/api/courses/${id}`)
+		}
 	})
 
 	it("creates a category and shows it without a reload", async (): Promise<void> => {

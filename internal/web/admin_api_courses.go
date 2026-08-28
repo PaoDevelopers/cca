@@ -32,8 +32,12 @@ type courseInput struct {
 	Term         string `json:"term"`
 	Cost         string `json:"cost"`
 
-	MaxStudents int64 `json:"max_students"`
-	InviteOnly  bool  `json:"invite_only"`
+	// null means no cap, as it does for a grade's budget. Absent is
+	// the same as null: a body that omits the field is asking for a
+	// course that takes everyone, which is a coherent thing to ask
+	// for and is what the form sends when the box is left empty.
+	MaxStudents *int64 `json:"max_students"`
+	InviteOnly  bool   `json:"invite_only"`
 
 	PeriodIDs         []string      `json:"period_ids"`
 	AllowedLegalSexes []db.LegalSex `json:"allowed_legal_sexes"`
@@ -50,7 +54,7 @@ type courseInput struct {
 // copy to keep in step. What is checked here is only what the database
 // cannot see: that the request means one course.
 func (in courseInput) validate() string {
-	if in.MaxStudents < 0 {
+	if in.MaxStudents != nil && *in.MaxStudents < 0 {
 		return "max_students must not be negative"
 	}
 
@@ -101,7 +105,7 @@ func (app *Server) apiCoursesCreate(w http.ResponseWriter, r *http.Request, aui 
 		PTerm:         in.Term,
 		PCost:         in.Cost,
 		PInviteOnly:   in.InviteOnly,
-		PMaxStudents:  in.MaxStudents,
+		PMaxStudents:  pgInt64(in.MaxStudents),
 		PPeriodIds:    in.PeriodIDs,
 		PLegalSexes:   in.AllowedLegalSexes,
 		PGradeIds:     in.AllowedGradeIDs,
@@ -151,7 +155,7 @@ func (app *Server) apiCoursesUpdate(w http.ResponseWriter, r *http.Request, aui 
 		PTerm:         in.Term,
 		PCost:         in.Cost,
 		PInviteOnly:   in.InviteOnly,
-		PMaxStudents:  in.MaxStudents,
+		PMaxStudents:  pgInt64(in.MaxStudents),
 		PPeriodIds:    in.PeriodIDs,
 		PLegalSexes:   in.AllowedLegalSexes,
 		PGradeIds:     in.AllowedGradeIDs,

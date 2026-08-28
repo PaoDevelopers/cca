@@ -206,7 +206,7 @@ func TestAnAcceptedClashStaysAcceptedFromTheOtherSide(t *testing.T) {
 	// administrator already accepted must still be enough.
 	updateErr := q.UpdateCourse(context.Background(), db.UpdateCourseParams{
 		PCourseID: "RACE", PName: "Contested", PCategoryID: "SPORT",
-		PTerm: "Season", PMaxStudents: 100,
+		PTerm: "Season", PMaxStudents: capacity(100),
 		PPeriodIds: []string{"MON1", "TUE1"},
 		PAccept:    accepted,
 	})

@@ -6,7 +6,14 @@ CREATE TABLE courses (
 	name trimmed_text NOT NULL,
 	-- Multi-line prose; '' means none.
 	description TEXT NOT NULL,
-	max_students count_value NOT NULL,
+	-- NULL means no cap: the course takes everyone who signs up.
+	-- Distinct from 0, which is a real cap that admits nobody, and
+	-- the two were conflated as long as this was NOT NULL -- a
+	-- department with no cap in mind wrote 0, and the capacity rule
+	-- then refused every enrollment. The rules read the absence
+	-- rather than testing for it: current_students >= NULL is NULL,
+	-- so an uncapped course simply never reports being full.
+	max_students count_value,
 	-- Invite-only courses can only be entered through an administrator,
 	-- whose input constitutes the required sanction;
 	-- students may not enroll themselves.

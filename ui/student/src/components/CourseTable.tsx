@@ -1,4 +1,5 @@
 import type { ReactElement } from "react"
+import { capacityLabel } from "@common/capacity"
 import type { CourseActions, CourseRow } from "@/lib/enrollment"
 import { EnrollmentActions } from "./EnrollmentActions"
 import {
@@ -84,7 +85,7 @@ export function CourseTable({
 								<TableCell>{course.cost}</TableCell>
 								<TableCell className="tabular-nums">
 									{course.current_students}/
-									{course.max_students}
+									{capacityLabel(course.max_students)}
 								</TableCell>
 								<TableCell className="w-96 min-w-96 max-w-96">
 									<span className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
