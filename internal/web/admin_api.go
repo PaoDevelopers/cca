@@ -96,6 +96,9 @@ func (app *Server) registerAdminAPI(mux *http.ServeMux, routes *apiRoutes) {
 	// idempotent, so re-sending either is a no-op.
 	handle("PUT /admin/api/students", "apiStudentsUpsert", app.apiStudentsUpsert)
 	handle("DELETE /admin/api/students/{id}", "apiStudentsDelete", app.apiStudentsDelete)
+	// Mints a student session for the administrator's own browser, in
+	// the student cookie, so the admin session beside it is untouched.
+	handle("POST /admin/api/students/{id}/session", "apiStudentsImpersonate", app.apiStudentsImpersonate)
 
 	handle("GET /admin/api/enrollments", "apiEnrollmentsList", app.apiEnrollmentsList)
 	handle("POST /admin/api/enrollments", "apiEnrollmentsPlace", app.apiEnrollmentsPlace)

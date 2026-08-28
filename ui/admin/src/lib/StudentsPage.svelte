@@ -1,6 +1,7 @@
 <script lang="ts">
 	import {
 		deleteStudent,
+		startStudentSession,
 		upsertStudents,
 		type AdminStudent,
 	} from "@common/adminApi"
@@ -58,6 +59,42 @@
 		action: (accept: string[]) => Promise<void>,
 	): Promise<boolean> {
 		return data.runAccepting(action, "students", "enrollments")
+	}
+
+	// Sign in as a student and look at their page.
+	//
+	// The tab is opened on the click itself, before anything is
+	// awaited: a window.open that happens after a fetch resolves is a
+	// pop-up as far as the browser is concerned, and is blocked. So it
+	// opens blank, and is pointed at the student area once the cookie
+	// is actually set — or closed again if minting was refused, rather
+	// than left sitting on a blank page.
+	//
+	// Only the student cookie is written, so this tab keeps its
+	// administrator session and nothing here has to be signed into
+	// again afterwards.
+	function impersonate(id: string): void {
+		const tab = window.open("", "_blank")
+		if (tab === null) {
+			data.report(
+				new Error(
+					`Allow pop-ups for this site to open the student view of ${id}.`,
+				),
+				"Could not open a tab",
+			)
+			return
+		}
+		// No resources are named: this changes nothing in the database,
+		// so there is nothing on this page to reload.
+		void data
+			.run(() => startStudentSession(id))
+			.then((ok): void => {
+				if (ok) {
+					tab.location.replace("/student/")
+				} else {
+					tab.close()
+				}
+			})
 	}
 
 	const coursesOf = $derived(coursesByStudent(data.courses, data.enrollments))
@@ -279,6 +316,9 @@
 							}}
 							ondelete={(): void => {
 								void run(() => deleteStudent(student.id))
+							}}
+							onimpersonate={(): void => {
+								impersonate(student.id)
 							}}
 							ontoggleschedule={(): void => {
 								scheduleFor =

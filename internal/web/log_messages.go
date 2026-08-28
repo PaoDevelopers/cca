@@ -48,6 +48,7 @@ const (
 	logMsgAdminGradesRequirements     = "admin.grades.requirements"
 	logMsgAdminStudentsUpsert         = "admin.students.upsert"
 	logMsgAdminStudentsDelete         = "admin.students.delete"
+	logMsgAdminStudentsImpersonate    = "admin.students.impersonate"
 	logMsgAdminStudentsImport         = "admin.students.import"
 	logMsgAdminStudentsExport         = "admin.students.export"
 	logMsgAdminCoursesExport          = "admin.courses.export"

@@ -273,6 +273,17 @@ export function deleteStudent(id: StudentID): Promise<void> {
 	return sendJSON(`/admin/api/students/${encodeURIComponent(id)}`, "DELETE")
 }
 
+// Signs this browser in as a student, for looking at what they are
+// being shown. It writes the student cookie only, so the admin session
+// in the tab that asked for it survives; the student area then opens
+// in a tab of its own.
+export function startStudentSession(id: StudentID): Promise<void> {
+	return sendJSON(
+		`/admin/api/students/${encodeURIComponent(id)}/session`,
+		"POST",
+	)
+}
+
 // Enrollments.
 
 export async function fetchEnrollments(): Promise<Enrollment[]> {

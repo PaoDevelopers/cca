@@ -24,6 +24,7 @@
 		oncancel: () => void
 		onsave: (draft: AdminStudent) => void
 		ondelete: () => void
+		onimpersonate: () => void
 		ontoggleschedule: () => void
 	}
 
@@ -43,6 +44,7 @@
 		oncancel,
 		onsave,
 		ondelete,
+		onimpersonate,
 		ontoggleschedule,
 	}: Props = $props()
 </script>
@@ -84,6 +86,13 @@
 				}}
 			>
 				Enrollments
+			</button>
+			<button
+				disabled={busy}
+				aria-label="Sign in as {student.id}"
+				onclick={onimpersonate}
+			>
+				Sign in as
 			</button>
 			<button
 				disabled={busy}

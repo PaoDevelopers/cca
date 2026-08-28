@@ -92,6 +92,7 @@ func TestAdminAPIRejectsUnauthenticatedWithJSON(t *testing.T) {
 		{http.MethodGet, "/admin/api/students"},
 		{http.MethodPut, "/admin/api/students"},
 		{http.MethodDelete, "/admin/api/students/s1"},
+		{http.MethodPost, "/admin/api/students/s1/session"},
 		{http.MethodGet, "/admin/api/enrollments"},
 		{http.MethodPost, "/admin/api/enrollments"},
 		{http.MethodPut, "/admin/api/enrollments/policy"},
@@ -181,6 +182,7 @@ func TestAdminAPIRoutesAreMethodScoped(t *testing.T) {
 		// really does reach the {id} route.
 		{http.MethodPatch, "/admin/api/students/status", "GET"},
 		{http.MethodPatch, "/admin/api/students/s1", "DELETE"},
+		{http.MethodGet, "/admin/api/students/s1/session", "POST"},
 	} {
 		rec := httptest.NewRecorder()
 		router.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), route.method, route.target, nil))
