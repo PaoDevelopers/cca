@@ -15,6 +15,8 @@ export default defineConfig({
 		},
 	},
 	build: {
+		minify: "esbuild",
+		modulePreload: { polyfill: false },
 		outDir: "dist",
 		emptyOutDir: true,
 	},

@@ -1,7 +1,5 @@
 import type { ReactElement, ReactNode } from "react"
-import { CircleAlert, CircleCheck } from "lucide-react"
 import type { Category, Grade, StudentInfo } from "@common/types"
-import { Badge } from "@/components/ui/badge"
 import {
 	Card,
 	CardAction,
@@ -119,13 +117,12 @@ export function HomePage({ user, grade, categories }: Props): ReactElement {
 						work.
 					*/
 						action={
-							<Badge
-								variant={
-									grade.is_open ? "default" : "secondary"
-								}
+							<span
+								data-slot="badge"
+								className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${grade.is_open ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"}`}
 							>
 								{grade.is_open ? "Open" : "Closed"}
-							</Badge>
+							</span>
 						}
 					>
 						<div className="flex flex-col gap-5">
@@ -158,21 +155,10 @@ export function HomePage({ user, grade, categories }: Props): ReactElement {
 									<p
 										className={
 											allMet
-												? "flex items-center gap-2 text-sm"
-												: "flex items-center gap-2 text-sm text-destructive"
+												? "text-sm"
+												: "text-sm text-destructive"
 										}
 									>
-										{allMet ? (
-											<CircleCheck
-												className="size-4 shrink-0 text-primary"
-												aria-hidden="true"
-											/>
-										) : (
-											<CircleAlert
-												className="size-4 shrink-0"
-												aria-hidden="true"
-											/>
-										)}
 										{allMet
 											? "You have satisfied your requirements."
 											: "You have not satisfied your requirements."}

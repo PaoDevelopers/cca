@@ -1,5 +1,4 @@
 import { useCallback, useState, type ReactElement } from "react"
-import { ArrowLeftRight, Minus, Plus, X } from "lucide-react"
 import { capacitySpoken } from "@common/capacity"
 import type { CourseActions, CourseRow } from "@/lib/enrollment"
 import { Button } from "@/components/ui/button"
@@ -81,7 +80,7 @@ export function EnrollmentActions({
 						setConfirmingDrop(false)
 					}}
 				>
-					{icon ? <X aria-hidden="true" /> : "X"}
+					{icon ? "×" : "X"}
 				</Button>
 				<Button
 					variant="destructive"
@@ -109,7 +108,7 @@ export function EnrollmentActions({
 					setConfirmingDrop(true)
 				}}
 			>
-				{icon ? <Minus aria-hidden="true" /> : `Drop${count}`}
+				{icon ? "−" : `Drop${count}`}
 			</Button>
 		)
 	}
@@ -129,7 +128,7 @@ export function EnrollmentActions({
 						setConfirmingSwap(false)
 					}}
 				>
-					{icon ? <X aria-hidden="true" /> : "X"}
+					{icon ? "×" : "X"}
 				</Button>
 				<Button
 					size="sm"
@@ -156,7 +155,7 @@ export function EnrollmentActions({
 					setConfirmingSwap(true)
 				}}
 			>
-				{icon ? <ArrowLeftRight aria-hidden="true" /> : "Swap"}
+				{icon ? "⇄" : "Swap"}
 			</Button>
 		)
 	}
@@ -174,7 +173,7 @@ export function EnrollmentActions({
 				onenroll(course)
 			}}
 		>
-			{icon ? <Plus aria-hidden="true" /> : `Enroll${count}`}
+			{icon ? "+" : `Enroll${count}`}
 		</Button>
 	)
 }

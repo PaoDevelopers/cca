@@ -2,14 +2,6 @@ import type { ReactElement } from "react"
 import { capacityLabel } from "@common/capacity"
 import type { CourseActions, CourseRow } from "@/lib/enrollment"
 import { EnrollmentActions } from "./EnrollmentActions"
-import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table"
 
 const columns = [
 	"ID",
@@ -23,6 +15,11 @@ const columns = [
 	"Students",
 ]
 
+const rowClass = "border-b transition-colors hover:bg-muted/50"
+const headClass =
+	"h-10 px-2 text-left align-middle font-medium whitespace-nowrap text-foreground"
+const cellClass = "p-2 align-middle whitespace-nowrap"
+
 // No empty state: the caller shows its own message rather than
 // rendering a table with one apologetic row in it.
 export function CourseTable({
@@ -34,20 +31,23 @@ export function CourseTable({
 }): ReactElement {
 	return (
 		<div className="overflow-x-auto rounded-lg border">
-			<Table className="min-w-[78rem]">
-				<TableHeader>
-					<TableRow>
+			<table className="w-full min-w-[78rem] text-sm">
+				<thead>
+					<tr className={rowClass}>
 						{columns.map((column): ReactElement => (
-							<TableHead key={column} scope="col">
+							<th key={column} scope="col" className={headClass}>
 								{column}
-							</TableHead>
+							</th>
 						))}
-						<TableHead className="w-96 min-w-96" scope="col">
+						<th
+							className={`${headClass} w-96 min-w-96`}
+							scope="col"
+						>
 							Status
-						</TableHead>
-					</TableRow>
-				</TableHeader>
-				<TableBody>
+						</th>
+					</tr>
+				</thead>
+				<tbody>
 					{rows.map((row): ReactElement => {
 						const { course, state } = row
 						const note =
@@ -59,12 +59,15 @@ export function CourseTable({
 								? "text-amber-700 dark:text-amber-400"
 								: "text-muted-foreground"
 						return (
-							<TableRow key={course.id}>
-								<TableHead scope="row">
+							<tr
+								key={course.id}
+								className={`${rowClass} last:border-0`}
+							>
+								<th scope="row" className={headClass}>
 									<code>{course.id}</code>
-								</TableHead>
-								<TableCell>{course.name}</TableCell>
-								<TableCell>
+								</th>
+								<td className={cellClass}>{course.name}</td>
+								<td className={cellClass}>
 									{course.teacher_email !== "" ? (
 										<a
 											className="underline underline-offset-2"
@@ -75,19 +78,23 @@ export function CourseTable({
 									) : (
 										course.teacher
 									)}
-								</TableCell>
-								<TableCell>{course.location}</TableCell>
-								<TableCell>{course.category_id}</TableCell>
-								<TableCell>
+								</td>
+								<td className={cellClass}>{course.location}</td>
+								<td className={cellClass}>
+									{course.category_id}
+								</td>
+								<td className={cellClass}>
 									{course.period_ids.join(", ")}
-								</TableCell>
-								<TableCell>{course.term}</TableCell>
-								<TableCell>{course.cost}</TableCell>
-								<TableCell className="tabular-nums">
+								</td>
+								<td className={cellClass}>{course.term}</td>
+								<td className={cellClass}>{course.cost}</td>
+								<td className={`${cellClass} tabular-nums`}>
 									{course.current_students}/
 									{capacityLabel(course.max_students)}
-								</TableCell>
-								<TableCell className="w-96 min-w-96 max-w-96">
+								</td>
+								<td
+									className={`${cellClass} w-96 min-w-96 max-w-96`}
+								>
 									<span className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
 										<span
 											className={`truncate ${noteColor}`}
@@ -103,12 +110,12 @@ export function CourseTable({
 											variant="table"
 										/>
 									</span>
-								</TableCell>
-							</TableRow>
+								</td>
+							</tr>
 						)
 					})}
-				</TableBody>
-			</Table>
+				</tbody>
+			</table>
 		</div>
 	)
 }

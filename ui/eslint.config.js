@@ -2,7 +2,6 @@ import svelteParser from "svelte-eslint-parser"
 import sveltePlugin from "eslint-plugin-svelte"
 import tsParser from "@typescript-eslint/parser"
 import tsPlugin from "@typescript-eslint/eslint-plugin"
-import prettierPlugin from "eslint-plugin-prettier"
 import reactHooksPlugin from "eslint-plugin-react-hooks"
 import globals from "globals"
 
@@ -24,7 +23,6 @@ const tsRules = {
 	"prefer-const": "error",
 	"prefer-object-spread": "error",
 	"prefer-regex-literals": "error",
-	"prettier/prettier": ["error"],
 	"no-return-await": "error",
 	"no-throw-literal": "error",
 	"no-unneeded-ternary": "error",
@@ -125,7 +123,6 @@ export default [
 		},
 		plugins: {
 			"@typescript-eslint": tsPlugin,
-			prettier: prettierPlugin,
 		},
 		rules: tsRules,
 	},
@@ -150,7 +147,6 @@ export default [
 		},
 		plugins: {
 			"@typescript-eslint": tsPlugin,
-			prettier: prettierPlugin,
 		},
 		rules: {
 			...tsRules,
@@ -199,7 +195,6 @@ export default [
 		plugins: {
 			svelte: sveltePlugin,
 			"@typescript-eslint": tsPlugin,
-			prettier: prettierPlugin,
 		},
 		rules: {
 			...tsRules,

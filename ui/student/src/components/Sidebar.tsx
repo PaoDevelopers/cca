@@ -1,9 +1,6 @@
 import { useId, type ReactElement } from "react"
 import type { Category, Period } from "@common/types"
 import type { CourseFilter } from "@/lib/enrollment"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 
 interface Props {
@@ -35,16 +32,21 @@ function Choice({
 }): ReactElement {
 	return (
 		<li className="flex items-center gap-2">
-			<Checkbox
+			<input
+				type="checkbox"
 				id={id}
+				className="size-4 shrink-0 accent-primary"
 				checked={checked}
-				onCheckedChange={(next): void => {
-					onchange(next === true)
+				onChange={(event): void => {
+					onchange(event.currentTarget.checked)
 				}}
 			/>
-			<Label htmlFor={id} className="font-normal">
+			<label
+				htmlFor={id}
+				className="cursor-pointer select-none text-sm leading-none"
+			>
 				{label}
-			</Label>
+			</label>
 		</li>
 	)
 }
@@ -70,11 +72,11 @@ export function Sidebar({
 					period are the same kind of act, and they were in two
 					different parts of the page.
 				*/}
-				<Input
+				<input
 					type="search"
 					aria-label="Search"
 					placeholder="Search CCAs..."
-					className="h-9"
+					className="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
 					value={filter.search}
 					onChange={(event): void => {
 						onchange({ ...filter, search: event.target.value })

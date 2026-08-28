@@ -121,7 +121,7 @@ export function swappable(
 // in the card header and the reasons at its foot, so two components
 // need the same verdict, and two derivations of "barred" that disagree
 // would show a button the server refuses.
-export interface EnrollmentState {
+interface EnrollmentState {
 	selected: boolean
 	// An enrollment the student may not drop: an administrator placed
 	// them and did not leave the door open.
@@ -162,9 +162,8 @@ function enrollmentState(
 	return { selected, fixed, barred, reasons, status }
 }
 
-// One course as every component below needs it: the course itself, what
-// the student holds, what the server said about it, and the verdict all
-// three imply.
+// One course as every component below needs it: the course itself and
+// the verdict derived from what the student holds and what the server said.
 //
 // Built once per render and passed down whole. The card, the table row
 // and the action buttons all used to take these as four separate props
@@ -173,8 +172,6 @@ function enrollmentState(
 // effect.
 export interface CourseRow {
 	course: Course
-	enrollment: Enrollment | null
-	violations: Violation[]
 	canSwap: boolean
 	state: EnrollmentState
 }
@@ -204,8 +201,6 @@ export function courseRows(
 		const canSwap = canSwapOf(course)
 		return {
 			course,
-			enrollment,
-			violations,
 			canSwap,
 			state: enrollmentState(course, enrollment, violations, canSwap),
 		}
