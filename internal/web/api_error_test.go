@@ -600,3 +600,32 @@ func TestMalformedElementsSurviveWithoutAColumn(t *testing.T) {
 		t.Errorf("message = %q", detail.Malformed[0].Message)
 	}
 }
+
+// A repeated id is reported as an element like any other, but its
+// sqlstate is ours: nothing raised it, so it is not one of
+// PostgreSQL's. The message must say what the file did.
+func TestMalformedElementsExplainARepeatedID(t *testing.T) {
+	t.Parallel()
+
+	_, detail, ok := dbErrorDetail(&pgconn.PgError{
+		Code:    "YKD01",
+		Message: "2 malformed element(s)",
+		Detail: `[{"index":2,"id":"TWICE","sqlstate":"YKD02",` +
+			`"field":"id","message":"id TWICE is stated more than once"},` +
+			`{"index":4,"id":"TWICE","sqlstate":"YKD02",` +
+			`"field":"id","message":"id TWICE is stated more than once"}]`,
+	}, false)
+	if !ok {
+		t.Fatal("not classified")
+	}
+
+	for _, element := range detail.Malformed {
+		if !strings.Contains(element.Message, "more than one row") {
+			t.Errorf("element %d message = %q", element.Index, element.Message)
+		}
+
+		if element.Field != "id" {
+			t.Errorf("element %d field = %q, want id", element.Index, element.Field)
+		}
+	}
+}

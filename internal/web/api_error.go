@@ -277,6 +277,15 @@ func elementMessage(element apiMalformed) string {
 	}
 
 	switch element.SQLState {
+	case "YKD02":
+		// Not a SQLSTATE: see the vocabulary at the head of
+		// internal/db/schemas/0013. The remedy is a decision — which
+		// of the colliding rows to keep — so the message says what
+		// the file did rather than telling the administrator what to
+		// do with it.
+		return "This ID is on more than one row of the file. Each " +
+			"course must appear once; an import does not overwrite " +
+			"one of its own rows with another."
 	case "23503":
 		return "This names a category, grade or period that does not exist."
 	case "22P02":

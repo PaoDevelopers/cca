@@ -304,15 +304,20 @@ $$;
 -- typed arrays.
 --
 -- Each element runs in its own exception scope, so one malformed
--- course does not poison the file: domain, enum, foreign key and
--- cast rejections are collected into YKD01, with the element's index,
--- its id, the constraint it broke and the spreadsheet column it was
+-- course does not poison the file. Domain, enum, foreign key and cast
+-- rejections are collected into YKD01, with the element's index, its
+-- id, the constraint it broke and the spreadsheet column it was
 -- reading, so the administrator fixes the spreadsheet once. The
 -- constraint name and the column are the machine-readable half: the
 -- application turns them into prose a person can act on, where
--- SQLERRM names domains and relations and names no column at all. Malformed elements are not
--- violations — nothing about them is acceptable — and YKD01 is raised
--- before any violation reporting.
+-- SQLERRM names domains and relations and names no column at all.
+--
+-- An id the file states twice is collected the same way, and is the
+-- one defect no element can see about itself: each such row is
+-- well-formed, and only the batch knows they collide.
+--
+-- Malformed elements are not violations — nothing about them is
+-- acceptable — and YKD01 is raised before any violation reporting.
 --
 -- Re-judging is per element and scoped to the rules whose inputs that
 -- element moved, exactly as update_course does it for one course:
@@ -375,6 +380,8 @@ DECLARE
 	-- per row. The names here are the import's header names, because
 	-- the person reading the message is looking at that header.
 	v_field TEXT;
+	-- The ids the file states more than once. See the walk below.
+	v_dup_ids TEXT[];
 	v_new_id entity_id;
 	v_new_name trimmed_text;
 	v_new_teacher trimmed_text_opt;
@@ -443,6 +450,27 @@ BEGIN
 			FROM jsonb_array_elements(v_courses) u)),
 		'{}'));
 
+	-- Ids the file states more than once.
+	--
+	-- Upserting them in order would apply each in turn and leave the
+	-- last one standing, silently, reporting success: fifty rows go
+	-- in and one course comes out, and nothing anywhere says which
+	-- forty-nine were discarded. Nobody writes a course twice on
+	-- purpose in order to overwrite the first with the second, so a
+	-- repeated id is a defect in the file, and this is the only place
+	-- that can see it — each element is well-formed on its own, and
+	-- the collision exists only in the batch.
+	--
+	-- Every colliding row is reported, not all but the first: which
+	-- of them to keep is the administrator's decision, and they
+	-- cannot make it without seeing the whole collision.
+	SELECT COALESCE(array_agg(d.id), '{}'::TEXT[])
+	INTO v_dup_ids
+	FROM (SELECT u.value->>'id' AS id
+		FROM jsonb_array_elements(v_courses) u
+		GROUP BY 1
+		HAVING count(*) > 1) d;
+
 	-- By id, not by the file's order. Courses are independent of one
 	-- another — no course competes with another for anything — so the
 	-- order is free to be imposed, and imposing one is what stops two
@@ -459,6 +487,32 @@ BEGIN
 		i := v_element.idx;
 		e := v_element.body;
 		v_id := e->>'id';
+
+		-- Reported like any other unreadable element, so a file with
+		-- a repeat and a typo comes back naming both rather than one
+		-- at a time. YKD02 is an element-level code and not an
+		-- ERRCODE: nothing raised it, because no single statement
+		-- could have -- it is a fact about the batch. A NULL id is
+		-- not caught here; it is not an id yet, and the NOT NULL
+		-- below has the better message for it.
+		IF v_id = ANY (v_dup_ids) THEN
+			v_bad_count := v_bad_count + 1;
+
+			IF v_bad_count <= max_reported_elements() THEN
+				v_bad := v_bad || jsonb_build_object(
+					'index', i,
+					'id', v_id,
+					'sqlstate', 'YKD02',
+					'constraint', '',
+					'field', 'id',
+					'column', '',
+					'message', format(
+						'id %s is stated more than once in this batch',
+						v_id));
+			END IF;
+
+			CONTINUE;
+		END IF;
 
 		-- The old sets, normalised the same way as the new ones, so
 		-- that comparison sees a set rather than a spelling.

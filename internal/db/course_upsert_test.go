@@ -729,3 +729,78 @@ func TestUncappedCourseIsNeverFull(t *testing.T) {
 
 	expectCodes(t, err, "overfull:OPEN")
 }
+
+// A file that states one id twice is refused, loudly, naming every row
+// that collides.
+//
+// Applying them in order would leave the last one standing and report
+// success: the rows go in, one course comes out, and nothing says
+// which were discarded. Nobody writes a course twice in order to
+// overwrite the first with the second.
+func TestUpsertCoursesRefusesARepeatedID(t *testing.T) {
+	t.Parallel()
+	pool, q := fresh(t)
+	seedCourseUpsert(t, pool)
+
+	err := upsertCourses(q, []courseSpec{
+		course("GOOD1", nil),
+		course("TWICE", courseSpec{"name": "First"}),
+		course("GOOD2", nil),
+		course("TWICE", courseSpec{"name": "Second"}),
+		course("THRICE", nil),
+		course("THRICE", nil),
+		course("THRICE", nil),
+	})
+
+	// Every colliding row, not all but the first: which to keep is
+	// the administrator's decision and they cannot make it from half
+	// the collision.
+	ms := expectMalformed(t, err, 2, 4, 5, 6, 7)
+
+	for _, m := range ms {
+		if m.SQLState != "YKD02" {
+			t.Errorf("element %d sqlstate = %q, want YKD02", m.Index, m.SQLState)
+		}
+
+		if m.Field != "id" {
+			t.Errorf("element %d field = %q, want id", m.Index, m.Field)
+		}
+	}
+
+	// And nothing landed, including the rows that were fine.
+	if n := count(t, pool, `SELECT count(*) FROM courses
+		WHERE id IN ('GOOD1', 'GOOD2', 'TWICE', 'THRICE')`); n != 0 {
+		t.Fatalf("a refused import must leave nothing behind; %d rows", n)
+	}
+
+	// The same list with the repeat resolved goes in.
+	if err := upsertCourses(q, []courseSpec{
+		course("GOOD1", nil),
+		course("TWICE", courseSpec{"name": "First"}),
+		course("GOOD2", nil),
+		course("THRICE", nil),
+	}); err != nil {
+		t.Fatalf("a file with no repeat was refused: %v", err)
+	}
+}
+
+// Re-importing the same file is still the supported way to work: the
+// repeat that matters is within one batch, not between two calls.
+func TestUpsertCoursesStillAllowsAReImport(t *testing.T) {
+	t.Parallel()
+	pool, q := fresh(t)
+	seedCourseUpsert(t, pool)
+
+	file := []courseSpec{course("YOGA", nil), course("CHESS", nil)}
+
+	for attempt := range 2 {
+		if err := upsertCourses(q, file); err != nil {
+			t.Fatalf("attempt %d: %v", attempt, err)
+		}
+	}
+
+	if n := count(t, pool, `SELECT count(*) FROM courses
+		WHERE id IN ('YOGA', 'CHESS')`); n != 2 {
+		t.Fatalf("a re-import must change nothing; %d rows", n)
+	}
+}

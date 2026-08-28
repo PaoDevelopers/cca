@@ -698,6 +698,60 @@ describe("admin", (): void => {
 		await page.request.delete("/admin/api/courses/YOGA")
 	})
 
+	it("refuses a course file that states one ID twice", async (): Promise<void> => {
+		const page = await adminPage("#/courses")
+		await page.getByText("Basketball").waitFor()
+
+		// Applying these in order would leave "Second" standing and
+		// report success, with nothing to say "First" was discarded.
+		const file = [
+			courseImportColumns.join(","),
+			"DUP,First,,WED3,10,false,,,,Season,,SPORT,,",
+			"KEEP,Fine,,WED3,10,false,,,,Season,,SPORT,,",
+			"DUP,Second,,WED3,10,false,,,,Season,,SPORT,,",
+			"",
+		].join("\n")
+
+		const response = await page.request.post("/admin/api/courses/import", {
+			multipart: {
+				spreadsheet: {
+					name: "courses.csv",
+					mimeType: "text/csv",
+					buffer: Buffer.from(file),
+				},
+			},
+		})
+		assert.equal(response.status(), 400, await response.text())
+
+		const body = (await response.json()) as {
+			error: {
+				code: string
+				malformed: Array<{ index: number; field: string }>
+			}
+		}
+		assert.equal(body.error.code, "malformed")
+
+		// Both colliding rows, not just the second: which to keep is
+		// the administrator's decision.
+		assert.deepEqual(
+			body.error.malformed.map((m): number => m.index).sort(),
+			[1, 3],
+		)
+		assert.deepEqual(
+			body.error.malformed.map((m): string => m.field),
+			["id", "id"],
+		)
+
+		// Nothing landed, including the row that was fine.
+		const survivors = (await (
+			await page.request.get("/admin/api/courses")
+		).json()) as SeededCourse[]
+		assert.ok(
+			!survivors.some((c): boolean => c.id === "DUP" || c.id === "KEEP"),
+			"a refused import must leave nothing behind",
+		)
+	})
+
 	it("imports an uncapped course and exports it as unlimited", async (): Promise<void> => {
 		const page = await adminPage("#/courses")
 		await page.getByText("Basketball").waitFor()

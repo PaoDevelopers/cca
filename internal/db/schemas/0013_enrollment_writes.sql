@@ -65,6 +65,11 @@
 --          DETAIL carries them as a JSON array of
 --          {index, id, sqlstate, constraint, field, column, message},
 --          so a spreadsheet cell can be pointed at by row and column.
+--          An element's sqlstate is normally PostgreSQL's own, but
+--          YKD02 there means the batch states that id more than
+--          once. It is not an ERRCODE and nothing raises it: no
+--          single statement could, because the defect is a fact
+--          about the batch and not about any one element.
 --          Raised in 0015 and 0017, not here.
 --   YKG01  the student's enrollment window is closed.
 --   YKG02  the course is invite-only.
