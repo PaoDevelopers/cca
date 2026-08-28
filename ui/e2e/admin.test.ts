@@ -29,6 +29,11 @@ const courseImportColumns = [
 	"allowed_grades",
 ]
 
+// How long the tab opened by "Sign in as" has to show the student's
+// own page. Generous: it is a fresh page load against the real server,
+// and this is a backstop, not a performance budget.
+const studentTabTimeout = 10_000
+
 interface SeededStudent {
 	id: string
 }
@@ -80,6 +85,83 @@ describe("admin", (): void => {
 		const table = await page.locator("table").first().innerText()
 		assert.match(table, /s1001/)
 		assert.match(table, /Bob Example/)
+	})
+
+	// Signing in as a student, which is three things at once and only
+	// a browser can see all three: the endpoint mints a session, the
+	// browser stores it in the *student* cookie, and the tab that
+	// asked keeps its administrator session. The Go tests can check
+	// the Set-Cookie header; they cannot check that the second tab
+	// then loads that student's own page, or that the first tab still
+	// belongs to an administrator afterwards.
+	it("signs an administrator in as a student in a second tab", async (): Promise<void> => {
+		const page = await adminPage("#/students")
+		await page.getByText("Bob Example").waitFor()
+
+		const context = page.context()
+		const adminCookieBefore = (await context.cookies()).find(
+			(c): boolean => c.name === "admin_session",
+		)
+		assert.ok(adminCookieBefore !== undefined)
+
+		// The tab is opened by the click itself; anything else is a
+		// pop-up as far as the browser is concerned, and this is the
+		// only test that would notice it being blocked.
+		const opened = context.waitForEvent("page")
+		await page
+			.getByRole("button", { name: `Sign in as ${subjects.bob}` })
+			.click()
+		const student = await opened
+
+		// Bob's page, from Bob's own session: the header is served
+		// from /student/api/user_info, which reads the cookie.
+		//
+		// Bounded, unlike most waits in this file: a session that was
+		// never minted leaves the second tab on the sign-in page, and
+		// an unbounded wait there does not fail this test — it stalls
+		// until the whole file times out, taking every later test with
+		// it.
+		await student
+			.getByText("Bob Example")
+			.waitFor({ timeout: studentTabTimeout })
+		assert.match(student.url(), /\/student\/$/)
+		const banner = await student.getByRole("banner").innerText()
+		assert.match(banner, new RegExp(subjects.bob))
+
+		const cookies = await context.cookies()
+		const studentCookie = cookies.find(
+			(c): boolean => c.name === "student_session",
+		)
+		assert.ok(
+			studentCookie !== undefined,
+			"no student session was stored in the browser",
+		)
+
+		// The administrator's own session is untouched, so the tab
+		// they started from is still an administrator's. Both halves
+		// matter: an unchanged cookie, and an admin area that still
+		// serves the app rather than a sign-in page.
+		const adminCookieAfter = cookies.find(
+			(c): boolean => c.name === "admin_session",
+		)
+		assert.equal(adminCookieAfter?.value, adminCookieBefore.value)
+		await page.reload()
+		await page.getByText("Bob Example").waitFor()
+
+		// And a second student replaces the first, rather than the
+		// browser keeping whoever was signed in first.
+		const reopened = context.waitForEvent("page")
+		await page
+			.getByRole("button", { name: `Sign in as ${subjects.alice}` })
+			.click()
+		const other = await reopened
+		await other
+			.getByText("Alice Example")
+			.waitFor({ timeout: studentTabTimeout })
+		assert.match(
+			await other.getByRole("banner").innerText(),
+			new RegExp(subjects.alice),
+		)
 	})
 
 	// The filter box is bound to the route rather than copied into local
