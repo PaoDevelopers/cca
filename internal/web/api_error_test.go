@@ -257,6 +257,10 @@ func TestMalformedElementsDoNotLeakTheSchema(t *testing.T) {
 			t.Errorf("the constraint name was sent to the client: %q", element.Constraint)
 		}
 
+		if element.Column != "" {
+			t.Errorf("the database column name was sent to the client: %q", element.Column)
+		}
+
 		for _, leak := range []string{"_check", "_fkey", "domain", "constraint"} {
 			if strings.Contains(element.Message, leak) {
 				t.Errorf("element message leaks %q: %q", leak, element.Message)
@@ -535,5 +539,64 @@ func TestBuiltInRejectionsAreRewritten(t *testing.T) {
 	// person needs in order to fix it.
 	if !strings.Contains(detail.Message, "1000000") {
 		t.Errorf("message = %q; it does not say what is allowed", detail.Message)
+	}
+}
+
+// The column an element was rejected on is the half a domain rejection
+// cannot supply: it is raised while casting, so it names the domain and
+// not the column. The write function names the column instead, and a
+// not-null violation — the one rejection that does name its own column
+// — overrides it, because that is the one case the statement boundary
+// cannot pin down.
+func TestMalformedElementsNameTheirColumn(t *testing.T) {
+	t.Parallel()
+
+	_, detail, ok := dbErrorDetail(&pgconn.PgError{
+		Code:    "YKD01",
+		Message: "3 malformed element(s)",
+		Detail: `[{"index":1,"id":"1234","sqlstate":"23514",` +
+			`"constraint":"trimmed_text_check","field":"term",` +
+			`"message":"value for domain trimmed_text violates check constraint"},` +
+			`{"index":2,"id":"1234","sqlstate":"23502",` +
+			`"field":"category","column":"name",` +
+			`"message":"null value in column"},` +
+			`{"index":3,"id":"1234","sqlstate":"22P02",` +
+			`"field":"allowed_legal_sexes",` +
+			`"message":"invalid input value for enum legal_sex"}]`,
+	}, false)
+	if !ok {
+		t.Fatal("not classified")
+	}
+
+	want := []string{"term", "name", "allowed_legal_sexes"}
+	for i, field := range want {
+		if detail.Malformed[i].Field != field {
+			t.Errorf("element %d field = %q, want %q",
+				i, detail.Malformed[i].Field, field)
+		}
+	}
+}
+
+// An element the write function could not attribute carries no column,
+// and the message must still stand on its own rather than inventing one.
+func TestMalformedElementsSurviveWithoutAColumn(t *testing.T) {
+	t.Parallel()
+
+	_, detail, ok := dbErrorDetail(&pgconn.PgError{
+		Code:    "YKD01",
+		Message: "1 malformed element(s)",
+		Detail: `[{"index":9,"id":"OK","sqlstate":"23502",` +
+			`"column":"no_such_column","message":"null value in column"}]`,
+	}, false)
+	if !ok {
+		t.Fatal("not classified")
+	}
+
+	if detail.Malformed[0].Field != "" {
+		t.Errorf("field = %q, want empty", detail.Malformed[0].Field)
+	}
+
+	if !strings.Contains(detail.Malformed[0].Message, "required value is missing") {
+		t.Errorf("message = %q", detail.Malformed[0].Message)
 	}
 }

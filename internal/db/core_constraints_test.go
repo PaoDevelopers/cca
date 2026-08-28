@@ -139,9 +139,16 @@ func TestCourseFieldConstraints(t *testing.T) {
 	expectExec(t, pool, "23514", `INSERT INTO courses (id, name, description, max_students, invite_only,
 			teacher, teacher_email, location, term, cost, category_id)
 		VALUES ('X2', 'X', '', -1, FALSE, '', '', '', 'Season', '', 'SPORT')`) // negative capacity
+	// term is optional like location and cost: a department that does
+	// not divide its season into terms leaves the column empty, and
+	// nothing in the software reads the value. It still refuses
+	// padding.
+	exec(t, pool, `INSERT INTO courses (id, name, description, max_students, invite_only,
+			teacher, teacher_email, location, term, cost, category_id)
+		VALUES ('X3', 'X', '', 20, FALSE, '', '', '', '', '', 'SPORT')`)
 	expectExec(t, pool, "23514", `INSERT INTO courses (id, name, description, max_students, invite_only,
 			teacher, teacher_email, location, term, cost, category_id)
-		VALUES ('X3', 'X', '', 20, FALSE, '', '', '', '', '', 'SPORT')`) // empty term
+		VALUES ('X4', 'X', '', 20, FALSE, '', '', '', 'Season ', '', 'SPORT')`)
 
 	// Same name as WEBDEV: course names are deliberately not
 	// unique; 0 capacity is legal.

@@ -612,13 +612,27 @@ describe("admin", (): void => {
 		assert.equal(response.status(), 400, await response.text())
 
 		const body = (await response.json()) as {
-			error: { code: string; malformed: Array<{ index: number }> }
+			error: {
+				code: string
+				malformed: Array<{ index: number; field: string }>
+			}
 		}
 		assert.equal(body.error.code, "malformed")
 		assert.deepEqual(
 			body.error.malformed.map((m): number => m.index).sort(),
 			[2, 3, 4],
 			"every bad row should be reported, not just the first",
+		)
+
+		// And each names the column it was rejected on. Three
+		// distinct mistakes that all read as "this value is wrong"
+		// leave an administrator scanning fourteen columns by hand.
+		assert.deepEqual(
+			body.error.malformed
+				.slice()
+				.sort((a, b): number => a.index - b.index)
+				.map((m): string => m.field),
+			["id", "category", "max_students"],
 		)
 
 		// And nothing was written: the good row went with the bad ones.

@@ -22,6 +22,8 @@ type malformed struct {
 	Index    int    `json:"index"`
 	ID       string `json:"id"`
 	SQLState string `json:"sqlstate"`
+	Field    string `json:"field"`
+	Column   string `json:"column"`
 	Message  string `json:"message"`
 }
 
@@ -195,12 +197,40 @@ func TestUpsertMalformedCollection(t *testing.T) {
 
 	// Malformed elements are collected with their indices,
 	// and the batch is atomic.
-	expectMalformed(t, upsert(q,
+	ms := expectMalformed(t, upsert(q,
 		[]string{"s3", "BAD ID", "s4", "s5"},
 		[]string{"Fine", "Bad Id", "Bad Sex", "Bad Grade"},
 		[]string{"Y9", "Y9", "Y9", "Y99"},
 		[]string{"F", "F", "Q", "F"}),
 		2, 3, 4)
+
+	// With the column, because the rejection does not carry one: a
+	// domain is checked while casting, before the value has reached a
+	// column at all, so three different mistakes came back as three
+	// sentences that named nothing.
+	byIndex := make(map[int]malformed, len(ms))
+	for _, m := range ms {
+		byIndex[m.Index] = m
+	}
+
+	for index, field := range map[int]string{
+		2: "id",
+		3: "legal_sex",
+		4: "grade",
+	} {
+		if byIndex[index].Field != field {
+			t.Errorf("element %d reported column %q, want %q",
+				index, byIndex[index].Field, field)
+		}
+	}
+
+	// A name is its own column too, and a stray leading space is the
+	// mistake a spreadsheet actually makes.
+	padded := expectMalformed(t, upsert(q, []string{"s3"},
+		[]string{" Fine"}, []string{"Y9"}, []string{"F"}), 1)
+	if padded[0].Field != "name" {
+		t.Errorf("padded name reported column %q, want name", padded[0].Field)
+	}
 
 	if n := count(t, pool, `SELECT count(*) FROM students`); n != 0 {
 		t.Fatalf("a batch with malformed elements must land nothing; %d rows", n)

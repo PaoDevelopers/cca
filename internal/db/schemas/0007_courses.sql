@@ -24,7 +24,10 @@ CREATE TABLE courses (
 	-- The software never acts on its value;
 	-- administrators filter and bulk-delete by it at rollover,
 	-- and the PowerSchool export emits it as-is.
-	term trimmed_text NOT NULL,
+	-- '' means unlabelled: a department that does not divide its
+	-- season into terms leaves the column empty, and requiring it
+	-- rejected whole spreadsheets over a label nothing reads.
+	term trimmed_text_opt NOT NULL,
 	-- Free text ('Student Paid', '600 rmb', ...) rather than a number:
 	-- the source data is prose and is only ever displayed.
 	-- '' means none.

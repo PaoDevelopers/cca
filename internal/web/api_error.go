@@ -25,8 +25,9 @@ import (
 //	            the code that accepts it; the confirm dialog lists
 //	            these and sends back the codes the user agreed to
 //	malformed   the elements of a batch that could not be read at
-//	            all, with their positions, so a bad spreadsheet is
-//	            fixed in one pass rather than one row per upload
+//	            all, each with its row and the column it was rejected
+//	            on, so a bad spreadsheet is fixed in one pass rather
+//	            than one row per upload
 const (
 	codeBadRequest       = "bad_request"
 	codeUnauthenticated  = "unauthenticated"
@@ -79,11 +80,20 @@ type apiMalformed struct {
 	SQLState string `json:"sqlstate"`
 	Message  string `json:"message"`
 
-	// The machine-readable half, used to choose the message above.
-	// Never sent: a client has no use for it and it names schema
-	// internals. json/v2 omits it from output because of the tag, and
-	// the decoder fills it from the database's payload.
+	// The import column the value came from, in the header's own
+	// spelling, so the message can say which cell to go and fix. It
+	// is sent: unlike the two fields below it names the spreadsheet
+	// rather than the schema. '' where the write function could not
+	// attribute the failure to one column.
+	Field string `json:"field"`
+
+	// The machine-readable half, used to choose the message above and
+	// to sharpen Field. Never sent: a client has no use for them and
+	// they name schema internals. json/v2 omits them from output
+	// because of the tags, and the decoder fills them from the
+	// database's payload.
 	Constraint string `json:"constraint,omitzero"`
+	Column     string `json:"column,omitzero"`
 }
 
 type apiErrorDetail struct {
@@ -212,6 +222,53 @@ var domainMessages = map[string]string{
 		"1000000.",
 }
 
+// Database column names to the import header names they are filled
+// from. Consulted only for a not-null violation, which is the one
+// rejection that names its column and the one the write functions
+// cannot attribute themselves: every other failure is a cast, and a
+// cast is attributed by the statement it happens in.
+//
+// grade_id is a student's grade here. A course's allowed_grades is
+// also grade_id, but only a JSON null could reach that column's NOT
+// NULL, and its own statement has already named the column correctly
+// by then.
+//
+//nolint:gochecknoglobals
+var columnFields = map[string]string{
+	"id":            "id",
+	"name":          "name",
+	"description":   "description",
+	"max_students":  "max_students",
+	"invite_only":   "invite_only",
+	"teacher":       "teacher",
+	"teacher_email": "teacher_email",
+	"location":      "location",
+	"term":          "term",
+	"cost":          "cost",
+	"category_id":   "category",
+	"grade_id":      "grade",
+	"legal_sex":     "legal_sex",
+	"period_id":     "periods",
+}
+
+// elementField says which import column the element was rejected on.
+//
+// The write function names it, because a domain rejection does not:
+// PostgreSQL raises it while casting a value, before the value has
+// reached a column at all, so the error carries the domain and the
+// constraint and nothing about where the value was going. The one
+// exception is a not-null violation, which does name its column and
+// is the one thing the statement boundary cannot pin down.
+func elementField(element apiMalformed) string {
+	if element.SQLState == "23502" {
+		if field, named := columnFields[element.Column]; named {
+			return field
+		}
+	}
+
+	return element.Field
+}
+
 // elementMessage says what is wrong with one batch element, in the
 // terms the person editing the spreadsheet works in.
 func elementMessage(element apiMalformed) string {
@@ -279,9 +336,12 @@ func dbErrorDetail(err error, deleting bool) (status int, detail apiErrorDetail,
 
 		for i := range ms {
 			ms[i].Message = elementMessage(ms[i])
-			// Chosen the message; the constraint name itself is
-			// schema internals and goes no further.
+			ms[i].Field = elementField(ms[i])
+			// Chosen the message and the column; the constraint and
+			// the database's own column name are schema internals and
+			// go no further.
 			ms[i].Constraint = ""
+			ms[i].Column = ""
 		}
 
 		detail.Code = codeMalformed

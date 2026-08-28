@@ -80,6 +80,11 @@ export function errorMessage(err: unknown, fallback: string): string {
 // rows and the header is line 1, so the line is index + 1. It used to
 // be index + 2, which named the row below the broken one — and named
 // it plausibly, since a spreadsheet has a row there too.
+//
+// The column is named alongside it, for the same reason. Without it a
+// file that was blank in one column throughout came back as fifty
+// identical sentences — "This must not be empty" — with nothing to say
+// which of the fourteen columns was meant.
 export function batchErrorMessage(err: unknown, fallback: string): string {
 	const bad = malformedOf(err)
 	if (bad.length === 0) {
@@ -89,6 +94,8 @@ export function batchErrorMessage(err: unknown, fallback: string): string {
 		(element) =>
 			`row ${String(element.index + 1)}${
 				element.id === "" ? "" : ` (${element.id})`
+			}${
+				element.field === "" ? "" : `, column ${element.field}`
 			}: ${element.message}`,
 	)
 	return [`${String(bad.length)} row(s) could not be read:`, ...lines].join(

@@ -13,12 +13,12 @@
 -- and domain, enum, and foreign key rejections are collected into
 --   YKD01  malformed elements.
 --          DETAIL is a JSON array of
---          {index, id, sqlstate, constraint, message}, every bad
---          element, so the admin fixes the file once.
---          The constraint name is carried because it is the machine
---          -readable half: the application turns it into prose a
---          person can act on, where SQLERRM names domains and
---          constraints.
+--          {index, id, sqlstate, constraint, field, column, message},
+--          every bad element, so the admin fixes the file once.
+--          The constraint name and the column are carried because
+--          they are the machine-readable half: the application turns
+--          them into prose a person can act on, where SQLERRM names
+--          domains and constraints and names no column at all.
 -- Malformed elements are not violations:
 -- nothing about them is acceptable, so no accept applies,
 -- and YKD01 is raised before any violation reporting.
@@ -55,6 +55,20 @@ DECLARE
 	v_caps_differ BOOLEAN;
 	i INTEGER;
 	v_constraint TEXT;
+	v_column TEXT;
+	-- Which spreadsheet column the statement about to run is reading.
+	-- A domain rejection carries the domain and the constraint but
+	-- never a column: it is raised while casting a value, before the
+	-- value has reached a column at all. Without this, a roster whose
+	-- name column had a stray leading space came back as the same
+	-- anonymous "must not be empty" as a blank one. The names are the
+	-- import's header names, because that is what the person reading
+	-- the message is looking at.
+	v_field TEXT;
+	v_new_id localpart;
+	v_new_name trimmed_text;
+	v_new_grade entity_id;
+	v_new_legal_sex legal_sex;
 BEGIN
 	-- NULL is not the empty roster.
 	--
@@ -125,9 +139,28 @@ BEGIN
 		v_existed := FOUND;
 
 		BEGIN
+			-- One statement per column, rather than four casts
+			-- inlined in the INSERT. The statement boundary is what
+			-- carries the attribution: the rejection itself names a
+			-- domain and a constraint, never a column.
+			v_field := 'id';
+			v_new_id := p_ids[i]::localpart;
+
+			v_field := 'name';
+			v_new_name := p_names[i]::trimmed_text;
+
+			v_field := 'grade';
+			v_new_grade := p_grade_ids[i]::entity_id;
+
+			v_field := 'legal_sex';
+			v_new_legal_sex := p_legal_sexes[i]::legal_sex;
+
+			-- Only the grade foreign key and the NOT NULLs are left,
+			-- and a NOT NULL names its own column, which is why
+			-- COLUMN_NAME is read below.
+			v_field := 'grade';
 			INSERT INTO students (id, name, grade_id, legal_sex)
-			VALUES (p_ids[i], p_names[i], p_grade_ids[i],
-				p_legal_sexes[i]::legal_sex)
+			VALUES (v_new_id, v_new_name, v_new_grade, v_new_legal_sex)
 			ON CONFLICT (id) DO UPDATE SET
 				name = EXCLUDED.name,
 				grade_id = EXCLUDED.grade_id,
@@ -135,7 +168,8 @@ BEGIN
 		EXCEPTION WHEN check_violation OR not_null_violation
 			OR foreign_key_violation OR invalid_text_representation
 		THEN
-			GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
+			GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME,
+				v_column = COLUMN_NAME;
 			v_bad_count := v_bad_count + 1;
 
 			IF v_bad_count <= max_reported_elements() THEN
@@ -144,6 +178,8 @@ BEGIN
 					'id', p_ids[i],
 					'sqlstate', SQLSTATE,
 					'constraint', COALESCE(v_constraint, ''),
+					'field', COALESCE(v_field, ''),
+					'column', COALESCE(v_column, ''),
 					'message', SQLERRM);
 			END IF;
 

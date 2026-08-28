@@ -110,13 +110,15 @@
 		</label>
 		<label>
 			<!--
-				Free text with suggestions, not a fixed set: the
-				software never acts on a term's value, so constraining
-				it here would only stop the department writing what
-				their spreadsheet says.
+				Free text with suggestions, not a fixed set, and not
+				required: the software never acts on a term's value, so
+				constraining it here would only stop the department
+				writing what their spreadsheet says — or leaving it
+				blank, which is what a department that does not divide
+				its season into terms writes.
 			-->
 			Term
-			<input type="text" bind:value={term} list="course-terms" required />
+			<input type="text" bind:value={term} list="course-terms" />
 			<datalist id="course-terms">
 				{#each courseTermSuggestions as option (option)}
 					<option value={option}></option>

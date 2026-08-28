@@ -63,8 +63,8 @@
 --          by declared convention.
 --   YKD01  one or more elements of a batch were malformed.
 --          DETAIL carries them as a JSON array of
---          {index, sqlstate, constraint, message},
---          so a spreadsheet row can be pointed at by number.
+--          {index, id, sqlstate, constraint, field, column, message},
+--          so a spreadsheet cell can be pointed at by row and column.
 --          Raised in 0015 and 0017, not here.
 --   YKG01  the student's enrollment window is closed.
 --   YKG02  the course is invite-only.

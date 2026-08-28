@@ -129,6 +129,12 @@ export interface MalformedElement {
 	index: number
 	id: string
 	sqlstate: string
+	// The import column the value came from, spelt as the file's own
+	// header spells it, or "" where the server could not attribute the
+	// failure to one column. The database cannot supply this by
+	// itself: a domain rejection is raised while casting a value and
+	// names the domain, never the column it was bound for.
+	field: string
 	message: string
 }
 

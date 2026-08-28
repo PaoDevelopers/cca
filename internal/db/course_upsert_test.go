@@ -207,6 +207,58 @@ func TestUpsertCoursesCollectsEveryMalformedElement(t *testing.T) {
 	if byIndex[2].ID != "lowercase" {
 		t.Errorf("element 2 reported id %q", byIndex[2].ID)
 	}
+
+	// And so does the column. A domain rejection names the domain and
+	// never the column — it is raised while casting, before the value
+	// has reached one — so the function has to say which cast it was
+	// running. Without it, five different mistakes in five different
+	// columns come back as five sentences about "this".
+	for index, field := range map[int]string{
+		2: "id",
+		3: "category",
+		4: "max_students",
+		5: "allowed_legal_sexes",
+		6: "periods",
+		7: "name",
+	} {
+		if byIndex[index].Field != field {
+			t.Errorf("element %d reported column %q, want %q",
+				index, byIndex[index].Field, field)
+		}
+	}
+}
+
+// Every optional display column takes '' and none of them takes
+// padding, and each says which one it was. term is among the optional
+// ones: a department that does not divide its season into terms leaves
+// the column empty, and requiring it rejected whole spreadsheets over
+// a label nothing in the software reads.
+func TestUpsertCoursesNamesTheTrimmedColumn(t *testing.T) {
+	t.Parallel()
+	pool, q := fresh(t)
+	seedCourseUpsert(t, pool)
+
+	if err := upsertCourses(q, []courseSpec{
+		course("BLANK", courseSpec{
+			"term": "", "teacher": "", "location": "", "cost": "",
+		}),
+	}); err != nil {
+		t.Fatalf("empty optional columns rejected: %v", err)
+	}
+
+	for i, field := range []string{
+		"teacher", "teacher_email", "location", "term", "cost",
+	} {
+		err := upsertCourses(q, []courseSpec{
+			course("PADDED", courseSpec{field: " padded"}),
+		})
+
+		ms := expectMalformed(t, err, 1)
+		if ms[0].Field != field {
+			t.Errorf("case %d: reported column %q, want %q",
+				i, ms[0].Field, field)
+		}
+	}
 }
 
 // A rejected file writes nothing at all: the raise aborts the

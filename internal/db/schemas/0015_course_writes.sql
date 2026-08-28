@@ -306,10 +306,11 @@ $$;
 -- Each element runs in its own exception scope, so one malformed
 -- course does not poison the file: domain, enum, foreign key and
 -- cast rejections are collected into YKD01, with the element's index,
--- its id and the constraint it broke, so the administrator fixes the
--- spreadsheet once. The constraint name is the machine-readable half:
--- the application turns it into prose a person can act on, where
--- SQLERRM names domains and relations. Malformed elements are not
+-- its id, the constraint it broke and the spreadsheet column it was
+-- reading, so the administrator fixes the spreadsheet once. The
+-- constraint name and the column are the machine-readable half: the
+-- application turns them into prose a person can act on, where
+-- SQLERRM names domains and relations and names no column at all. Malformed elements are not
 -- violations — nothing about them is acceptable — and YKD01 is raised
 -- before any violation reporting.
 --
@@ -364,6 +365,25 @@ DECLARE
 	v_element RECORD;
 	i INTEGER;
 	v_constraint TEXT;
+	v_column TEXT;
+	-- Which spreadsheet column the statement about to run is reading.
+	-- A domain rejection carries the domain and the constraint but
+	-- never a column: PostgreSQL raises it while casting a value,
+	-- before the value has reached a column at all. So "must not be
+	-- empty" arrived naming nothing, and a file whose term column was
+	-- blank throughout came back as one identical anonymous sentence
+	-- per row. The names here are the import's header names, because
+	-- the person reading the message is looking at that header.
+	v_field TEXT;
+	v_new_id entity_id;
+	v_new_name trimmed_text;
+	v_new_teacher trimmed_text_opt;
+	v_new_teacher_email trimmed_text_opt;
+	v_new_location trimmed_text_opt;
+	v_new_term trimmed_text_opt;
+	v_new_cost trimmed_text_opt;
+	v_new_category entity_id;
+	v_new_invite BOOLEAN;
 BEGIN
 	IF jsonb_typeof(v_courses) IS DISTINCT FROM 'array' THEN
 		RAISE EXCEPTION 'courses must be a JSON array'
@@ -470,39 +490,83 @@ BEGIN
 			-- arrive here as this element's rejection rather than the
 			-- call's. Nothing above this needs to pre-validate, which
 			-- is what lets a whole spreadsheet be judged in one pass.
+			--
+			-- Each cast is its own statement, preceded by the column
+			-- it reads, rather than all of them inlined in the INSERT
+			-- below. That is the whole difference between "this must
+			-- not be empty" and "term must not be empty": the
+			-- statement boundary is what carries the attribution,
+			-- because the rejection itself does not.
+			v_field := 'periods';
 			SELECT COALESCE(array_agg(DISTINCT u ORDER BY u), '{}'::TEXT[])
 			INTO v_new_periods
 			FROM jsonb_array_elements_text(e->'period_ids') AS u;
 
+			v_field := 'allowed_legal_sexes';
 			SELECT COALESCE(array_agg(DISTINCT u::legal_sex
 				ORDER BY u::legal_sex), '{}'::legal_sex[])
 			INTO v_new_legal_sexes
 			FROM jsonb_array_elements_text(e->'legal_sexes') AS u;
 
+			v_field := 'allowed_grades';
 			SELECT COALESCE(array_agg(DISTINCT u ORDER BY u), '{}'::TEXT[])
 			INTO v_new_grades
 			FROM jsonb_array_elements_text(e->'grade_ids') AS u;
 
+			v_field := 'max_students';
 			v_new_max := (e->>'max_students')::count_value;
 
+			-- NULLIF before the cast, so an unfilled column means
+			-- "not invite-only" rather than a cast failure: a
+			-- spreadsheet leaves cells empty.
+			v_field := 'invite_only';
+			v_new_invite :=
+				COALESCE(NULLIF(e->>'invite_only', '')::BOOLEAN, FALSE);
+
+			v_field := 'id';
+			v_new_id := (e->>'id')::entity_id;
+
+			v_field := 'name';
+			v_new_name := (e->>'name')::trimmed_text;
+
+			v_field := 'teacher';
+			v_new_teacher := COALESCE(e->>'teacher', '')::trimmed_text_opt;
+
+			v_field := 'teacher_email';
+			v_new_teacher_email :=
+				COALESCE(e->>'teacher_email', '')::trimmed_text_opt;
+
+			v_field := 'location';
+			v_new_location := COALESCE(e->>'location', '')::trimmed_text_opt;
+
+			v_field := 'term';
+			v_new_term := COALESCE(e->>'term', '')::trimmed_text_opt;
+
+			v_field := 'cost';
+			v_new_cost := COALESCE(e->>'cost', '')::trimmed_text_opt;
+
+			v_field := 'category';
+			v_new_category := (e->>'category_id')::entity_id;
+
+			-- Everything is cast by now, so the only rejections left
+			-- here are the category foreign key and a NULL where a
+			-- column is NOT NULL -- and the latter names its own
+			-- column, which is why COLUMN_NAME is read below.
 			INSERT INTO courses (id, name, description, max_students,
 				invite_only, teacher, teacher_email, location,
 				term, cost, category_id)
 			VALUES (
-				e->>'id',
-				e->>'name',
+				v_new_id,
+				v_new_name,
 				COALESCE(e->>'description', ''),
 				v_new_max,
-				-- NULLIF before the cast, so an unfilled column
-				-- means "not invite-only" rather than a cast
-				-- failure: a spreadsheet leaves cells empty.
-				COALESCE(NULLIF(e->>'invite_only', '')::BOOLEAN, FALSE),
-				COALESCE(e->>'teacher', ''),
-				COALESCE(e->>'teacher_email', ''),
-				COALESCE(e->>'location', ''),
-				e->>'term',
-				COALESCE(e->>'cost', ''),
-				e->>'category_id')
+				v_new_invite,
+				v_new_teacher,
+				v_new_teacher_email,
+				v_new_location,
+				v_new_term,
+				v_new_cost,
+				v_new_category)
 			ON CONFLICT (id) DO UPDATE SET
 				name = EXCLUDED.name,
 				description = EXCLUDED.description,
@@ -517,14 +581,20 @@ BEGIN
 
 			-- The three sets are replaced wholesale, as in
 			-- update_course: the file states the arrangement it wants.
+			-- Each carries its own column name, because an unknown
+			-- period and an unknown grade are the same foreign key
+			-- violation to the reader of a message that names neither.
+			v_field := 'periods';
 			DELETE FROM course_periods WHERE course_id = v_id;
 			INSERT INTO course_periods (course_id, period_id)
 			SELECT v_id, u FROM unnest(v_new_periods) AS u;
 
+			v_field := 'allowed_legal_sexes';
 			DELETE FROM course_allowed_legal_sexes WHERE course_id = v_id;
 			INSERT INTO course_allowed_legal_sexes (course_id, legal_sex)
 			SELECT v_id, u FROM unnest(v_new_legal_sexes) AS u;
 
+			v_field := 'allowed_grades';
 			DELETE FROM course_allowed_grades WHERE course_id = v_id;
 			INSERT INTO course_allowed_grades (course_id, grade_id)
 			SELECT v_id, u FROM unnest(v_new_grades) AS u;
@@ -532,7 +602,8 @@ BEGIN
 			OR foreign_key_violation OR invalid_text_representation
 			OR invalid_parameter_value OR numeric_value_out_of_range
 		THEN
-			GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME;
+			GET STACKED DIAGNOSTICS v_constraint = CONSTRAINT_NAME,
+				v_column = COLUMN_NAME;
 			v_bad_count := v_bad_count + 1;
 
 			IF v_bad_count <= max_reported_elements() THEN
@@ -541,6 +612,8 @@ BEGIN
 					'id', COALESCE(v_id, ''),
 					'sqlstate', SQLSTATE,
 					'constraint', COALESCE(v_constraint, ''),
+					'field', COALESCE(v_field, ''),
+					'column', COALESCE(v_column, ''),
 					'message', SQLERRM);
 			END IF;
 
