@@ -4,7 +4,7 @@ import { useMemo, useState, type ReactElement, type ReactNode } from "react"
 import { CourseList } from "./components/CourseList"
 import { ErrorPopup } from "./components/ErrorPopup"
 import { Footer } from "./components/Footer"
-import { HomePage } from "./components/HomePage"
+import { HomePage, SelectionBudget } from "./components/HomePage"
 import { RequirementsProgress } from "./components/Requirements"
 import { Sidebar } from "./components/Sidebar"
 import { ViewToggle } from "./components/ViewToggle"
@@ -157,16 +157,20 @@ export function App(): ReactElement {
 				</div>
 				<Separator className="lg:hidden" />
 				<Separator orientation="vertical" className="hidden lg:block" />
-				<aside
-					aria-label="Requirements progress"
-					className="lg:sticky lg:top-6"
-				>
-					<RequirementsProgress
-						user={data.user}
-						grade={data.grade}
-						categories={data.categories}
-					/>
-				</aside>
+				<div className="flex flex-col gap-6 lg:sticky lg:top-6">
+					{data.user !== null && (
+						<aside aria-label="Selection budget">
+							<SelectionBudget user={data.user} />
+						</aside>
+					)}
+					<aside aria-label="Requirements progress">
+						<RequirementsProgress
+							user={data.user}
+							grade={data.grade}
+							categories={data.categories}
+						/>
+					</aside>
+				</div>
 			</section>
 		)
 	} else {
