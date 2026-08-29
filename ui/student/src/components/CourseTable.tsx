@@ -40,6 +40,9 @@ export function CourseTable({
 							</th>
 						))}
 						<th className={headClass} scope="col">
+							Action
+						</th>
+						<th className={headClass} scope="col">
 							Status
 						</th>
 					</tr>
@@ -52,7 +55,8 @@ export function CourseTable({
 								? state.status
 								: state.reasons.join("; ")
 						const noteColor =
-							state.status === "" && state.reasons.length > 0
+							state.fixed ||
+							(state.status === "" && state.reasons.length > 0)
 								? "text-amber-700 dark:text-amber-400"
 								: "text-muted-foreground"
 						return (
@@ -90,28 +94,19 @@ export function CourseTable({
 									{capacityLabel(course.max_students)}
 								</td>
 								<td className={cellClass}>
-									<span className="flex items-center gap-2">
-										<EnrollmentActions
-											row={row}
-											actions={actions}
-											variant="table"
-										/>
-										{/*
-											Capped rather than given a column
-											of its own: a reason can run long,
-											and letting it size the column put
-											the action a screen's width away
-											from the row it belongs to. The
-											full text stays in the title.
-										*/}
-										<span
-											className={`min-w-0 max-w-64 truncate ${noteColor}`}
-											title={
-												note === "" ? undefined : note
-											}
-										>
-											{note}
-										</span>
+									<EnrollmentActions
+										row={row}
+										actions={actions}
+										variant="table"
+									/>
+								</td>
+								<td className={cellClass}>
+									{/* Long reasons stay capped; the title keeps the full text. */}
+									<span
+										className={`inline-block align-middle ${state.status === "" ? "max-w-64 truncate" : ""} ${noteColor}`}
+										title={note === "" ? undefined : note}
+									>
+										{note}
 									</span>
 								</td>
 							</tr>

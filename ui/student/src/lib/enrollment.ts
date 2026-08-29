@@ -152,7 +152,7 @@ function enrollmentState(
 
 	let status = ""
 	if (fixed) {
-		status = "Placed by an administrator"
+		status = "Placed by an administrator, cannot be dropped"
 	} else if (enrollment !== null && !enrollment.counts_toward_budget) {
 		status = "Invited"
 	} else if (selected) {

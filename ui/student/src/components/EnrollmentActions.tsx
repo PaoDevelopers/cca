@@ -1,4 +1,10 @@
-import { useCallback, useState, type ReactElement } from "react"
+import {
+	cloneElement,
+	useId,
+	useRef,
+	type ComponentProps,
+	type ReactElement,
+} from "react"
 import { capacitySpoken } from "@common/capacity"
 import type { CourseActions, CourseRow } from "@/lib/enrollment"
 import { Button } from "@/components/ui/button"
@@ -35,20 +41,9 @@ export function EnrollmentActions({
 	const { course, state } = row
 	const { windowOpen, updating, onenroll, ondrop, onswap } = actions
 
-	// Dropping and swapping ask for an inline confirmation first.
-	const [confirmingDrop, setConfirmingDrop] = useState(false)
-	const [confirmingSwap, setConfirmingSwap] = useState(false)
-
-	// Arming a confirmation destroys the button that was pressed and
-	// mounts two new ones, so the focus falls to <body>: a student hears
-	// nothing, and the button they must now press is two tab stops
-	// further on with nothing to say it appeared.
-	const focusConfirm = useCallback((node: HTMLButtonElement | null): void => {
-		node?.focus()
-	}, [])
-
 	const icon = variant === "card"
 	const size = icon ? "icon" : "sm"
+	const actionWidth = icon ? undefined : "w-16"
 
 	// The accessible names put the count where the visible text has it,
 	// and the course name after. They used to read "Enroll in Chess",
@@ -66,49 +61,43 @@ export function EnrollmentActions({
 		return <Closed>Enrollment closed</Closed>
 	}
 	if (state.fixed) {
-		return <Closed>Cannot be dropped</Closed>
-	}
-
-	if (state.selected) {
-		return confirmingDrop ? (
-			<Pair>
-				<Button
-					variant="outline"
-					size={size}
-					aria-label={`Cancel dropping ${course.name}`}
-					onClick={(): void => {
-						setConfirmingDrop(false)
-					}}
-				>
-					{icon ? "×" : "X"}
-				</Button>
-				<Button
-					variant="destructive"
-					size="sm"
-					disabled={updating}
-					aria-label={`Confirm dropping ${course.name}`}
-					data-course-action={course.id}
-					ref={focusConfirm}
-					onClick={(): void => {
-						setConfirmingDrop(false)
-						ondrop(course)
-					}}
-				>
-					Confirm drop
-				</Button>
-			</Pair>
-		) : (
+		return (
 			<Button
+				className={actionWidth}
 				size={size}
-				disabled={updating}
-				aria-label={`Drop${count} ${course.name}`}
-				data-course-action={course.id}
-				onClick={(): void => {
-					setConfirmingDrop(true)
-				}}
+				disabled
+				aria-label={`Drop${count} ${course.name}: placed by an administrator and cannot be dropped`}
 			>
 				{icon ? "−" : `Drop${count}`}
 			</Button>
+		)
+	}
+
+	if (state.selected) {
+		return (
+			<ConfirmAction
+				trigger={
+					<Button
+						className={actionWidth}
+						size={size}
+						disabled={updating}
+						aria-label={`Drop${count} ${course.name}`}
+						data-course-action={course.id}
+					>
+						{icon ? "−" : `Drop${count}`}
+					</Button>
+				}
+				title={`Drop ${course.name}?`}
+				description="This will remove the course from your selections."
+				confirmLabel="Confirm drop"
+				confirmAriaLabel={`Confirm dropping ${course.name}`}
+				destructive
+				updating={updating}
+				courseId={course.id}
+				onConfirm={(): void => {
+					ondrop(course)
+				}}
+			/>
 		)
 	}
 
@@ -116,51 +105,36 @@ export function EnrollmentActions({
 	// new course is judged with the old ones disregarded, which is the
 	// only way to move between two courses that clash.
 	if (row.canSwap && onswap !== undefined) {
-		return confirmingSwap ? (
-			<Pair>
-				<Button
-					variant="outline"
-					size={size}
-					aria-label={`Cancel swapping into ${course.name}`}
-					data-course-action={course.id}
-					onClick={(): void => {
-						setConfirmingSwap(false)
-					}}
-				>
-					{icon ? "×" : "X"}
-				</Button>
-				<Button
-					size="sm"
-					disabled={updating}
-					aria-label={`Confirm swapping into ${course.name}`}
-					data-course-action={course.id}
-					ref={focusConfirm}
-					onClick={(): void => {
-						setConfirmingSwap(false)
-						onswap(course)
-					}}
-				>
-					Confirm swap
-				</Button>
-			</Pair>
-		) : (
-			<Button
-				variant="outline"
-				size={size}
-				disabled={updating}
-				aria-label={`Swap in${count}, replacing the courses ${course.name} clashes with`}
-				data-course-action={course.id}
-				onClick={(): void => {
-					setConfirmingSwap(true)
+		return (
+			<ConfirmAction
+				trigger={
+					<Button
+						className={actionWidth}
+						variant="outline"
+						size={size}
+						disabled={updating}
+						aria-label={`Swap in${count}, replacing the courses ${course.name} clashes with`}
+						data-course-action={course.id}
+					>
+						{icon ? "⇄" : "Swap"}
+					</Button>
+				}
+				title={`Swap into ${course.name}?`}
+				description="This will replace the conflicting selections with this course."
+				confirmLabel="Confirm swap"
+				confirmAriaLabel={`Confirm swapping into ${course.name}`}
+				updating={updating}
+				courseId={course.id}
+				onConfirm={(): void => {
+					onswap(course)
 				}}
-			>
-				{icon ? "⇄" : "Swap"}
-			</Button>
+			/>
 		)
 	}
 
 	return (
 		<Button
+			className={actionWidth}
 			variant="outline"
 			size={size}
 			disabled={updating || state.barred}
@@ -186,6 +160,82 @@ function Closed({ children }: { children: string }): ReactElement {
 	)
 }
 
-function Pair({ children }: { children: ReactElement[] }): ReactElement {
-	return <span className="flex items-center gap-1">{children}</span>
+function ConfirmAction({
+	trigger,
+	title,
+	description,
+	confirmLabel,
+	confirmAriaLabel,
+	destructive = false,
+	updating,
+	courseId,
+	onConfirm,
+}: {
+	trigger: ReactElement<ComponentProps<typeof Button>>
+	title: string
+	description: string
+	confirmLabel: string
+	confirmAriaLabel: string
+	destructive?: boolean
+	updating: boolean
+	courseId: string
+	onConfirm: () => void
+}): ReactElement {
+	const dialog = useRef<HTMLDialogElement>(null)
+	const titleId = useId()
+	const descriptionId = useId()
+
+	return (
+		<>
+			{cloneElement(trigger, {
+				"aria-haspopup": "dialog",
+				onClick: (): void => {
+					dialog.current?.showModal()
+				},
+			})}
+			<dialog
+				ref={dialog}
+				role="alertdialog"
+				aria-labelledby={titleId}
+				aria-describedby={descriptionId}
+				className="fixed top-1/2 left-1/2 z-50 m-0 w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-lg border bg-background p-6 text-foreground shadow-lg backdrop:bg-black/50 open:grid sm:max-w-lg"
+			>
+				<div className="flex flex-col gap-2 text-center sm:text-left">
+					<h2 id={titleId} className="text-lg font-semibold">
+						{title}
+					</h2>
+					<p
+						id={descriptionId}
+						className="text-sm text-muted-foreground"
+					>
+						{description}
+					</p>
+				</div>
+				<div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={(): void => {
+							dialog.current?.close()
+						}}
+					>
+						Cancel
+					</Button>
+					<Button
+						variant={destructive ? "destructive" : "default"}
+						size="sm"
+						disabled={updating}
+						aria-label={confirmAriaLabel}
+						data-course-action={courseId}
+						onClick={(): void => {
+							dialog.current?.close()
+							onConfirm()
+						}}
+					>
+						{confirmLabel}
+					</Button>
+				</div>
+			</dialog>
+		</>
+	)
 }

@@ -33,7 +33,7 @@ export function CourseCard({
 	const { course, state } = row
 	const note = state.status !== "" ? state.status : state.reasons.join("; ")
 	const noteColor =
-		state.status === "" && state.reasons.length > 0
+		state.fixed || (state.status === "" && state.reasons.length > 0)
 			? "text-amber-700 dark:text-amber-400"
 			: "text-muted-foreground"
 
