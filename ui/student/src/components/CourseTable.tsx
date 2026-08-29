@@ -101,13 +101,7 @@ export function CourseTable({
 									/>
 								</td>
 								<td className={cellClass}>
-									{/* Long reasons stay capped; the title keeps the full text. */}
-									<span
-										className={`inline-block align-middle ${state.status === "" ? "max-w-64 truncate" : ""} ${noteColor}`}
-										title={note === "" ? undefined : note}
-									>
-										{note}
-									</span>
+									<span className={noteColor}>{note}</span>
 								</td>
 							</tr>
 						)
