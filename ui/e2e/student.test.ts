@@ -400,14 +400,18 @@ describe("student", (): void => {
 		const baking = page.locator("article.card", { hasText: "Baking" })
 		// The wording is the database's: enrollment_violations builds
 		// it, and it travels through the eligibility read untouched.
-		await baking.getByText(/clashes with BB in MON1/).waitFor()
+		await baking
+			.getByText(/Clashes with Basketball \(BB\) in MON1/)
+			.waitFor()
 
 		// Conflicts are visible by default and can be hidden without
 		// changing the demographic-compatibility filter.
 		await hideConflicting.check()
 		await baking.waitFor({ state: "hidden" })
 		await hideConflicting.uncheck()
-		await baking.getByText(/clashes with BB in MON1/).waitFor()
+		await baking
+			.getByText(/Clashes with Basketball \(BB\) in MON1/)
+			.waitFor()
 
 		// Enrolling is not offered; swapping is.
 		assert.equal(
@@ -527,7 +531,9 @@ describe("student", (): void => {
 			await openAvailable(page)
 
 			const baking = page.locator("article.card", { hasText: "Baking" })
-			await baking.getByText(/clashes with BB in MON1/).waitFor()
+			await baking
+				.getByText(/Clashes with Basketball \(BB\) in MON1/)
+				.waitFor()
 
 			assert.equal(
 				await baking
