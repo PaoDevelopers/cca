@@ -31,18 +31,22 @@ export function violationsFor(
 
 // The courses a swap into this one would have to drop, named by the
 // server's clash violations rather than recomputed from the periods.
-export function conflictingEnrollments(
-	eligibility: Eligibility,
-	course: Course,
-): string[] {
+function conflictingCourseIDs(violations: Violation[]): string[] {
 	return [
 		...new Set(
-			violationsFor(eligibility, course)
+			violations
 				.filter((v): boolean => v.rule === "clash")
 				.map((v): string => v.other_course_id ?? "")
 				.filter((id): boolean => id !== ""),
 		),
 	]
+}
+
+export function conflictingEnrollments(
+	eligibility: Eligibility,
+	course: Course,
+): string[] {
+	return conflictingCourseIDs(violationsFor(eligibility, course))
 }
 
 // Whether to offer Swap: whether dropping what this course clashes
@@ -173,6 +177,7 @@ function enrollmentState(
 export interface CourseRow {
 	course: Course
 	canSwap: boolean
+	swapFrom: string
 	state: EnrollmentState
 }
 
@@ -194,7 +199,12 @@ export function courseRows(
 	enrollmentOf: (course: Course) => Enrollment | null,
 	violationsOf: (course: Course) => Violation[],
 	canSwapOf: (course: Course) => boolean,
+	held: Course[] = [],
 ): CourseRow[] {
+	const heldNames = new Map(
+		held.map((course): [string, string] => [course.id, course.name]),
+	)
+
 	return courses.map((course): CourseRow => {
 		const enrollment = enrollmentOf(course)
 		const violations = violationsOf(course)
@@ -202,6 +212,9 @@ export function courseRows(
 		return {
 			course,
 			canSwap,
+			swapFrom: conflictingCourseIDs(violations)
+				.map((id): string => heldNames.get(id) ?? id)
+				.join(", "),
 			state: enrollmentState(course, enrollment, violations, canSwap),
 		}
 	})

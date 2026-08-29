@@ -484,6 +484,11 @@ describe("student", (): void => {
 					name: /Swap in\b.*\bBaking clashes with/,
 				})
 				.click()
+			await page
+				.getByRole("heading", {
+					name: "Swap Basketball into Baking?",
+				})
+				.waitFor()
 			await baking
 				.getByRole("button", { name: /Confirm swapping into Baking/ })
 				.click()

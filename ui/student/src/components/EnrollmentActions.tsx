@@ -119,7 +119,7 @@ export function EnrollmentActions({
 						{icon ? "⇄" : "Swap"}
 					</Button>
 				}
-				title={`Swap into ${course.name}?`}
+				title={`Swap ${row.swapFrom} into ${course.name}?`}
 				description="This will replace the conflicting selections with this course."
 				confirmLabel="Confirm swap"
 				confirmAriaLabel={`Confirm swapping into ${course.name}`}

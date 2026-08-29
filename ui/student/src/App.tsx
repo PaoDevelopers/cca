@@ -77,8 +77,15 @@ export function App(): ReactElement {
 	}
 
 	const catalogueRows = useMemo(
-		() => courseRows(data.catalogue, enrollmentOf, violationsOf, canSwap),
-		[data.catalogue, enrollmentOf, violationsOf, canSwap],
+		() =>
+			courseRows(
+				data.catalogue,
+				enrollmentOf,
+				violationsOf,
+				canSwap,
+				data.selected,
+			),
+		[data.catalogue, data.selected, enrollmentOf, violationsOf, canSwap],
 	)
 
 	// The student's own list offers no swap: there is nothing to swap
