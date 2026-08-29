@@ -99,7 +99,6 @@ export function EnrollmentActions({
 			</Pair>
 		) : (
 			<Button
-				variant="outline"
 				size={size}
 				disabled={updating}
 				aria-label={`Drop${count} ${course.name}`}
@@ -162,6 +161,7 @@ export function EnrollmentActions({
 
 	return (
 		<Button
+			variant="outline"
 			size={size}
 			disabled={updating || state.barred}
 			aria-label={`Enroll${count} in ${course.name}`}
