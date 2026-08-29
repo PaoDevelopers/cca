@@ -52,7 +52,7 @@ function PageHeading({
 	onview: (view: "cards" | "table") => void
 }): ReactElement {
 	return (
-		<div className="mb-6 flex items-center justify-between gap-4">
+		<div className="mb-4 flex items-center justify-between gap-4">
 			<h2 id={id} tabIndex={-1} className="text-2xl">
 				{children}
 			</h2>
@@ -139,7 +139,7 @@ export function App(): ReactElement {
 		content = (
 			<section
 				aria-labelledby="mine-heading"
-				className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_1px_20rem] xl:grid-cols-[minmax(0,1fr)_1px_22rem]"
+				className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_1px_20rem] xl:grid-cols-[minmax(0,1fr)_1px_22rem]"
 			>
 				<div className="min-w-0">
 					<PageHeading id="mine-heading" view={view} onview={setView}>
@@ -171,7 +171,7 @@ export function App(): ReactElement {
 		)
 	} else {
 		content = (
-			<div className="flex flex-col gap-6 md:flex-row md:gap-8">
+			<div className="flex flex-col gap-4 md:flex-row md:gap-6">
 				<Sidebar
 					filter={data.filter}
 					categories={data.courseCategories}
@@ -212,7 +212,7 @@ export function App(): ReactElement {
 				{data.announcement}
 			</p>
 
-			<header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b px-4 py-4 sm:px-6">
+			<header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b px-4 py-3 sm:px-6">
 				<h1 className="text-xl">YKPao CCA Selection</h1>
 				{data.user !== null && (
 					<div className="flex flex-wrap items-center gap-1 text-sm">
@@ -289,7 +289,7 @@ export function App(): ReactElement {
 				</div>
 			)}
 
-			<main className="flex-1 px-4 py-6 sm:px-6 sm:py-8">{content}</main>
+			<main className="flex-1 px-4 py-4 sm:px-6 sm:py-6">{content}</main>
 
 			<Footer />
 

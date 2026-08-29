@@ -66,16 +66,16 @@ export function CourseList({
 	}
 
 	return (
-		<div className="flex flex-col gap-8">
+		<div className="flex flex-col gap-6">
 			{byCategory(rows, categories).map((group): ReactElement => (
 				<section key={group.id} aria-labelledby={`cat-${group.id}`}>
 					<h3
 						id={`cat-${group.id}`}
-						className="mb-4 text-lg text-muted-foreground"
+						className="mb-3 text-lg text-muted-foreground"
 					>
 						{group.name}
 					</h3>
-					<div className="grid gap-5 md:grid-cols-2 2xl:grid-cols-3">
+					<div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
 						{group.rows.map((row): ReactElement => (
 							<CourseCard
 								key={row.course.id}

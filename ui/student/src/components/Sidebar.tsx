@@ -1,7 +1,6 @@
 import { useId, type ReactElement } from "react"
 import type { Category, Period } from "@common/types"
 import type { CourseFilter } from "@/lib/enrollment"
-import { cn } from "@/lib/utils"
 
 interface Props {
 	filter: CourseFilter
@@ -61,11 +60,10 @@ export function Sidebar({
 	onchange,
 }: Props): ReactElement {
 	const uid = useId()
-	const allPeriods = filter.periods.length === 0
 
 	return (
-		<aside className="w-full shrink-0 md:w-56 md:border-r md:pr-6">
-			<nav className="flex flex-col gap-6">
+		<aside className="w-full shrink-0 md:w-56 md:border-r md:pr-4">
+			<nav className="flex flex-col gap-5">
 				{/*
 					Search sits at the top of the rail with the rest of
 					the narrowing controls. Typing a name and ticking a
@@ -84,20 +82,7 @@ export function Sidebar({
 				/>
 
 				<div>
-					<button
-						className={cn(
-							"mb-3 cursor-pointer text-sm font-medium",
-							allPeriods
-								? "text-primary"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-						aria-pressed={allPeriods}
-						onClick={(): void => {
-							onchange({ ...filter, periods: [] })
-						}}
-					>
-						All periods
-					</button>
+					<p className="mb-3 text-sm font-medium">Periods</p>
 					<ul className="flex list-none flex-col gap-2 p-0">
 						{periods.map((period): ReactElement => (
 							<Choice
@@ -153,7 +138,7 @@ export function Sidebar({
 					</div>
 				)}
 
-				<div className="border-t pt-5">
+				<div className="border-t pt-4">
 					<ul className="flex list-none flex-col gap-2 p-0">
 						{toggles.map(({ key, label }): ReactElement => (
 							<Choice

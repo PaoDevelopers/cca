@@ -31,7 +31,7 @@ export function CourseTable({
 }): ReactElement {
 	return (
 		<div className="overflow-x-auto rounded-lg border">
-			<table className="w-full min-w-[78rem] text-sm">
+			<table className="w-full text-sm">
 				<thead>
 					<tr className={rowClass}>
 						{columns.map((column): ReactElement => (
@@ -39,10 +39,7 @@ export function CourseTable({
 								{column}
 							</th>
 						))}
-						<th
-							className={`${headClass} w-96 min-w-96`}
-							scope="col"
-						>
+						<th className={headClass} scope="col">
 							Status
 						</th>
 					</tr>
@@ -92,23 +89,29 @@ export function CourseTable({
 									{course.current_students}/
 									{capacityLabel(course.max_students)}
 								</td>
-								<td
-									className={`${cellClass} w-96 min-w-96 max-w-96`}
-								>
-									<span className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+								<td className={cellClass}>
+									<span className="flex items-center gap-2">
+										<EnrollmentActions
+											row={row}
+											actions={actions}
+											variant="table"
+										/>
+										{/*
+											Capped rather than given a column
+											of its own: a reason can run long,
+											and letting it size the column put
+											the action a screen's width away
+											from the row it belongs to. The
+											full text stays in the title.
+										*/}
 										<span
-											className={`truncate ${noteColor}`}
+											className={`min-w-0 max-w-64 truncate ${noteColor}`}
 											title={
 												note === "" ? undefined : note
 											}
 										>
 											{note}
 										</span>
-										<EnrollmentActions
-											row={row}
-											actions={actions}
-											variant="table"
-										/>
 									</span>
 								</td>
 							</tr>

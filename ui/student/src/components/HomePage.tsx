@@ -98,14 +98,14 @@ export function HomePage({ user, grade, categories }: Props): ReactElement {
 		user === null ? "" : (user.name.split(" ")[0] ?? user.name)
 
 	return (
-		<div className="flex flex-col gap-6">
+		<div className="flex flex-col gap-4">
 			{user !== null && (
 				<p className="text-2xl">
 					{greeting(new Date().getHours())}, {firstName}
 				</p>
 			)}
 
-			<div className="grid gap-6 lg:grid-cols-2">
+			<div className="grid gap-4 lg:grid-cols-2">
 				{grade !== null && (
 					<Section
 						title="Status"
@@ -125,7 +125,7 @@ export function HomePage({ user, grade, categories }: Props): ReactElement {
 							</span>
 						}
 					>
-						<div className="flex flex-col gap-5">
+						<div className="flex flex-col gap-4">
 							<p className="text-sm text-muted-foreground">
 								{grade.is_open ? (
 									<>
@@ -171,7 +171,7 @@ export function HomePage({ user, grade, categories }: Props): ReactElement {
 
 				{user !== null && (
 					<Section title="Available Selections">
-						<div className="flex flex-col gap-5">
+						<div className="flex flex-col gap-4">
 							{/*
 							What is left, not what is spent. "Periods used"
 							made a student subtract to answer the only

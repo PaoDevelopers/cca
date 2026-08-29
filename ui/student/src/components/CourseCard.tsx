@@ -39,7 +39,7 @@ export function CourseCard({
 
 	return (
 		<article
-			className="card flex flex-col gap-4 rounded-xl border bg-card p-6"
+			className="card flex flex-col gap-3 rounded-xl border bg-card p-4"
 			aria-labelledby={`${uid}-title`}
 		>
 			<div className="flex items-start justify-between gap-3">
