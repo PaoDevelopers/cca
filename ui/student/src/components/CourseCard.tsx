@@ -33,13 +33,13 @@ export function CourseCard({
 	const { course, state } = row
 	const note = state.status !== "" ? state.status : state.reasons.join("; ")
 	const noteColor =
-		state.status === "" && state.reasons.length > 0
+		state.fixed || (state.status === "" && state.reasons.length > 0)
 			? "text-amber-700 dark:text-amber-400"
 			: "text-muted-foreground"
 
 	return (
 		<article
-			className="card flex flex-col gap-4 rounded-xl border bg-card p-6"
+			className="card flex flex-col gap-3 rounded-xl border bg-card p-4"
 			aria-labelledby={`${uid}-title`}
 		>
 			<div className="flex items-start justify-between gap-3">

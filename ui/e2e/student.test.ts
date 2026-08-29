@@ -343,25 +343,25 @@ describe("student", (): void => {
 			"a successful enrolment was not announced",
 		)
 
-		// Arming a confirmation replaces the button that was pressed;
-		// the focus follows to the button that must be pressed next
-		// rather than being dropped between them.
+		// The confirmation modal traps focus rather than dropping it back
+		// into the page behind the overlay.
 		await page.getByRole("button", { name: /Your selections/ }).click()
 		const drop = page.locator(acted).first()
 		await drop.focus()
 		await drop.click()
-		assert.match(
-			await page.evaluate(
-				(): string =>
-					document.activeElement?.getAttribute("aria-label") ?? "",
+		const dialog = page.getByRole("alertdialog")
+		await dialog.waitFor()
+		assert.equal(
+			await dialog.evaluate((node): boolean =>
+				node.contains(document.activeElement),
 			),
-			/^Confirm dropping /,
-			"arming the confirmation dropped the focus",
+			true,
+			"the confirmation modal did not keep focus",
 		)
 
 		// Dropping the last one leaves no course to move to. The
 		// heading names the list and is where a reader starts again.
-		await page.locator(acted).first().click()
+		await dialog.getByRole("button", { name: /^Confirm dropping / }).click()
 		await page.waitForFunction(
 			(): boolean => document.activeElement?.tagName === "H2",
 			undefined,
@@ -400,14 +400,18 @@ describe("student", (): void => {
 		const baking = page.locator("article.card", { hasText: "Baking" })
 		// The wording is the database's: enrollment_violations builds
 		// it, and it travels through the eligibility read untouched.
-		await baking.getByText(/clashes with BB in MON1/).waitFor()
+		await baking
+			.getByText(/Clashes with Basketball \(BB\) in MON1/)
+			.waitFor()
 
 		// Conflicts are visible by default and can be hidden without
 		// changing the demographic-compatibility filter.
 		await hideConflicting.check()
 		await baking.waitFor({ state: "hidden" })
 		await hideConflicting.uncheck()
-		await baking.getByText(/clashes with BB in MON1/).waitFor()
+		await baking
+			.getByText(/Clashes with Basketball \(BB\) in MON1/)
+			.waitFor()
 
 		// Enrolling is not offered; swapping is.
 		assert.equal(
@@ -480,6 +484,11 @@ describe("student", (): void => {
 					name: /Swap in\b.*\bBaking clashes with/,
 				})
 				.click()
+			await page
+				.getByRole("heading", {
+					name: "Swap Basketball into Baking?",
+				})
+				.waitFor()
 			await baking
 				.getByRole("button", { name: /Confirm swapping into Baking/ })
 				.click()
@@ -527,7 +536,9 @@ describe("student", (): void => {
 			await openAvailable(page)
 
 			const baking = page.locator("article.card", { hasText: "Baking" })
-			await baking.getByText(/clashes with BB in MON1/).waitFor()
+			await baking
+				.getByText(/Clashes with Basketball \(BB\) in MON1/)
+				.waitFor()
 
 			assert.equal(
 				await baking

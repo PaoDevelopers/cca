@@ -1,10 +1,6 @@
 import { useId, type ReactElement } from "react"
 import type { Category, Period } from "@common/types"
 import type { CourseFilter } from "@/lib/enrollment"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { cn } from "@/lib/utils"
 
 interface Props {
 	filter: CourseFilter
@@ -35,16 +31,21 @@ function Choice({
 }): ReactElement {
 	return (
 		<li className="flex items-center gap-2">
-			<Checkbox
+			<input
+				type="checkbox"
 				id={id}
+				className="size-4 shrink-0 accent-primary"
 				checked={checked}
-				onCheckedChange={(next): void => {
-					onchange(next === true)
+				onChange={(event): void => {
+					onchange(event.currentTarget.checked)
 				}}
 			/>
-			<Label htmlFor={id} className="font-normal">
+			<label
+				htmlFor={id}
+				className="cursor-pointer select-none text-sm leading-none"
+			>
 				{label}
-			</Label>
+			</label>
 		</li>
 	)
 }
@@ -59,22 +60,21 @@ export function Sidebar({
 	onchange,
 }: Props): ReactElement {
 	const uid = useId()
-	const allPeriods = filter.periods.length === 0
 
 	return (
-		<aside className="w-full shrink-0 md:w-56 md:border-r md:pr-6">
-			<nav className="flex flex-col gap-6">
+		<aside className="w-full shrink-0 md:w-56 md:border-r md:pr-4">
+			<nav className="flex flex-col gap-5">
 				{/*
 					Search sits at the top of the rail with the rest of
 					the narrowing controls. Typing a name and ticking a
 					period are the same kind of act, and they were in two
 					different parts of the page.
 				*/}
-				<Input
+				<input
 					type="search"
 					aria-label="Search"
 					placeholder="Search CCAs..."
-					className="h-9"
+					className="h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm dark:bg-input/30"
 					value={filter.search}
 					onChange={(event): void => {
 						onchange({ ...filter, search: event.target.value })
@@ -82,20 +82,7 @@ export function Sidebar({
 				/>
 
 				<div>
-					<button
-						className={cn(
-							"mb-3 cursor-pointer text-sm font-medium",
-							allPeriods
-								? "text-primary"
-								: "text-muted-foreground hover:text-foreground",
-						)}
-						aria-pressed={allPeriods}
-						onClick={(): void => {
-							onchange({ ...filter, periods: [] })
-						}}
-					>
-						All periods
-					</button>
+					<p className="mb-3 text-sm font-medium">Periods</p>
 					<ul className="flex list-none flex-col gap-2 p-0">
 						{periods.map((period): ReactElement => (
 							<Choice
@@ -151,7 +138,7 @@ export function Sidebar({
 					</div>
 				)}
 
-				<div className="border-t pt-5">
+				<div className="border-t pt-4">
 					<ul className="flex list-none flex-col gap-2 p-0">
 						{toggles.map(({ key, label }): ReactElement => (
 							<Choice

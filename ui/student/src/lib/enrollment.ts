@@ -31,18 +31,22 @@ export function violationsFor(
 
 // The courses a swap into this one would have to drop, named by the
 // server's clash violations rather than recomputed from the periods.
-export function conflictingEnrollments(
-	eligibility: Eligibility,
-	course: Course,
-): string[] {
+function conflictingCourseIDs(violations: Violation[]): string[] {
 	return [
 		...new Set(
-			violationsFor(eligibility, course)
+			violations
 				.filter((v): boolean => v.rule === "clash")
 				.map((v): string => v.other_course_id ?? "")
 				.filter((id): boolean => id !== ""),
 		),
 	]
+}
+
+export function conflictingEnrollments(
+	eligibility: Eligibility,
+	course: Course,
+): string[] {
+	return conflictingCourseIDs(violationsFor(eligibility, course))
 }
 
 // Whether to offer Swap: whether dropping what this course clashes
@@ -121,7 +125,7 @@ export function swappable(
 // in the card header and the reasons at its foot, so two components
 // need the same verdict, and two derivations of "barred" that disagree
 // would show a button the server refuses.
-export interface EnrollmentState {
+interface EnrollmentState {
 	selected: boolean
 	// An enrollment the student may not drop: an administrator placed
 	// them and did not leave the door open.
@@ -152,7 +156,7 @@ function enrollmentState(
 
 	let status = ""
 	if (fixed) {
-		status = "Placed by an administrator"
+		status = "Placed by an administrator, cannot be dropped"
 	} else if (enrollment !== null && !enrollment.counts_toward_budget) {
 		status = "Invited"
 	} else if (selected) {
@@ -162,9 +166,8 @@ function enrollmentState(
 	return { selected, fixed, barred, reasons, status }
 }
 
-// One course as every component below needs it: the course itself, what
-// the student holds, what the server said about it, and the verdict all
-// three imply.
+// One course as every component below needs it: the course itself and
+// the verdict derived from what the student holds and what the server said.
 //
 // Built once per render and passed down whole. The card, the table row
 // and the action buttons all used to take these as four separate props
@@ -173,9 +176,8 @@ function enrollmentState(
 // effect.
 export interface CourseRow {
 	course: Course
-	enrollment: Enrollment | null
-	violations: Violation[]
 	canSwap: boolean
+	swapFrom: string
 	state: EnrollmentState
 }
 
@@ -197,16 +199,22 @@ export function courseRows(
 	enrollmentOf: (course: Course) => Enrollment | null,
 	violationsOf: (course: Course) => Violation[],
 	canSwapOf: (course: Course) => boolean,
+	held: Course[] = [],
 ): CourseRow[] {
+	const heldNames = new Map(
+		held.map((course): [string, string] => [course.id, course.name]),
+	)
+
 	return courses.map((course): CourseRow => {
 		const enrollment = enrollmentOf(course)
 		const violations = violationsOf(course)
 		const canSwap = canSwapOf(course)
 		return {
 			course,
-			enrollment,
-			violations,
 			canSwap,
+			swapFrom: conflictingCourseIDs(violations)
+				.map((id): string => heldNames.get(id) ?? id)
+				.join(", "),
 			state: enrollmentState(course, enrollment, violations, canSwap),
 		}
 	})

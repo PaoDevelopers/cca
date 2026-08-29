@@ -19,7 +19,7 @@
 
 const settleDelay = 150
 
-export interface Coalescer {
+interface Coalescer {
 	// Asks for a refresh. Several calls close together produce one.
 	trigger: () => void
 	// Stops any pending refresh; for component teardown.

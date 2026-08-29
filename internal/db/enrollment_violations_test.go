@@ -135,7 +135,8 @@ func TestFitRules(t *testing.T) {
 	}
 
 	if len(rows) != 1 || rows[0].Code.String != "clash:s1:ARTMON:TWICE:MON1" ||
-		rows[0].OtherCourseID.String != "TWICE" || rows[0].PeriodID.String != "MON1" {
+		rows[0].OtherCourseID.String != "TWICE" || rows[0].PeriodID.String != "MON1" ||
+		rows[0].Detail.String != "Clashes with Twice a week (TWICE) in MON1" {
 		t.Fatalf("clash row: %+v", rows)
 	}
 

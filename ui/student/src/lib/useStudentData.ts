@@ -53,7 +53,7 @@ import {
 	violationsFor,
 } from "./enrollment"
 
-export interface StudentData {
+interface StudentData {
 	user: StudentInfo | null
 	grade: Grade | null
 	periods: Period[]

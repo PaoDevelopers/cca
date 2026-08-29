@@ -143,8 +143,10 @@ FROM (
 			|| cpn.period_id,
 		e.course_id,
 		cpn.period_id,
-		format('clashes with %s in %s', e.course_id, cpn.period_id)
+		format('Clashes with %s (%s) in %s',
+			other_course.name, e.course_id, cpn.period_id)
 	FROM enrollments e
+	JOIN courses other_course ON other_course.id = e.course_id
 	JOIN course_periods cpo ON cpo.course_id = e.course_id
 	JOIN course_periods cpn ON cpn.period_id = cpo.period_id
 		AND cpn.course_id = p_course_id

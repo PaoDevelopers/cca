@@ -1,5 +1,4 @@
 import type { ReactElement } from "react"
-import { LayoutGrid, Rows3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface Props {
@@ -8,8 +7,8 @@ interface Props {
 }
 
 const views = [
-	{ key: "cards", label: "Cards", Icon: LayoutGrid },
-	{ key: "table", label: "Table", Icon: Rows3 },
+	{ key: "cards", label: "Cards" },
+	{ key: "table", label: "Table" },
 ] as const
 
 // Cards or table, for whichever list is on screen. It sits beside the
@@ -19,18 +18,18 @@ const views = [
 export function ViewToggle({ view, onview }: Props): ReactElement {
 	return (
 		<div className="flex shrink-0 gap-1">
-			{views.map(({ key, label, Icon }): ReactElement => (
+			{views.map(({ key, label }): ReactElement => (
 				<Button
 					key={key}
 					variant={view === key ? "default" : "outline"}
-					size="icon"
+					size="sm"
 					aria-pressed={view === key}
 					aria-label={label}
 					onClick={(): void => {
 						onview(key)
 					}}
 				>
-					<Icon aria-hidden="true" />
+					{label}
 				</Button>
 			))}
 		</div>
