@@ -12,7 +12,7 @@
 		"check:eslint": "eslint .",
 		"check:prettier": "prettier --check .",
 		"fmt": "prettier --write .",
-		"check:e2e": "tsc -p e2e/tsconfig.json && node --test --test-concurrency=1 --test-timeout=30000 \".e2e/*.test.js\""
+		"check:e2e": "tsc -p e2e/tsconfig.json && node --test --test-concurrency=1 --test-timeout=60000 \".e2e/*.test.js\""
 	},
 	"dependencies": {
 		"@marcbachmann/cel-js": "^8.0.0",

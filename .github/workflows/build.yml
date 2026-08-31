@@ -1,0 +1,77 @@
+name: build binaries
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: "1.27.0"
+  GOTOOLCHAIN: local
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Go
+        run: |
+          curl -fsSLo /tmp/go.tar.gz \
+            "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz"
+          sudo rm -rf /usr/local/go
+          sudo tar -C /usr/local -xzf /tmp/go.tar.gz
+          echo /usr/local/go/bin >> "$GITHUB_PATH"
+
+      - name: Build frontend
+        working-directory: ui
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build and package binaries
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          set -eu
+          mkdir -p artifacts
+
+          for target in \
+            linux/amd64 linux/arm64 \
+            darwin/amd64 darwin/arm64 \
+            windows/amd64 windows/arm64
+          do
+            goos=${target%/*}
+            goarch=${target#*/}
+            archive="cca-${goos}-${goarch}"
+            build_dir="$RUNNER_TEMP/$archive"
+            binary="$build_dir/cca"
+
+            mkdir -p "$build_dir"
+            if [ "$goos" = windows ]; then
+              binary="$binary.exe"
+            fi
+
+            GOOS="$goos" GOARCH="$goarch" go build \
+              -trimpath -ldflags="-s -w" -o "$binary" ./cmd/cca
+
+            if [ "$goos" = windows ]; then
+              zip -jq "artifacts/$archive.zip" "$binary"
+            else
+              tar -C "$build_dir" -czf "artifacts/$archive.tar.gz" cca
+            fi
+          done
+
+          sha256sum artifacts/* > artifacts/SHA256SUMS
+
+      - name: Upload binaries
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cca-binaries
+          path: artifacts/
+          if-no-files-found: error
+          compression-level: 0
