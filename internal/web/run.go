@@ -280,6 +280,11 @@ func (app *Server) router() *http.ServeMux {
 	}
 
 	mux.HandleFunc("GET /{$}", app.handleIndex)
+	mux.HandleFunc("GET /api/session", app.handleSession)
+	// The portal builds at base "/", so its assets are at the root
+	// rather than under an area prefix. No StripPrefix: the sub-FS is
+	// rooted at portal/dist, where assets/ already is.
+	mux.Handle("/assets/", immutable(http.FileServerFS(mustSubFS(ui.Dist, "portal/dist"))))
 	mux.HandleFunc("GET /healthz", app.handleHealthz)
 	mux.HandleFunc("GET /readyz", app.handleReadyz)
 	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {

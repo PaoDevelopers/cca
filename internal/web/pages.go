@@ -6,8 +6,8 @@ import (
 	"net/http"
 )
 
-// The only server-rendered pages: the landing page and the two sign-in
-// pages. Everything else is an SPA or an API.
+// The only server-rendered pages: the two sign-in pages. Everything
+// else is an SPA or an API.
 
 // Mirrors ui/common/styles/base.css by hand; these pages stay
 // independent of the SPA build.
@@ -86,36 +86,6 @@ const pageFooter = `<footer>
 is licensed under
 <a href="https://spdx.org/licenses/AGPL-3.0-only.html">GNU Affero General Public License v3.0 only</a>.
 </footer>`
-
-//nolint:gochecknoglobals
-var indexTemplate = template.Must(template.New("index").Parse(`<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>CCA</title>
-<style>` + pageStyle + `</style>
-</head>
-<body>
-<main>
-<h1>CCA</h1>
-<p>
-<a href="/student/">Student</a>
-{{ if .StudentName }}<small>&mdash; signed in as {{ .StudentName }}</small>{{ end }}
-</p>
-<p>
-<a href="/admin/">Administrator</a>
-{{ if .AdminName }}<small>&mdash; signed in as {{ .AdminName }}</small>{{ end }}
-</p>
-</main>` + pageFooter + `
-</body>
-</html>
-`))
-
-type indexData struct {
-	StudentName string
-	AdminName   string
-}
 
 //nolint:gochecknoglobals
 var signinTemplate = template.Must(template.New("signin").Parse(`<!doctype html>
