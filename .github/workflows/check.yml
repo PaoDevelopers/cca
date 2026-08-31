@@ -48,7 +48,10 @@ jobs:
       # plpgsql_check is the only static analysis the plpgsql functions
       # get: CREATE FUNCTION does not check their bodies.
       - name: Install plpgsql_check
-        run: sudo apt-get install -y postgresql-17-plpgsql-check
+        run: |
+          postgres_major=$(pg_config --version | sed -E 's/^PostgreSQL ([0-9]+).*/\1/')
+          sudo apt-get update
+          sudo apt-get install -y "postgresql-${postgres_major}-plpgsql-check"
 
       - name: Start PostgreSQL
         run: |
