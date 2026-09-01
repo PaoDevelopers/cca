@@ -87,6 +87,48 @@ describe("admin", (): void => {
 		assert.match(table, /Bob Example/)
 	})
 
+	// The addresses are assembled in the browser from ids the API
+	// sends — there is no email column anywhere for a Go test to
+	// check — and what makes them useful is the exact separator
+	// Outlook wants. So the clipboard itself is read.
+	it("copies the listed students' addresses for a mail client", async (): Promise<void> => {
+		assert.ok(harness !== null)
+		const context = await harness.contextFor("admin", subjects.admin)
+		await context.grantPermissions(["clipboard-read", "clipboard-write"])
+
+		const page = await context.newPage()
+		await page.goto("/admin/#/students")
+		await page.getByText("Alice Example").waitFor()
+		await page.locator("details.data-tools").getByText("Data tools").click()
+
+		const copy = page.getByRole("button", {
+			name: "Copy students’ email addresses",
+		})
+		const clipboard = (): Promise<string> =>
+			page.evaluate((): Promise<string> => navigator.clipboard.readText())
+
+		await copy.click()
+		await page.getByText("Copied 2.").waitFor()
+		assert.equal(
+			await clipboard(),
+			`${subjects.alice}@stu.ykpaoschool.cn; ${subjects.bob}@stu.ykpaoschool.cn`,
+		)
+
+		// The listed students, not every student: an administrator who
+		// has narrowed the table means the people in it.
+		await page.locator("input[type=search]").fill(`id:${subjects.bob}`)
+		await page.getByText("1 of 2 students shown").waitFor()
+		await copy.click()
+		await page.getByText("Copied 1.").waitFor()
+		assert.equal(await clipboard(), `${subjects.bob}@stu.ykpaoschool.cn`)
+
+		// Nothing listed is nothing to copy, rather than an empty
+		// clipboard silently replacing what was in it.
+		await page.locator("input[type=search]").fill("id:nobody")
+		await page.getByText("0 of 2 students shown").waitFor()
+		assert.equal(await copy.isDisabled(), true)
+	})
+
 	// Signing in as a student, which is three things at once and only
 	// a browser can see all three: the endpoint mints a session, the
 	// browser stores it in the *student* cookie, and the tab that

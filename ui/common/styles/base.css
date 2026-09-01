@@ -110,10 +110,34 @@ body,
  */
 
 a:link,
-a:visited {
+a:visited,
+button.linklike {
 	text-decoration-thickness: 1.89px;
 	text-decoration-color: light-dark(oklch(0.85 0 0), oklch(0.42 0 0));
 	color: light-dark(oklch(0.428 0.088 249.2), oklch(0.78 0.115 248.6));
+}
+
+/*
+ * An action that reads as a link because it sits among them, while
+ * staying the button it is: it does something to this page rather than
+ * going anywhere, so an <a> with no href would be a lie to anybody
+ * navigating by links. Sharing the rule above rather than restating
+ * those colours is the point of it being here and not in a component.
+ */
+button.linklike {
+	appearance: none;
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	text-decoration-line: underline;
+	cursor: pointer;
+}
+
+button.linklike:disabled {
+	color: color-mix(in oklab, var(--fg) 45%, var(--bg));
+	text-decoration-color: currentColor;
+	cursor: default;
 }
 
 /*
