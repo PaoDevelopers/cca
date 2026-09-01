@@ -1,4 +1,11 @@
-import { useId, type ReactElement, type ReactNode } from "react"
+import {
+	useEffect,
+	useId,
+	useRef,
+	useState,
+	type ReactElement,
+	type ReactNode,
+} from "react"
 import { capacityLabel } from "@common/capacity"
 import type { CourseActions, CourseRow } from "@/lib/enrollment"
 import { EnrollmentActions } from "./EnrollmentActions"
@@ -31,6 +38,39 @@ export function CourseCard({
 	// article's first child.
 	const uid = useId()
 	const { course, state } = row
+
+	const [expanded, setExpanded] = useState(false)
+	const [clipped, setClipped] = useState(false)
+	const description = useRef<HTMLParagraphElement>(null)
+
+	// Whether the clamp is actually hiding anything, so that a course
+	// described in four words does not get a control that reveals
+	// nothing.
+	//
+	// Measured rather than guessed from a character count: how many
+	// lines the text takes depends on the column width, and the cards
+	// reflow from three across to one. Hence a ResizeObserver and not a
+	// single look on mount.
+	useEffect((): (() => void) => {
+		const element = description.current
+
+		const measure = (): void => {
+			if (element !== null) {
+				setClipped(element.scrollHeight > element.clientHeight)
+			}
+		}
+
+		measure()
+
+		const observer = new ResizeObserver(measure)
+		if (element !== null) {
+			observer.observe(element)
+		}
+
+		return (): void => {
+			observer.disconnect()
+		}
+	}, [course.description])
 	const note = state.status !== "" ? state.status : state.reasons.join("; ")
 	const noteColor =
 		state.fixed || (state.status === "" && state.reasons.length > 0)
@@ -65,14 +105,44 @@ export function CourseCard({
 			{/*
 				Clamped rather than left to run: a course with a paragraph
 				of description made its card twice the height of its
-				neighbours, and the grid row stretched to match. The full
-				text stays on the element, so hovering gives it and it
-				stays in the accessibility tree.
+				neighbours, and the grid row stretched to match.
+
+				It used to be clamped and nothing else, with the full text
+				only in a title attribute — which is a tooltip, so on a
+				phone there was no way to read the rest of it at all. The
+				button gives it back. Expanding does stretch its grid row,
+				but that is a row the student asked to be taller.
 			*/}
 			{course.description !== "" && (
-				<p className="line-clamp-2 text-sm" title={course.description}>
-					{course.description}
-				</p>
+				<div className="flex flex-col items-start gap-1">
+					<p
+						ref={description}
+						id={`${uid}-description`}
+						className={
+							expanded ? "text-sm" : "line-clamp-2 text-sm"
+						}
+					>
+						{course.description}
+					</p>
+					{/*
+						Kept while expanded as well as while clipped: once
+						open the paragraph fits by definition, and dropping
+						the control then would leave no way back.
+					*/}
+					{(clipped || expanded) && (
+						<button
+							type="button"
+							aria-expanded={expanded}
+							aria-controls={`${uid}-description`}
+							className="cursor-pointer text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+							onClick={(): void => {
+								setExpanded((open): boolean => !open)
+							}}
+						>
+							{expanded ? "Show less" : "Show more"}
+						</button>
+					)}
+				</div>
 			)}
 
 			<dl className="flex flex-col gap-1.5 text-sm">
