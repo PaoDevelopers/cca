@@ -33,7 +33,10 @@ jobs:
           npm ci
           npm run build
 
-      - name: Build and package binaries
+      # The binary itself, not a tarball of it. An artifact is already
+      # served as a zip on download, so packaging one inside it only
+      # meant unpacking twice to reach a single file.
+      - name: Build binaries
         env:
           CGO_ENABLED: "0"
         run: |
@@ -47,32 +50,71 @@ jobs:
           do
             goos=${target%/*}
             goarch=${target#*/}
-            archive="cca-${goos}-${goarch}"
-            build_dir="$RUNNER_TEMP/$archive"
-            binary="$build_dir/cca"
+            name="cca-${goos}-${goarch}"
 
-            mkdir -p "$build_dir"
             if [ "$goos" = windows ]; then
-              binary="$binary.exe"
+              name="$name.exe"
             fi
 
             GOOS="$goos" GOARCH="$goarch" go build \
-              -trimpath -ldflags="-s -w" -o "$binary" ./cmd/cca
-
-            if [ "$goos" = windows ]; then
-              zip -jq "artifacts/$archive.zip" "$binary"
-            else
-              tar -C "$build_dir" -czf "artifacts/$archive.tar.gz" cca
-            fi
+              -trimpath -ldflags="-s -w" -o "artifacts/$name" ./cmd/cca
           done
 
           cd artifacts
-          sha256sum * > SHA256SUMS
+          sha256sum -- * > SHA256SUMS
 
-      - name: Upload binaries
+      # One artifact per target, so the run page offers six downloads
+      # and somebody on one platform takes only their own. Uploading
+      # them together meant every download carried all six.
+      #
+      # compression-level is left at its default rather than 0: the
+      # payload used to be already-compressed archives, where spending
+      # time on it bought nothing. A bare Go binary is not, and halves.
+      - name: Upload linux/amd64
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: cca-binaries
-          path: artifacts/
+          name: cca-linux-amd64
+          path: artifacts/cca-linux-amd64
           if-no-files-found: error
-          compression-level: 0
+
+      - name: Upload linux/arm64
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cca-linux-arm64
+          path: artifacts/cca-linux-arm64
+          if-no-files-found: error
+
+      - name: Upload darwin/amd64
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cca-darwin-amd64
+          path: artifacts/cca-darwin-amd64
+          if-no-files-found: error
+
+      - name: Upload darwin/arm64
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cca-darwin-arm64
+          path: artifacts/cca-darwin-arm64
+          if-no-files-found: error
+
+      - name: Upload windows/amd64
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cca-windows-amd64
+          path: artifacts/cca-windows-amd64.exe
+          if-no-files-found: error
+
+      - name: Upload windows/arm64
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cca-windows-arm64
+          path: artifacts/cca-windows-arm64.exe
+          if-no-files-found: error
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: SHA256SUMS
+          path: artifacts/SHA256SUMS
+          if-no-files-found: error
