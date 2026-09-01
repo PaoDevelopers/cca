@@ -1,5 +1,4 @@
 /node_modules/
 /.e2e/
-/student/dist/
+/dist/
 /admin/dist/
-/portal/dist/

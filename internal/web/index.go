@@ -13,7 +13,7 @@ import (
 func (app *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	app.logRequestStart(r, "handleIndex")
 
-	http.ServeFileFS(w, r, ui.Dist, "portal/dist/index.html")
+	http.ServeFileFS(w, r, ui.Dist, "dist/portal/index.html")
 }
 
 // Who the caller is signed in as, in each area, empty where they are

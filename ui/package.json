@@ -4,10 +4,9 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev:student": "vite --config student/vite.config.ts",
+		"dev:react": "vite --config vite.config.ts",
 		"dev:admin": "vite --config admin/vite.config.ts",
-		"dev:portal": "vite --config portal/vite.config.ts",
-		"build": "vite build --config student/vite.config.ts && vite build --config admin/vite.config.ts && vite build --config portal/vite.config.ts",
+		"build": "vite build --config vite.config.ts && vite build --config admin/vite.config.ts",
 		"check:svelte": "svelte-check --tsconfig ./tsconfig.json",
 		"check:tsc": "tsc --noEmit -p tsconfig.json",
 		"check:eslint": "eslint .",

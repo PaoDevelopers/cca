@@ -41,9 +41,8 @@
 		"portal/src/**/*.d.ts",
 		"portal/src/**/*.tsx",
 		"dev.ts",
-		"student/vite.config.ts",
+		"vite.config.ts",
 		"admin/vite.config.ts",
-		"portal/vite.config.ts",
 		"svelte.config.js"
 	]
 }

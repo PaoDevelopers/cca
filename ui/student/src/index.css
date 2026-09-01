@@ -1,5 +1,9 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @import "../../common/styles/theme.css";
+
+/* Scoped to this panel: the build's root is ui/, so automatic
+   detection would put the portal's classes in here too. */
+@source ".";
 
 /* Everything below is this panel's own; the shared tokens and base
    layer are in the import above. */

@@ -1,10 +1,17 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 @import "../../common/styles/theme.css";
 
 /*
- * The portal has nothing of its own to add. It is here so that the
- * shared tokens are reached the same way the student panel reaches
- * them, rather than by importing that panel's stylesheet — which would
- * make the root page depend on one of the two areas it exists to choose
- * between.
+ * source(none) and an explicit @source, because the build's root is
+ * ui/ now that the two React pages share it. Left to detect sources
+ * itself, Tailwind scanned that whole root and gave this page a
+ * stylesheet holding every class the student panel uses too — the same
+ * bytes as the panel's own, under a different hash, so not even
+ * cacheable for it.
+ *
+ * The portal has nothing of its own to add below. It reaches the
+ * shared tokens the same way the panel does, rather than by importing
+ * that panel's stylesheet — which would make the root page depend on
+ * one of the two areas it exists to choose between.
  */
+@source ".";
