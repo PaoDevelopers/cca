@@ -178,9 +178,10 @@ describe("student", (): void => {
 		assert.ok(harness !== null)
 		const stack = harness
 
-		// One course for each default: Basketball is invite-only,
-		// Baking is incompatible with Alice's legal sex, and Chess is
-		// full. Full courses remain visible while the other two do not.
+		// One course for each switch: Basketball is invite-only, Baking
+		// is incompatible with Alice's legal sex, and Chess is full.
+		// None of them start hidden — the catalogue opens whole, and
+		// each switch then takes out its own course and no other.
 		stack.exec("UPDATE courses SET invite_only = TRUE WHERE id = 'BB'")
 		stack.exec("UPDATE courses SET max_students = 0 WHERE id = 'CH'")
 		stack.exec(
@@ -203,25 +204,36 @@ describe("student", (): void => {
 			})
 
 			assert.equal(await hideFull.isChecked(), false)
-			assert.equal(await hideInviteOnly.isChecked(), true)
-			assert.equal(await hideIncompatible.isChecked(), true)
+			assert.equal(await hideInviteOnly.isChecked(), false)
+			assert.equal(await hideIncompatible.isChecked(), false)
 			assert.equal(await hideConflicting.isChecked(), false)
 
 			const cards = page.locator("article.card")
-			assert.equal(await cards.count(), 1)
-			await cards.getByText("Chess").waitFor()
+			const basketball = page.getByRole("heading", { name: "Basketball" })
+			const baking = page.getByRole("heading", { name: "Baking" })
+			const chess = page.getByRole("heading", { name: "Chess" })
 
-			await hideFull.check()
-			await page.getByText("No courses match your search.").waitFor()
-
-			await hideFull.uncheck()
-			await hideInviteOnly.uncheck()
-			await page.getByRole("heading", { name: "Basketball" }).waitFor()
-			assert.equal(await cards.count(), 2)
-
-			await hideIncompatible.uncheck()
-			await page.getByRole("heading", { name: "Baking" }).waitFor()
+			await basketball.waitFor()
+			await baking.waitFor()
+			await chess.waitFor()
 			assert.equal(await cards.count(), 3)
+
+			// Each on its own, so a switch that hid more than it claims
+			// would show up as the wrong course going missing rather
+			// than as a count that still happens to add up.
+			for (const [box, hidden] of [
+				[hideFull, chess],
+				[hideInviteOnly, basketball],
+				[hideIncompatible, baking],
+			] as const) {
+				await box.check()
+				await hidden.waitFor({ state: "detached" })
+				assert.equal(await cards.count(), 2)
+
+				await box.uncheck()
+				await hidden.waitFor()
+				assert.equal(await cards.count(), 3)
+			}
 		} finally {
 			stack.exec("UPDATE courses SET invite_only = FALSE WHERE id = 'BB'")
 			stack.exec("UPDATE courses SET max_students = 10 WHERE id = 'CH'")
