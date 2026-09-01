@@ -243,6 +243,61 @@ describe("student", (): void => {
 		}
 	})
 
+	it("expands a description its card had to clip", async (): Promise<void> => {
+		assert.ok(harness !== null)
+		const stack = harness
+
+		// Longer than the two lines a card allows it. Baking's seeded
+		// description is three words and must not get a control that
+		// would reveal nothing.
+		stack.exec(
+			"UPDATE courses SET description = 'Each weekly session includes focused problem-solving, collaborative discussion, and reflection on progress and technique, building toward the regional competition in the spring term.' WHERE id = 'BB'",
+		)
+
+		try {
+			const page = await studentPage()
+			await openAvailable(page)
+
+			const long = page.locator("article.card", { hasText: "Basketball" })
+			const short = page.locator("article.card", { hasText: "Baking" })
+			const toggle = long.getByRole("button", {
+				name: /Show (more|less)/,
+			})
+
+			await toggle.waitFor()
+			assert.equal(
+				await short
+					.getByRole("button", { name: /Show (more|less)/ })
+					.count(),
+				0,
+			)
+
+			// Whether anything is actually cut off, which is the whole
+			// claim: a button that says "Show more" over text already
+			// wholly visible would pass any check that only read labels.
+			const paragraph = long.locator("p[id$='-description']")
+			const clipped = (): Promise<boolean> =>
+				paragraph.evaluate(
+					(element): boolean =>
+						element.scrollHeight > element.clientHeight,
+				)
+
+			assert.equal(await clipped(), true)
+
+			await toggle.click()
+			await long.getByRole("button", { name: "Show less" }).waitFor()
+			assert.equal(await clipped(), false)
+
+			await toggle.click()
+			await long.getByRole("button", { name: "Show more" }).waitFor()
+			assert.equal(await clipped(), true)
+		} finally {
+			stack.exec(
+				"UPDATE courses SET description = 'Indoor basketball' WHERE id = 'BB'",
+			)
+		}
+	})
+
 	it("enrolls, and the seat count reflects it", async (): Promise<void> => {
 		const page = await studentPage()
 		await openAvailable(page)
