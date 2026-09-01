@@ -280,6 +280,13 @@ func (app *Server) router() *http.ServeMux {
 	}
 
 	mux.HandleFunc("GET /{$}", app.handleIndex)
+	mux.HandleFunc("GET /api/session", app.handleSession)
+	// Both React pages build at base "/" out of one build, so they
+	// share this one assets/ — which is the point of building them
+	// together, since it is where their copy of React is. No
+	// StripPrefix: the sub-FS is rooted at dist, where assets/ already
+	// is.
+	mux.Handle("/assets/", immutable(http.FileServerFS(mustSubFS(ui.Dist, "dist"))))
 	mux.HandleFunc("GET /healthz", app.handleHealthz)
 	mux.HandleFunc("GET /readyz", app.handleReadyz)
 	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
@@ -305,8 +312,7 @@ func (app *Server) router() *http.ServeMux {
 	mux.HandleFunc("/student", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/student/", http.StatusSeeOther)
 	})
-	mux.Handle("/student/assets/", immutable(http.StripPrefix("/student/", http.FileServerFS(mustSubFS(ui.Dist, "student/dist")))))
-	mux.HandleFunc("/student/", app.spaHandler(roleStudent, "student/dist/index.html", func(r *http.Request) error {
+	mux.HandleFunc("/student/", app.spaHandler(roleStudent, "dist/student/index.html", func(r *http.Request) error {
 		_, err := app.authenticateStudent(r)
 
 		return err
