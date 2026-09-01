@@ -212,18 +212,19 @@ func TestAPoolThatCannotServeIsRefused(t *testing.T) {
 }
 
 // The file shipped in the repository is the one an operator copies, so
-// it has to be one the loader accepts — apart from the session key,
-// which is deliberately a placeholder that is not valid hex so that an
-// unedited copy fails at startup rather than running on a known key.
+// it has to be one the loader accepts — apart from the placeholders it
+// carries in place of a deployment's own values, which are shaped so
+// that an unedited copy fails at startup rather than running on a
+// known session key or somebody else's tenant.
 func TestTheShippedConfigParses(t *testing.T) {
 	t.Parallel()
 
-	body, err := os.ReadFile("../../cca.conf")
+	body, err := os.ReadFile("../../cca.conf.example")
 	if err != nil {
 		t.Skipf("no shipped config to check: %v", err)
 	}
 
 	if _, err := config.Load(write(t, string(body))); err != nil {
-		t.Errorf("the shipped cca.conf does not load: %v", err)
+		t.Errorf("the shipped cca.conf.example does not load: %v", err)
 	}
 }
