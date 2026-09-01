@@ -28,7 +28,15 @@ as seen in `ui/dev.ts`.
 
 ## Configuration and setup
 
-Adapt `cca.conf` to your environment.
+Copy `cca.conf.example` to `cca.conf`
+and adapt it to your environment.
+Every `CHANGE-ME` in it has to be replaced;
+left alone, the process refuses to start
+rather than running on a placeholder.
+
+`cca.conf` is not tracked:
+the signing key is a secret,
+and the administrator list names real people.
 
 Note that this service
 does not have automatic database schema migrations.

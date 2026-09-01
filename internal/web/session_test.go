@@ -55,7 +55,7 @@ func TestSessionRoundTrips(t *testing.T) {
 	key := testSessionKey(t)
 	now := time.Now()
 
-	for _, subject := range []string{"s22537", "runxi.yu", "ed.chapman"} {
+	for _, subject := range []string{"s22537", "runxi.yu", "test.admin"} {
 		token, err := key.encodeSession(roleStudent, subject, now.Add(time.Hour))
 		if err != nil {
 			t.Fatalf("encode %q: %v", subject, err)
@@ -156,7 +156,7 @@ func TestSessionsDoNotCrossRoles(t *testing.T) {
 	key := testSessionKey(t)
 	now := time.Now()
 
-	token, err := key.encodeSession(roleAdmin, "ed.chapman", now.Add(time.Hour))
+	token, err := key.encodeSession(roleAdmin, "test.admin", now.Add(time.Hour))
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}

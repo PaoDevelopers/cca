@@ -1,0 +1,53 @@
+database {
+        url postgres:///cca?host=/var/run/postgresql
+        max_conns 80
+        min_conns 10
+	# Durations are nanoseconds. 4h, 20m, 1m, 5s.
+        max_conn_lifetime 14400000000000
+        max_conn_idle_time 1200000000000
+        health_check_period 60000000000
+        connect_timeout 5000000000
+}
+
+listen {
+	protocol http
+	network tcp
+	address :443
+	transport tls
+	tls {
+		cert /var/lib/tls/cca-leafchain.pem
+		key /var/lib/tls/cca-privkey.pem
+	}
+}
+
+session {
+	# Generate with `openssl rand -hex 32`. The placeholder below is
+	# not valid hex, so an unedited copy of this file fails at
+	# startup rather than running on a guessable key.
+	key CHANGE-ME-openssl-rand-hex-32
+}
+
+oidc {
+	# From the application registration in your identity provider.
+	# Both URLs are in its OpenID configuration document, and the
+	# tenant in them is your own. None of these are secrets — the
+	# browser is redirected to the authorize URL on every sign-in —
+	# but the deployment's own values belong to the deployment and
+	# not to this file.
+	#
+	# Left unedited, the key set fetch finds nothing and the process
+	# refuses to start, as with the session key above.
+	client CHANGE-ME-application-client-id
+	authorize https://login.microsoftonline.com/CHANGE-ME-tenant-id/oauth2/v2.0/authorize
+	jwks https://login.microsoftonline.com/CHANGE-ME-tenant-id/discovery/keys
+}
+
+# Who may enter the administrator area: the localpart of each
+# administrator's school email, or the full address to bind an entry to
+# one of the two school domains. At least one entry is required.
+#
+# A real list names real people and says what access they hold, so it
+# stays out of the repository and is written on the server.
+admins {
+	CHANGE-ME-administrator-localpart
+}

@@ -60,7 +60,7 @@ func TestOnlyAWellSignedLiveCookieAuthenticates(t *testing.T) {
 		t.Fatalf("encode: %v", err)
 	}
 
-	adminCookieValue, err := key.encodeSession(roleAdmin, "ed.chapman", time.Now().Add(time.Hour))
+	adminCookieValue, err := key.encodeSession(roleAdmin, "test.admin", time.Now().Add(time.Hour))
 	if err != nil {
 		t.Fatalf("encode admin: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestAdminAllowlistIsRecheckedPerRequest(t *testing.T) {
 
 	key := testSessionKey(t)
 
-	token, err := key.encodeSession(roleAdmin, "ed.chapman", time.Now().Add(time.Hour))
+	token, err := key.encodeSession(roleAdmin, "test.admin", time.Now().Add(time.Hour))
 	if err != nil {
 		t.Fatalf("encode: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestAdminAllowlistIsRecheckedPerRequest(t *testing.T) {
 
 	app := testServer(nil)
 	app.sessionKey = key
-	app.config.Admins = map[string]struct{}{"ed.chapman": {}}
+	app.config.Admins = map[string]struct{}{"test.admin": {}}
 
 	handler := app.adminAPI("apiPeriodsList", app.apiPeriodsList)
 

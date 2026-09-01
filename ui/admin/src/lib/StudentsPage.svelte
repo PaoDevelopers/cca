@@ -144,6 +144,49 @@
 					}),
 				),
 	)
+
+	// A student's address is their id under the student domain. There
+	// is no email column to read: 0002_types.sql defines the key as
+	// "the localpart of the school email address", and the auth
+	// boundary is where the two halves were last together.
+	//
+	// That same file allows a staff localpart as a student key, for a
+	// teacher enrolled to test with. Those really live under
+	// ykpaoschool.cn and nothing stored here tells them apart, so a
+	// roster holding one yields one wrong address — visible in the To:
+	// field, where it can be fixed.
+	const studentDomain = "stu.ykpaoschool.cn"
+
+	// The listed students, not every student: an administrator who has
+	// filtered to one grade means that grade.
+	const addresses = $derived(
+		filtered.map((s): string => `${s.id}@${studentDomain}`),
+	)
+
+	// Cleared on a timer, so copying the same list twice still says
+	// something happened.
+	let copied = $state(false)
+	let copyTimer = 0
+
+	async function copyAddresses(): Promise<void> {
+		try {
+			// Semicolons: Outlook splits recipients on them. It splits
+			// on commas only if that setting has been turned on, and it
+			// is off by default — a comma-separated paste then lands as
+			// one long unresolvable recipient instead of a class.
+			await navigator.clipboard.writeText(addresses.join("; "))
+			copied = true
+			window.clearTimeout(copyTimer)
+			copyTimer = window.setTimeout((): void => {
+				copied = false
+			}, 4000)
+		} catch (err) {
+			// Writing to the clipboard needs a secure context, which a
+			// plain-HTTP deployment is not. Better said out loud than
+			// left as a paste of whatever was in there before.
+			data.report(err, "Could not copy to the clipboard")
+		}
+	}
 </script>
 
 <section aria-labelledby="students-heading">
@@ -223,12 +266,36 @@
 				</form>
 			</details>
 
+			{#snippet copyTool()}
+				<p>
+					<button
+						type="button"
+						class="linklike"
+						disabled={addresses.length === 0}
+						onclick={(): void => {
+							void copyAddresses()
+						}}
+					>
+						Copy students&rsquo; email addresses
+					</button>
+					<!--
+						Polite and always present, so the confirmation is
+						announced rather than only seen, and so the region
+						is not created at the moment it gets its text.
+					-->
+					<span aria-live="polite">
+						{copied ? `Copied ${String(addresses.length)}.` : ""}
+					</span>
+				</p>
+			{/snippet}
+
 			<DataTools
 				section="students"
 				exportHref="/admin/api/students/export"
 				importAction="/admin/api/students/import"
 				busy={data.busy}
 				{run}
+				extra={copyTool}
 			/>
 		</div>
 

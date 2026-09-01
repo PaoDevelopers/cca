@@ -2,6 +2,7 @@
 	// Bulk operations for one data section. The full reset is gated
 	// behind typing an exact confirmation phrase.
 	import { clearSection, importSpreadsheet } from "@common/adminApi"
+	import type { Snippet } from "svelte"
 
 	interface Props {
 		section: string
@@ -9,9 +10,15 @@
 		importAction?: string | undefined
 		busy: boolean
 		run: (action: () => Promise<void>) => Promise<boolean>
+		// A section's own tool, rendered beside the ones every section
+		// gets. A snippet rather than another flag, because what one
+		// section wants here is not what the next one will, and this
+		// panel has no business knowing what a student is.
+		extra?: Snippet | undefined
 	}
 
-	const { section, exportHref, importAction, busy, run }: Props = $props()
+	const { section, exportHref, importAction, busy, run, extra }: Props =
+		$props()
 
 	const confirmation = "I confirm that I wish to destroy all data here."
 
@@ -21,6 +28,8 @@
 
 <details class="data-tools">
 	<summary>Data tools</summary>
+
+	{@render extra?.()}
 
 	{#if exportHref !== undefined}
 		<p><a href={exportHref}>Export {section} as CSV</a></p>
