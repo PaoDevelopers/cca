@@ -33,6 +33,13 @@
 		return courseLabelOf(courseByID, id, name)
 	}
 
+	// When the course meets. Held on the course rather than the
+	// enrollment, so a course that is no longer listed leaves this
+	// blank rather than the row missing.
+	function coursePeriods(id: string): string[] {
+		return courseByID.get(id)?.period_ids ?? []
+	}
+
 	let mode = $state<FilterMode>("simple")
 	// Row selection for bulk deletion.
 	let selected = $state<string[]>([])
@@ -90,6 +97,7 @@
 						grade: { exact: s.grade_id },
 						course: { exact: s.course_id },
 						title: s.course_name,
+						period: { exact: coursePeriods(s.course_id) },
 						policy: policyLabel(s),
 						droppable: s.student_droppable ? "yes" : "no",
 						budgeted: s.counts_toward_budget ? "yes" : "no",
@@ -169,6 +177,7 @@
 				grade: "year group (exact)",
 				course: "course ID (exact)",
 				title: "course title",
+				period: "meeting period ID (exact)",
 				policy: "Own pick, Invitation, Committed, or Placed",
 				droppable: "may the student drop it (yes or no)",
 				budgeted: "does it charge their budget (yes or no)",
@@ -255,12 +264,14 @@
 						<th scope="col">Grade</th>
 						<th scope="col">Course</th>
 						<th scope="col">Title</th>
+						<th scope="col">Periods</th>
 						<th scope="col">Policy</th>
 						<th scope="col">Actions</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each filtered as enrollment (key(enrollment))}
+						{@const periods = coursePeriods(enrollment.course_id)}
 						<tr>
 							<td>
 								<input
@@ -280,6 +291,18 @@
 									enrollment.course_name,
 								)}
 							</td>
+							<!--
+								Labelled when blank, as in CourseRow: an
+								empty cell read out as nothing says only
+								that the reader lost their place.
+							-->
+							<td
+								aria-label={periods.length === 0
+									? "None"
+									: undefined}
+							>
+								{periods.join(", ")}
+							</td>
 							<td>{policyLabel(enrollment)}</td>
 							<td>
 								<ConfirmButton
@@ -294,7 +317,7 @@
 						</tr>
 					{:else}
 						<tr>
-							<td colspan="8">
+							<td colspan="9">
 								{data.enrollments.length === 0
 									? "No enrollments yet."
 									: "No enrollments match your filter."}
