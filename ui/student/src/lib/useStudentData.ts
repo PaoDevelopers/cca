@@ -111,8 +111,8 @@ export function useStudentData(): StudentData {
 		categories: [],
 		periods: [],
 		hideFull: false,
-		hideInviteOnly: true,
-		hideIncompatible: true,
+		hideInviteOnly: false,
+		hideIncompatible: false,
 		hideConflicting: false,
 	})
 
