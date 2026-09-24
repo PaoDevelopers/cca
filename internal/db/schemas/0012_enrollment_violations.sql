@@ -55,12 +55,204 @@
 -- the subject, which is what a reader wants; only the identity is
 -- canonical.
 --
+-- The rules are written once, in course_violations below, over a set
+-- of courses; enrollment_violations is that set with one member, and
+-- student_course_violations is it with every course the student does
+-- not hold.
+--
 -- STABLE and lock-free:
 -- advisory when the UI or the confirm dialog calls it,
 -- authoritative when write functions re-evaluate it
 -- inside their locks.
 -- Both named rows are assumed to exist;
 -- existence is the write functions' concern.
+-- The candidates are p_course_ids, or, when p_every_unheld is set,
+-- every course the student does not hold (p_course_ids is then
+-- ignored). A flag rather than the list itself because the list would
+-- have to be a subquery in the caller's arguments, and PostgreSQL does
+-- not inline a function called with one: the body would be planned
+-- afresh on every call, which cost more than the rules themselves.
+CREATE FUNCTION course_violations(
+	p_student_id localpart,
+	p_course_ids TEXT[],
+	p_every_unheld BOOLEAN,
+	p_counts_toward_budget BOOLEAN,
+	p_disregard_course_ids TEXT[]
+)
+RETURNS TABLE (
+	course_id TEXT,
+	rule TEXT,
+	code TEXT,
+	other_course_id TEXT,
+	period_id TEXT,
+	detail TEXT
+)
+LANGUAGE sql
+STABLE
+BEGIN ATOMIC
+-- Why over a set, when the question is about one course.
+--
+-- The catalogue asks it about every course at once, and asked one
+-- course at a time — a lateral over a single-course function — every
+-- fact about the student was looked up again for each course: their
+-- row, their grade, their enrollments and the periods those occupy,
+-- and the budget they have used, fifty times over for fifty courses.
+-- That read was the most expensive in the system and it is asked the
+-- most often. Over a set, the student's facts are read once and each
+-- rule is one join against the candidate courses; the rules are the
+-- same, and so is every row they produce.
+WITH
+	cand (c_id) AS (
+		SELECT u
+		FROM unnest(p_course_ids) AS u
+		WHERE NOT p_every_unheld
+		UNION
+		SELECT c.id
+		FROM courses c
+		WHERE p_every_unheld
+			AND NOT EXISTS (SELECT 1
+				FROM enrollments e
+				WHERE e.student_id = p_student_id
+					AND e.course_id = c.id)
+	),
+	st (s_id, s_grade_id, s_legal_sex, s_max_budgeted_periods) AS (
+		SELECT s.id, s.grade_id, s.legal_sex, g.max_budgeted_periods
+		FROM students s
+		JOIN grades g ON g.id = s.grade_id
+		WHERE s.id = p_student_id
+	),
+	-- The student's enrollments, less those being dropped in the same
+	-- operation (a swap).
+	mine (m_course_id, m_counts_toward_budget) AS (
+		SELECT e.course_id, e.counts_toward_budget
+		FROM enrollments e
+		WHERE e.student_id = p_student_id
+			AND NOT (e.course_id = ANY (COALESCE(p_disregard_course_ids, '{}')))
+	),
+	-- Periods per candidate course: what enrolling would occupy.
+	cand_periods (cp_course_id, cp_n) AS (
+		SELECT cand.c_id, count(cp.period_id)
+		FROM cand
+		LEFT JOIN course_periods cp ON cp.course_id = cand.c_id
+		GROUP BY cand.c_id
+	),
+	-- Budgeted periods the student already occupies, all courses.
+	-- The budget rule below takes a candidate's own enrollment back
+	-- out, so that re-judging an existing enrollment does not count its
+	-- periods both as used and as new.
+	used (u_n) AS (
+		SELECT count(*)
+		FROM mine m
+		JOIN course_periods cp ON cp.course_id = m.m_course_id
+		WHERE m.m_counts_toward_budget
+	)
+SELECT *
+FROM (
+	SELECT cand.c_id AS v_course_id,
+		'legal_sex'::TEXT AS v_rule,
+		'legal_sex:' || p_student_id || ':' || cand.c_id AS v_code,
+		NULL::TEXT AS v_other_course_id,
+		NULL::TEXT AS v_period_id,
+		format('legal sex %s is not allowed', st.s_legal_sex) AS v_detail
+	FROM cand
+	CROSS JOIN st
+	WHERE EXISTS (SELECT 1
+			FROM course_allowed_legal_sexes a
+			WHERE a.course_id = cand.c_id)
+		AND NOT EXISTS (SELECT 1
+			FROM course_allowed_legal_sexes a
+			WHERE a.course_id = cand.c_id
+				AND a.legal_sex = st.s_legal_sex)
+
+	UNION ALL
+
+	SELECT cand.c_id,
+		'grade',
+		'grade:' || p_student_id || ':' || cand.c_id,
+		NULL, NULL,
+		format('grade %s is not allowed', st.s_grade_id)
+	FROM cand
+	CROSS JOIN st
+	WHERE EXISTS (SELECT 1
+			FROM course_allowed_grades a
+			WHERE a.course_id = cand.c_id)
+		AND NOT EXISTS (SELECT 1
+			FROM course_allowed_grades a
+			WHERE a.course_id = cand.c_id
+				AND a.grade_id = st.s_grade_id)
+
+	UNION ALL
+
+	-- The admissions question: whether one more student fits. Named
+	-- for both the student and the course, and distinct from the
+	-- "overfull" rule the course writes raise, which is the different
+	-- question of whether a course now holds more than its cap.
+	--
+	-- current_students comes from v_courses,
+	-- the single definition of the count.
+	--
+	-- An uncapped course has max_students NULL, and the comparison
+	-- below is then NULL rather than true, so it yields no row: no
+	-- test for the absence is needed or wanted. The format() above is
+	-- never reached for such a course.
+	SELECT cand.c_id,
+		'capacity',
+		'capacity:' || p_student_id || ':' || cand.c_id,
+		NULL, NULL,
+		format('%s is full (%s/%s)',
+			cand.c_id, v.current_students, v.max_students)
+	FROM cand
+	JOIN v_courses v ON v.id = cand.c_id
+	WHERE v.current_students >= v.max_students
+
+	UNION ALL
+
+	-- One row per (candidate, other course, shared period).
+	SELECT cand.c_id,
+		'clash',
+		'clash:' || p_student_id || ':'
+			|| least(cand.c_id, m.m_course_id::TEXT) || ':'
+			|| greatest(cand.c_id, m.m_course_id::TEXT) || ':'
+			|| cpn.period_id,
+		m.m_course_id,
+		cpn.period_id,
+		format('Clashes with %s (%s) in %s',
+			other_course.name, m.m_course_id, cpn.period_id)
+	FROM mine m
+	JOIN courses other_course ON other_course.id = m.m_course_id
+	JOIN course_periods cpo ON cpo.course_id = m.m_course_id
+	JOIN course_periods cpn ON cpn.period_id = cpo.period_id
+	JOIN cand ON cand.c_id = cpn.course_id
+	WHERE m.m_course_id <> cand.c_id
+
+	UNION ALL
+
+	-- A NULL cap means no cap:
+	-- the comparison is then NULL and produces no row.
+	SELECT cand.c_id,
+		'budget',
+		'budget:' || p_student_id,
+		NULL, NULL,
+		format('would occupy %s of %s budgeted periods',
+			b.n, st.s_max_budgeted_periods)
+	FROM cand
+	CROSS JOIN st
+	JOIN cand_periods cpc ON cpc.cp_course_id = cand.c_id
+	CROSS JOIN used
+	CROSS JOIN LATERAL (
+		SELECT used.u_n
+			- CASE WHEN EXISTS (SELECT 1
+					FROM mine m
+					WHERE m.m_course_id = cand.c_id
+						AND m.m_counts_toward_budget)
+				THEN cpc.cp_n ELSE 0 END
+			+ cpc.cp_n AS n
+	) b
+	WHERE p_counts_toward_budget
+		AND b.n > st.s_max_budgeted_periods
+) AS v (v_course_id, v_rule, v_code, v_other_course_id, v_period_id, v_detail);
+END;
+
 CREATE FUNCTION enrollment_violations(
 	p_student_id localpart,
 	p_course_id entity_id,
@@ -77,115 +269,9 @@ RETURNS TABLE (
 LANGUAGE sql
 STABLE
 BEGIN ATOMIC
-SELECT *
-FROM (
-	SELECT 'legal_sex'::TEXT AS v_rule,
-		'legal_sex:' || p_student_id || ':' || p_course_id AS v_code,
-		NULL::TEXT AS v_other_course_id,
-		NULL::TEXT AS v_period_id,
-		format('legal sex %s is not allowed', s.legal_sex) AS v_detail
-	FROM students s
-	WHERE s.id = p_student_id
-		AND EXISTS (SELECT 1
-			FROM course_allowed_legal_sexes a
-			WHERE a.course_id = p_course_id)
-		AND NOT EXISTS (SELECT 1
-			FROM course_allowed_legal_sexes a
-			WHERE a.course_id = p_course_id
-				AND a.legal_sex = s.legal_sex)
-
-	UNION ALL
-
-	SELECT 'grade',
-		'grade:' || p_student_id || ':' || p_course_id,
-		NULL, NULL,
-		format('grade %s is not allowed', s.grade_id)
-	FROM students s
-	WHERE s.id = p_student_id
-		AND EXISTS (SELECT 1
-			FROM course_allowed_grades a
-			WHERE a.course_id = p_course_id)
-		AND NOT EXISTS (SELECT 1
-			FROM course_allowed_grades a
-			WHERE a.course_id = p_course_id
-				AND a.grade_id = s.grade_id)
-
-	UNION ALL
-
-	-- The admissions question: whether one more student fits. Named
-	-- for both the student and the course, and distinct from the
-	-- "overfull" rule the course writes raise, which is the different
-	-- question of whether a course now holds more than its cap.
-	--
-	-- current_students comes from v_courses,
-	-- the single definition of the count.
-	--
-	-- An uncapped course has max_students NULL, and the comparison
-	-- below is then NULL rather than true, so it yields no row: no
-	-- test for the absence is needed or wanted. The format() above is
-	-- never reached for such a course.
-	SELECT 'capacity',
-		'capacity:' || p_student_id || ':' || p_course_id,
-		NULL, NULL,
-		format('%s is full (%s/%s)',
-			p_course_id, v.current_students, v.max_students)
-	FROM v_courses v
-	WHERE v.id = p_course_id
-		AND v.current_students >= v.max_students
-
-	UNION ALL
-
-	-- One row per (other course, shared period).
-	SELECT 'clash',
-		'clash:' || p_student_id || ':'
-			|| least(p_course_id::TEXT, e.course_id::TEXT) || ':'
-			|| greatest(p_course_id::TEXT, e.course_id::TEXT) || ':'
-			|| cpn.period_id,
-		e.course_id,
-		cpn.period_id,
-		format('Clashes with %s (%s) in %s',
-			other_course.name, e.course_id, cpn.period_id)
-	FROM enrollments e
-	JOIN courses other_course ON other_course.id = e.course_id
-	JOIN course_periods cpo ON cpo.course_id = e.course_id
-	JOIN course_periods cpn ON cpn.period_id = cpo.period_id
-		AND cpn.course_id = p_course_id
-	WHERE e.student_id = p_student_id
-		AND e.course_id <> p_course_id
-		AND NOT (e.course_id = ANY (COALESCE(p_disregard_course_ids, '{}')))
-
-	UNION ALL
-
-	-- A NULL cap means no cap:
-	-- the comparison is then NULL and produces no row.
-	SELECT 'budget',
-		'budget:' || p_student_id,
-		NULL, NULL,
-		format('would occupy %s of %s budgeted periods',
-			used.n + new.n, g.max_budgeted_periods)
-	FROM students s
-	JOIN grades g ON g.id = s.grade_id
-	CROSS JOIN LATERAL (
-		-- The student's enrollment in p_course_id itself is
-		-- excluded: re-judging an existing enrollment must not
-		-- count the course's periods both as used and as new.
-		SELECT count(*) AS n
-		FROM enrollments e
-		JOIN course_periods cp ON cp.course_id = e.course_id
-		WHERE e.student_id = p_student_id
-			AND e.counts_toward_budget
-			AND e.course_id <> p_course_id
-			AND NOT (e.course_id = ANY (COALESCE(p_disregard_course_ids, '{}')))
-	) used
-	CROSS JOIN LATERAL (
-		SELECT count(*) AS n
-		FROM course_periods cp
-		WHERE cp.course_id = p_course_id
-	) new
-	WHERE s.id = p_student_id
-		AND p_counts_toward_budget
-		AND used.n + new.n > g.max_budgeted_periods
-) AS v (v_rule, v_code, v_other_course_id, v_period_id, v_detail);
+SELECT v.rule, v.code, v.other_course_id, v.period_id, v.detail
+FROM course_violations(p_student_id, ARRAY[p_course_id::TEXT], FALSE,
+	p_counts_toward_budget, p_disregard_course_ids) v;
 END;
 
 -- Every candidate course judged for one student, in one call.
@@ -193,11 +279,9 @@ END;
 -- The student catalogue needs the violation set of every course
 -- at once, to say why a course cannot be taken
 -- before the student tries.
--- Asking enrollment_violations once per course
--- is one round trip per course;
--- this is a lateral over the same function,
--- so the rules keep their single definition
--- and PostgreSQL inlines the body into the join.
+-- It is course_violations over every course, so the rules keep their
+-- single definition and the student's own facts are read once rather
+-- than once per course.
 --
 -- Courses the student already holds are excluded:
 -- eligibility is a question about courses they might enter,
@@ -221,12 +305,8 @@ RETURNS TABLE (
 )
 STABLE
 BEGIN ATOMIC
-	SELECT c.id, v.rule, v.code, v.other_course_id,
+	SELECT v.course_id, v.rule, v.code, v.other_course_id,
 		v.period_id, v.detail
-	FROM courses c
-	CROSS JOIN LATERAL enrollment_violations(
-		p_student_id, c.id, p_counts_toward_budget, '{}') v
-	WHERE NOT EXISTS (
-		SELECT 1 FROM enrollments e
-		WHERE e.student_id = p_student_id AND e.course_id = c.id);
+	FROM course_violations(p_student_id, '{}', TRUE,
+		p_counts_toward_budget, '{}') v;
 END;

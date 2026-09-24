@@ -76,10 +76,20 @@ func (app *Server) apiStudentsUpsert(w http.ResponseWriter, r *http.Request, aui
 		slog.String("admin_username", aui.Username),
 		slog.Int("student_count", len(body.Students)),
 		slog.Int("accepted", len(body.Accept)))
-	app.wsHub.Broadcast(WSMessage("invalidate_students"))
+	// To the students edited and the administrators, not to everyone:
+	// a student's record is on no other student's page, and every page
+	// told re-reads its eligibility — the most expensive read there is
+	// — so a broadcast here had four hundred pages refetch it to fix
+	// one name mid-window.
+	edited := make([]string, len(body.Students))
+	for i, student := range body.Students {
+		edited[i] = student.ID
+	}
+
+	app.wsHub.BroadcastToStudentsAndAdmins(edited, WSMessage("invalidate_students"))
 	// A changed grade changes a student's window, budget and
 	// requirements, all of which their own page shows.
-	app.wsHub.Broadcast(WSMessage("invalidate_enrollments"))
+	app.wsHub.BroadcastToStudentsAndAdmins(edited, WSMessage("invalidate_enrollments"))
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -144,6 +154,7 @@ func (app *Server) apiStudentsDelete(w http.ResponseWriter, r *http.Request, aui
 	}
 
 	app.logInfo(r, logMsgAdminStudentsDelete, slog.String("admin_username", aui.Username), slog.String("student_id", id))
-	app.wsHub.Broadcast(WSMessage("invalidate_students"))
+	// As for an edit: the deleted student and the administrators.
+	app.wsHub.BroadcastToStudentsAndAdmins([]string{id}, WSMessage("invalidate_students"))
 	w.WriteHeader(http.StatusNoContent)
 }

@@ -1,6 +1,8 @@
 package web
 
 import (
+	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -18,8 +20,8 @@ import (
 // which is where the rules are defined, keeps one definition.
 //
 // The read is per student, so it is invalidated constantly and shared
-// with nobody; that costs nothing, because nobody else was going to
-// cache it.
+// with nobody else; what is shared is one student's own concurrent
+// reads, from their several tabs and devices (eligibility_batch.go).
 
 // eligibility is the response: course id to the violations that course
 // would produce for this student. Courses the student already holds
@@ -35,20 +37,32 @@ func (app *Server) handleStuAPIEligibility(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// A student's own enrollment always charges their budget and is
-	// always theirs to drop, so the prospective bit is TRUE.
 	ctx, cancel := readCtx(r.Context())
 	defer cancel()
 
-	rows, err := app.queries.StudentCourseViolations(ctx,
-		db.StudentCourseViolationsParams{
-			PStudentID:          sui.ID,
-			PCountsTowardBudget: true,
-		})
+	out, err := app.eligibility.get(ctx, sui.ID, app.loadEligibility)
 	if err != nil {
 		app.apiDBError(r, w, err, slog.String("student_id", sui.ID))
 
 		return
+	}
+
+	app.writeJSON(r, w, out, slog.String("student_id", sui.ID))
+}
+
+// loadEligibility runs the query for one student. The map it returns
+// may be handed to several requests at once, so nothing may write to
+// it afterwards.
+func (app *Server) loadEligibility(ctx context.Context, studentID string) (eligibility, error) {
+	// A student's own enrollment always charges their budget and is
+	// always theirs to drop, so the prospective bit is TRUE.
+	rows, err := app.queries.StudentCourseViolations(ctx,
+		db.StudentCourseViolationsParams{
+			PStudentID:          studentID,
+			PCountsTowardBudget: true,
+		})
+	if err != nil {
+		return nil, fmt.Errorf("student course violations: %w", err)
 	}
 
 	out := make(eligibility)
@@ -64,5 +78,5 @@ func (app *Server) handleStuAPIEligibility(w http.ResponseWriter, r *http.Reques
 		})
 	}
 
-	app.writeJSON(r, w, out, slog.String("student_id", sui.ID))
+	return out, nil
 }

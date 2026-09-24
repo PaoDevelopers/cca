@@ -1,12 +1,21 @@
 // The derivations behind the student view.
 //
 // What is *not* here matters as much as what is: whether a course may
-// be taken is not computed in the browser. Clash, capacity, budget,
-// grade and legal-sex are rules, they are defined in the database, and
-// the server answers them for the whole catalogue in one call
+// be taken is not computed in the browser. Clash, budget, grade and
+// legal-sex are rules, they are defined in the database, and the server
+// answers them for the whole catalogue in one call
 // (/student/api/eligibility). A second implementation in TypeScript
 // would drift from the first, and the drift is noticed when it hides a
 // rejection rather than when it is introduced.
+//
+// Capacity is the one exception, for the reason filterCourses below
+// already gives for hideFull: it is arithmetic over a count the browser
+// has from the realtime stream, the same for every student, and the
+// one verdict that changes at enrollment speed. Reading it from the
+// eligibility map meant every open page re-asked the server for its
+// whole rule set each time any course filled or freed a seat — one
+// query per page per crossing, which is what overloaded the database
+// in a live window. The server still enforces it on every write.
 //
 // What is left here is arrangement: reading the server's verdicts and
 // filtering the list.
@@ -20,13 +29,51 @@ import type {
 	Violation,
 } from "@common/types"
 
-// The server's verdict for one course: why the student may not take
-// it, or an empty list if they may.
+// The order the server lists rules in (enrollment_violations in
+// 0012), so a reason read from the live count sits where the server's
+// own would have.
+const ruleOrder: Record<Violation["rule"], number> = {
+	legal_sex: 0,
+	grade: 1,
+	capacity: 2,
+	clash: 3,
+	budget: 4,
+	overfull: 5,
+}
+
+// The capacity violation, as the server words it: same code, same
+// detail, so nothing downstream can tell where it came from.
+function capacityViolation(course: Course, studentID: string): Violation {
+	return {
+		student_id: null,
+		rule: "capacity",
+		code: `capacity:${studentID}:${course.id}`,
+		other_course_id: null,
+		period_id: null,
+		detail: `${course.id} is full (${course.current_students}/${String(course.max_students)})`,
+	}
+}
+
+// Why the student may not take one course, or an empty list if they
+// may: the server's verdict on every rule but capacity, and capacity
+// from the live count. A course the student holds has no verdict — the
+// server leaves it out of the map, and its own seat must not make it
+// "full" to them.
 export function violationsFor(
 	eligibility: Eligibility,
 	course: Course,
+	held: boolean,
+	studentID: string,
 ): Violation[] {
-	return eligibility[course.id] ?? []
+	const judged = (eligibility[course.id] ?? []).filter(
+		(v): boolean => v.rule !== "capacity",
+	)
+	if (held || !isFull(course)) {
+		return judged
+	}
+	return [...judged, capacityViolation(course, studentID)].sort(
+		(a, b): number => ruleOrder[a.rule] - ruleOrder[b.rule],
+	)
 }
 
 // The courses a swap into this one would have to drop, named by the
@@ -42,11 +89,8 @@ function conflictingCourseIDs(violations: Violation[]): string[] {
 	]
 }
 
-export function conflictingEnrollments(
-	eligibility: Eligibility,
-	course: Course,
-): string[] {
-	return conflictingCourseIDs(violationsFor(eligibility, course))
+export function conflictingEnrollments(violations: Violation[]): string[] {
+	return conflictingCourseIDs(violations)
 }
 
 // Whether to offer Swap: whether dropping what this course clashes
@@ -80,11 +124,10 @@ export function conflictingEnrollments(
 // an invite-only course (YKG02), and a clashing enrollment the student
 // may not drop (YKG03).
 export function swappable(
-	eligibility: Eligibility,
+	violations: Violation[],
 	course: Course,
 	held: Enrollment[],
 ): boolean {
-	const violations = violationsFor(eligibility, course)
 	if (violations.length === 0) {
 		return false
 	}
@@ -94,7 +137,7 @@ export function swappable(
 		return false
 	}
 
-	const clashes = conflictingEnrollments(eligibility, course)
+	const clashes = conflictingEnrollments(violations)
 	if (clashes.length === 0) {
 		return false
 	}

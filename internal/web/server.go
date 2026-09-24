@@ -27,4 +27,9 @@ type Server struct {
 	// Fires at the next enrollment-window boundary so open pages
 	// repaint; see window_timer.go for why it is allowed to miss.
 	windowTimer *windowTimer
+
+	// Shares one student's concurrent eligibility reads and bounds
+	// them all; see eligibility_batch.go. The zero value works,
+	// unbounded.
+	eligibility eligibilityBatcher //exhaustruct:optional
 }

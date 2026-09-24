@@ -19,7 +19,6 @@ import {
 	useState,
 } from "react"
 import { flushSync } from "react-dom"
-import { isFull } from "@common/capacity"
 import { connectEvents } from "@common/events"
 import { AuthError, errorMessage } from "@common/http"
 import {
@@ -52,6 +51,17 @@ import {
 	swappable,
 	violationsFor,
 } from "./enrollment"
+
+// How far a refetch caused by a socket frame is spread, in
+// milliseconds; see coalesce.ts. Long enough to turn every open page
+// asking at once into a plateau the database can serve, short enough
+// that a change somebody else made still shows within a couple of
+// seconds.
+const eventSpread = 2000
+
+// The same for the full reload after a reconnect, which reads seven
+// resources rather than one.
+const reconnectSpread = 5000
 
 interface StudentData {
 	user: StudentInfo | null
@@ -174,42 +184,41 @@ export function useStudentData(): StudentData {
 	}, [report])
 
 	const pull = useCallback(
-		<T>(loader: () => Promise<T>, set: (value: T) => void): void => {
+		<T>(loader: () => Promise<T>, set: (value: T) => void): Promise<void> =>
 			loader()
 				.then(set)
 				.catch((err: unknown): void => {
 					report(err, "Refresh failed")
-				})
-		},
+				}),
 		[report],
 	)
 
+	// Every re-read goes through a coalescer: one request in flight per
+	// resource per page, and triggers close together collapsed into one.
 	// Anything that moves a rule's inputs moves the eligibility map with
-	// it, so it is re-read alongside — and coalesced, because a
-	// student's own write asks for it twice: once on the write path and
-	// once when the server's frame comes back to this session.
-	const eligibilityPull = useMemo(
-		() =>
-			coalesce((): void => {
-				pull(fetchEligibility, setEligibility)
-			}),
-		[pull],
-	)
-
-	const userPull = useMemo(
-		() =>
-			coalesce((): void => {
-				pull(fetchUser, setUser)
-			}),
+	// it, so it is re-read alongside — and a student's own write asks
+	// for it twice: once on the write path and once when the server's
+	// frame comes back to this session.
+	const pulls = useMemo(
+		() => ({
+			user: coalesce(() => pull(fetchUser, setUser)),
+			courses: coalesce(() => pull(fetchCourses, setCourses)),
+			periods: coalesce(() => pull(fetchPeriods, setPeriods)),
+			categories: coalesce(() => pull(fetchCategories, setCategories)),
+			grades: coalesce(() => pull(fetchGrades, setGrades)),
+			enrollments: coalesce(() => pull(fetchEnrollments, setEnrollments)),
+			eligibility: coalesce(() => pull(fetchEligibility, setEligibility)),
+		}),
 		[pull],
 	)
 
 	useEffect(
 		() => (): void => {
-			eligibilityPull.cancel()
-			userPull.cancel()
+			for (const coalescer of Object.values(pulls)) {
+				coalescer.cancel()
+			}
 		},
-		[eligibilityPull, userPull],
+		[pulls],
 	)
 
 	useEffect((): void => {
@@ -219,79 +228,87 @@ export function useStudentData(): StudentData {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [])
 
-	useEffect(
-		(): (() => void) =>
-			connectEvents("/student/api/events", {
-				oninvalidate: (resource): void => {
-					switch (resource) {
-						case "courses":
-							pull(fetchCourses, setCourses)
-							eligibilityPull.trigger()
-							break
-						case "categories":
-							pull(fetchCategories, setCategories)
-							break
-						case "periods":
-							pull(fetchPeriods, setPeriods)
-							eligibilityPull.trigger()
-							break
-						case "grades":
-							// Includes the window opening or closing: the
-							// server wakes at each boundary so an open
-							// page repaints then rather than at its next
-							// action.
-							pull(fetchGrades, setGrades)
-							userPull.trigger()
-							break
-						case "enrollments":
-							pull(fetchEnrollments, setEnrollments)
-							userPull.trigger()
-							eligibilityPull.trigger()
-							break
-						case "students":
-							userPull.trigger()
-							eligibilityPull.trigger()
-							break
-					}
-				},
-				oncoursecount: (courseID, currentStudents): void => {
-					// Fullness is a rule, and the rules are the server's:
-					// "capacity" is one of the violations the eligibility
-					// map carries. Re-read it only on the crossing, not
-					// on every count — under a busy window these arrive
-					// ten a second.
-					setCourses((previous): Course[] => {
-						const before = previous.find(
-							(c): boolean => c.id === courseID,
-						)
-						const wasFull = before !== undefined && isFull(before)
-						const nowFull =
-							before !== undefined &&
-							isFull({
-								current_students: currentStudents,
-								max_students: before.max_students,
-							})
-						if (wasFull !== nowFull) {
-							eligibilityPull.trigger()
-						}
-						return previous.map((c): Course =>
-							c.id === courseID
-								? { ...c, current_students: currentStudents }
-								: c,
-						)
-					})
-				},
-				// Whatever changed while the socket was down was never
-				// delivered, and there is no way to find out what it was.
-				onreconnect: (): void => {
+	useEffect((): (() => void) => {
+		// Set when the socket reconnects; see onreconnect.
+		let resync: number | null = null
+
+		// Every frame is spread: this page cannot tell a frame meant for
+		// it alone from one the hub sent to every page at once, and the
+		// cost of spreading the former is a second or two on a change
+		// somebody else made.
+		const disconnect = connectEvents("/student/api/events", {
+			oninvalidate: (resource): void => {
+				switch (resource) {
+					case "courses":
+						pulls.courses.trigger(eventSpread)
+						pulls.eligibility.trigger(eventSpread)
+						break
+					case "categories":
+						pulls.categories.trigger(eventSpread)
+						break
+					case "periods":
+						pulls.periods.trigger(eventSpread)
+						pulls.eligibility.trigger(eventSpread)
+						break
+					case "grades":
+						// Includes the window opening or closing: the
+						// server wakes at each boundary so an open page
+						// repaints then rather than at its next action.
+						pulls.grades.trigger(eventSpread)
+						pulls.user.trigger(eventSpread)
+						break
+					case "enrollments":
+						pulls.enrollments.trigger(eventSpread)
+						pulls.user.trigger(eventSpread)
+						pulls.eligibility.trigger(eventSpread)
+						break
+					case "students":
+						pulls.user.trigger(eventSpread)
+						pulls.eligibility.trigger(eventSpread)
+						break
+				}
+			},
+			// Only the count moves. Whether that makes the course full
+			// is read from the count itself (see violationsFor), so a
+			// crossing costs no request: these arrive at every open page
+			// at once, up to ten a second in a busy window, and each
+			// crossing used to send every page back for its whole
+			// eligibility map.
+			oncoursecount: (courseID, currentStudents): void => {
+				setCourses((previous): Course[] =>
+					previous.map((c): Course =>
+						c.id === courseID
+							? { ...c, current_students: currentStudents }
+							: c,
+					),
+				)
+			},
+			// Whatever changed while the socket was down was never
+			// delivered, and there is no way to find out what it was.
+			// Spread for the same reason as the frames: a restarted
+			// server has every page reconnect within a second, and each
+			// one reads everything.
+			onreconnect: (): void => {
+				if (resync !== null) {
+					window.clearTimeout(resync)
+				}
+				resync = window.setTimeout((): void => {
+					resync = null
 					void load()
-				},
-				ongiveup: (reason: string): void => {
-					setError(reason)
-				},
-			}),
-		[eligibilityPull, userPull, pull, load],
-	)
+				}, Math.random() * reconnectSpread)
+			},
+			ongiveup: (reason: string): void => {
+				setError(reason)
+			},
+		})
+
+		return (): void => {
+			if (resync !== null) {
+				window.clearTimeout(resync)
+			}
+			disconnect()
+		}
+	}, [pulls, load])
 
 	const enrollmentByCourse = useMemo(
 		() =>
@@ -318,9 +335,17 @@ export function useStudentData(): StudentData {
 	// window's two bounds and read from here, never recomputed.
 	const windowOpen = gradeInfo?.is_open ?? false
 
+	const studentID = user?.id ?? ""
+
 	const violations = useCallback(
-		(course: Course): Violation[] => violationsFor(eligibility, course),
-		[eligibility],
+		(course: Course): Violation[] =>
+			violationsFor(
+				eligibility,
+				course,
+				enrollmentByCourse.has(course.id),
+				studentID,
+			),
+		[eligibility, enrollmentByCourse, studentID],
 	)
 
 	// The catalogue is the whole catalogue, enrolled courses included.
@@ -452,8 +477,8 @@ export function useStudentData(): StudentData {
 				// never stale. What it implies — eligibility and
 				// standing — is re-read through the coalescers.
 				setEnrollments(await action())
-				eligibilityPull.trigger()
-				userPull.trigger()
+				pulls.eligibility.trigger()
+				pulls.user.trigger()
 				setAnnouncement(`${succeeded} ${course.name}.`)
 			} catch (err) {
 				// Refusals are announced by the error popup, which is
@@ -465,7 +490,7 @@ export function useStudentData(): StudentData {
 				refocus.current = { course: course.id, before }
 			}
 		},
-		[updating, eligibilityPull, userPull, report],
+		[updating, pulls, report],
 	)
 
 	const enroll = useCallback(
@@ -497,7 +522,7 @@ export function useStudentData(): StudentData {
 	// to move between two courses that clash.
 	const swap = useCallback(
 		(course: Course): void => {
-			const replacing = conflictingEnrollments(eligibility, course)
+			const replacing = conflictingEnrollments(violations(course))
 			void write(
 				course,
 				() => swapIntoCourse(course.id, replacing),
@@ -505,7 +530,7 @@ export function useStudentData(): StudentData {
 				"Swapped into",
 			)
 		},
-		[eligibility, write],
+		[violations, write],
 	)
 	// Hoisted rather than written inline in the object below: a hook
 	// called from inside a return literal is legal only for as long as
@@ -527,8 +552,8 @@ export function useStudentData(): StudentData {
 
 	const canSwap = useCallback(
 		(course: Course): boolean =>
-			swappable(eligibility, course, enrollments),
-		[eligibility, enrollments],
+			swappable(violations(course), course, enrollments),
+		[violations, enrollments],
 	)
 
 	return {

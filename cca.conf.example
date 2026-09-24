@@ -1,7 +1,15 @@
 database {
         url postgres:///cca?host=/var/run/postgresql
-        max_conns 80
-        min_conns 10
+        # Size the pool to the database's cores, not to the number of
+        # students: a query that cannot get a connection waits in the
+        # pool, which is cheap, while one more query running than there
+        # are cores only makes every query slower. About two to three
+        # per core of the database host; 16 suits six cores. min_conns
+        # equal to max_conns keeps the pool from dialling new
+        # connections in the middle of a rush, when it can least
+        # afford to. Eligibility may use half of it at once.
+        max_conns 16
+        min_conns 16
 	# Durations are nanoseconds. 4h, 20m, 1m, 5s.
         max_conn_lifetime 14400000000000
         max_conn_idle_time 1200000000000

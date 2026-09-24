@@ -18,6 +18,8 @@ import (
 	"github.com/PaoDevelopers/cca/internal/config"
 	"github.com/PaoDevelopers/cca/internal/db"
 	"github.com/PaoDevelopers/cca/ui"
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgconn/ctxwatch"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -42,6 +44,11 @@ const readHeaderTimeout = 10 * time.Second
 // The margin is for the rest of the handler: reading the result,
 // building the response, telling the hub.
 const shutdownTimeout = writeTimeout + 15*time.Second
+
+// cancelDeadlineDelay is how long a cancelled query's connection waits
+// for the server to acknowledge the cancel before it is cut instead;
+// see openDatabase.
+const cancelDeadlineDelay = 5 * time.Second
 
 var (
 	errUnknownTransport      = errors.New(`unknown listen transport, expected "plain" or "tls"`)
@@ -148,6 +155,7 @@ func newServer(ctx context.Context, configPath string) (*Server, error) {
 	}
 
 	app.queries = db.New(app.pool)
+	app.eligibility.slots = make(chan struct{}, eligibilitySlots(app.pool.Config().MaxConns))
 
 	if err := checkSchemaVersion(ctx, app.queries); err != nil {
 		return nil, err
@@ -232,6 +240,28 @@ func openDatabase(ctx context.Context, cfg config.Config) (*pgxpool.Pool, error)
 	// v_courses returns legal_sex[], which pgx cannot decode without
 	// the type's OID; every connection to a cca database loads it.
 	poolConfig.AfterConnect = db.RegisterTypes
+
+	// What a cancelled query costs. pgx's default answers a cancelled
+	// context by cutting the socket, so the pool throws the connection
+	// away and dials a new one — fork, authentication, the type loads
+	// above, every statement planned afresh — while the old backend
+	// runs its query to the end for nobody. Reads carry the request's
+	// cancellation, and under load that is most of them: a reload, a
+	// closed tab, a client timing out. Measured locally, 2,000 course
+	// reads cancelled mid-query cost 75 pooled connections; with the
+	// handler below, none.
+	//
+	// Asking the server to cancel keeps the connection: the query stops
+	// and the connection goes back to the pool. The deadline is the
+	// fallback for a server too busy to answer the cancel, and only
+	// then is the connection lost.
+	poolConfig.ConnConfig.BuildContextWatcherHandler = func(conn *pgconn.PgConn) ctxwatch.Handler {
+		return &pgconn.CancelRequestContextWatcherHandler{
+			Conn:               conn,
+			CancelRequestDelay: 0,
+			DeadlineDelay:      cancelDeadlineDelay,
+		}
+	}
 
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
