@@ -5,6 +5,10 @@
 export interface EventHandlers {
 	oninvalidate?: (resource: string) => void
 	oncoursecount?: (courseID: string, count: number) => void
+	// A student's own new state after one of their writes, as JSON (a
+	// StudentState). Sent to every page of that student in place of
+	// invalidate_enrollments, so none of them has to read it back.
+	onstudentstate?: (json: string) => void
 	// Called when a socket opens after an earlier one had been
 	// established — a reconnect, not the first connection.
 	//
@@ -109,6 +113,10 @@ export function connectEvents(
 			for (const data of String(event.data).split("\n")) {
 				if (data.startsWith("invalidate_")) {
 					handlers.oninvalidate?.(data.slice("invalidate_".length))
+				} else if (data.startsWith("student_state,")) {
+					handlers.onstudentstate?.(
+						data.slice("student_state,".length),
+					)
 				} else if (data.startsWith("course_count_update,")) {
 					const rest = data.slice("course_count_update,".length)
 					const cut = rest.lastIndexOf(",")

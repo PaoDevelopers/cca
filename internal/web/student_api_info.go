@@ -1,7 +1,9 @@
 package web
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
@@ -50,7 +52,7 @@ func (app *Server) handleStuAPIInfo(w http.ResponseWriter, r *http.Request, sui 
 	ctx, cancel := readCtx(r.Context())
 	defer cancel()
 
-	status, err := app.queries.GetStudentStatusByID(ctx, sui.ID)
+	info, err := app.loadStudentInfo(ctx, sui.ID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			// The session is well signed but names nobody: the
@@ -68,11 +70,20 @@ func (app *Server) handleStuAPIInfo(w http.ResponseWriter, r *http.Request, sui 
 		return
 	}
 
-	reqs, err := app.queries.GetStudentRequirementsByID(ctx, sui.ID)
-	if err != nil {
-		app.apiDBError(r, w, err, slog.String("student_id", sui.ID))
+	app.writeJSON(r, w, info, slog.String("student_id", sui.ID))
+}
 
-		return
+// loadStudentInfo reads a student's standing. A student no longer in
+// the roster is pgx.ErrNoRows.
+func (app *Server) loadStudentInfo(ctx context.Context, studentID string) (studentInfo, error) {
+	status, err := app.queries.GetStudentStatusByID(ctx, studentID)
+	if err != nil {
+		return studentInfo{}, fmt.Errorf("student status: %w", err)
+	}
+
+	reqs, err := app.queries.GetStudentRequirementsByID(ctx, studentID)
+	if err != nil {
+		return studentInfo{}, fmt.Errorf("student requirements: %w", err)
 	}
 
 	// The frontend expects [] rather than null.
@@ -86,7 +97,7 @@ func (app *Server) handleStuAPIInfo(w http.ResponseWriter, r *http.Request, sui 
 		}
 	}
 
-	app.writeJSON(r, w, studentInfo{
+	return studentInfo{
 		ID:                     status.StudentID,
 		Name:                   status.StudentName,
 		GradeID:                status.GradeID,
@@ -95,5 +106,5 @@ func (app *Server) handleStuAPIInfo(w http.ResponseWriter, r *http.Request, sui 
 		DistinctCategoriesUsed: status.DistinctCategoriesUsed,
 		MinDistinctCategories:  status.MinDistinctCategories,
 		Requirements:           list,
-	}, slog.String("student_id", sui.ID))
+	}, nil
 }

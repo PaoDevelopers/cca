@@ -149,6 +149,14 @@ export interface StudentRequirement {
 
 // What a student is and where they stand. Everything but the cap is
 // advisory; the cap itself is enforced by the server, not here.
+// What a student_state frame carries: everything one student's write
+// changes on their own page, read once by the server after the write.
+export interface StudentState {
+	enrollments: Enrollment[] | null
+	eligibility: Eligibility | null
+	user: StudentInfo
+}
+
 export interface StudentInfo {
 	id: StudentID
 	name: string

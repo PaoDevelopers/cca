@@ -160,13 +160,15 @@ func (app *Server) handleStuAPIMyEnrollments(w http.ResponseWriter, r *http.Requ
 	app.logInfo(r, write.logMessage,
 		slog.String("student_id", sui.ID), slog.String("course_id", body.CourseID),
 		slog.Any("replacing", body.Replacing))
-	app.wsHub.BroadcastToStudentsAndAdmins([]string{sui.ID}, WSMessage("invalidate_enrollments"))
+	// Administrators re-read; the student's own pages are sent the
+	// result instead (student_state.go).
+	app.wsHub.BroadcastToStudentsAndAdmins(nil, WSMessage("invalidate_enrollments"))
 	app.broadcastCourseCounts(write.coursesTouched(body))
 
 	// Every write answers with the resulting enrollment set, so a
 	// client never has to guess what its change did and never shows a
 	// state the server did not confirm.
-	app.respondWithEnrollments(w, r, sui.ID)
+	app.respondWithState(w, r, sui.ID)
 }
 
 func (app *Server) respondWithEnrollments(w http.ResponseWriter, r *http.Request, studentID string) {

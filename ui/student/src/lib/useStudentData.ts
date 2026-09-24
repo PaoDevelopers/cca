@@ -20,7 +20,7 @@ import {
 } from "react"
 import { flushSync } from "react-dom"
 import { connectEvents } from "@common/events"
-import { AuthError, errorMessage } from "@common/http"
+import { AuthError, asArray, errorMessage } from "@common/http"
 import {
 	drop as dropCourse,
 	enroll as enrollInCourse,
@@ -41,6 +41,7 @@ import type {
 	Grade,
 	Period,
 	StudentInfo,
+	StudentState,
 	Violation,
 } from "@common/types"
 import { coalesce } from "./coalesce"
@@ -62,6 +63,12 @@ const eventSpread = 2000
 // The same for the full reload after a reconnect, which reads seven
 // resources rather than one.
 const reconnectSpread = 5000
+
+// How long the page that wrote waits for the server's student_state
+// frame before reading its eligibility and standing itself. The frame
+// normally lands before the write's own response; this is for a socket
+// that is down or reconnecting at that moment.
+const stateGrace = 2000
 
 interface StudentData {
 	user: StudentInfo | null
@@ -212,13 +219,28 @@ export function useStudentData(): StudentData {
 		[pull],
 	)
 
+	// The page's own write's fallback re-read; see stateGrace.
+	const awaitingState = useRef<number | null>(null)
+	// student_state frames received, so a write can tell whether one
+	// landed while it was in flight — the usual order, since the server
+	// sends the frame before it answers the write.
+	const statesSeen = useRef(0)
+
+	const stopAwaitingState = useCallback((): void => {
+		if (awaitingState.current !== null) {
+			window.clearTimeout(awaitingState.current)
+			awaitingState.current = null
+		}
+	}, [])
+
 	useEffect(
 		() => (): void => {
 			for (const coalescer of Object.values(pulls)) {
 				coalescer.cancel()
 			}
+			stopAwaitingState()
 		},
-		[pulls],
+		[pulls, stopAwaitingState],
 	)
 
 	useEffect((): void => {
@@ -268,6 +290,24 @@ export function useStudentData(): StudentData {
 						break
 				}
 			},
+			// The student's own new state, after a write from this page or
+			// another of theirs: applied as it stands, with no re-read.
+			onstudentstate: (json): void => {
+				let state: StudentState
+				try {
+					state = JSON.parse(json) as StudentState
+				} catch {
+					pulls.enrollments.trigger()
+					pulls.user.trigger()
+					pulls.eligibility.trigger()
+					return
+				}
+				statesSeen.current++
+				stopAwaitingState()
+				setEnrollments(asArray(state.enrollments))
+				setEligibility(state.eligibility ?? {})
+				setUser(state.user)
+			},
 			// Only the count moves. Whether that makes the course full
 			// is read from the count itself (see violationsFor), so a
 			// crossing costs no request: these arrive at every open page
@@ -308,7 +348,7 @@ export function useStudentData(): StudentData {
 			}
 			disconnect()
 		}
-	}, [pulls, load])
+	}, [pulls, load, stopAwaitingState])
 
 	const enrollmentByCourse = useMemo(
 		() =>
@@ -473,12 +513,24 @@ export function useStudentData(): StudentData {
 				setUpdating(course.id)
 			})
 			try {
-				// The enrollment list comes straight back, so it is
-				// never stale. What it implies — eligibility and
-				// standing — is re-read through the coalescers.
-				setEnrollments(await action())
-				pulls.eligibility.trigger()
-				pulls.user.trigger()
+				// The server sends this student's pages their new state
+				// as a student_state frame, usually before it answers
+				// the write. One that landed meanwhile is this write's
+				// own or a newer one, so the response could only set
+				// the page back. Otherwise the response's enrollment
+				// list is applied, and eligibility and standing are
+				// re-read only if the frame does not follow.
+				const seenBefore = statesSeen.current
+				const held = await action()
+				stopAwaitingState()
+				if (statesSeen.current === seenBefore) {
+					setEnrollments(held)
+					awaitingState.current = window.setTimeout((): void => {
+						awaitingState.current = null
+						pulls.eligibility.trigger()
+						pulls.user.trigger()
+					}, stateGrace)
+				}
 				setAnnouncement(`${succeeded} ${course.name}.`)
 			} catch (err) {
 				// Refusals are announced by the error popup, which is
@@ -490,7 +542,7 @@ export function useStudentData(): StudentData {
 				refocus.current = { course: course.id, before }
 			}
 		},
-		[updating, pulls, report],
+		[updating, pulls, report, stopAwaitingState],
 	)
 
 	const enroll = useCallback(

@@ -9,6 +9,7 @@
 
 import assert from "node:assert/strict"
 import { after, afterEach, before, describe, it } from "node:test"
+import type { Page } from "playwright-core"
 import { startHarness, subjects, type Harness } from "./harness.js"
 
 describe("realtime", (): void => {
@@ -80,6 +81,74 @@ describe("realtime", (): void => {
 
 		await aliceContext.close()
 		await bobContext.close()
+	})
+
+	// A student's own write reaches their other tabs as the new state
+	// itself (a student_state frame), so no page of theirs reads it
+	// back: not the tab that wrote, and not the others. Checked through
+	// what the page shows — the enrollment and a clash that only the
+	// eligibility map can report — and through the requests it made.
+	it("brings the student's other tab up to date without it reading anything", async (): Promise<void> => {
+		assert.ok(harness !== null)
+		const stack = harness
+
+		const context = await stack.contextFor("student", subjects.alice)
+
+		// Each tab's socket is up before anything happens, or a frame
+		// sent in between would be missed rather than tested.
+		async function open(): Promise<Page> {
+			const page = await context.newPage()
+			const socket = page.waitForEvent("websocket")
+			await page.goto("/student/")
+			await (await socket).waitForEvent("framereceived")
+			await page.getByRole("button", { name: /All courses/ }).click()
+			return page
+		}
+
+		const first = await open()
+		const second = await open()
+
+		const reads: string[] = []
+		for (const page of [first, second]) {
+			page.on("request", (request): void => {
+				const path = new URL(request.url()).pathname
+				if (
+					path === "/student/api/eligibility" ||
+					path === "/student/api/user_info" ||
+					path === "/student/api/my_enrollments"
+				) {
+					reads.push(`${request.method()} ${path}`)
+				}
+			})
+		}
+
+		try {
+			// Baking meets in MON1, like Basketball.
+			const baking = second.locator("article.card", { hasText: "Baking" })
+			await baking.waitFor()
+			assert.doesNotMatch(await baking.innerText(), /Clashes with/)
+
+			await first
+				.locator("article.card", { hasText: "Basketball" })
+				.getByRole("button", { name: /Enroll\b.*\bin Basketball/ })
+				.click()
+
+			await second
+				.getByRole("button", { name: /Your selections \(1\)/ })
+				.waitFor({ timeout: 10_000 })
+			await baking
+				.getByText(/Clashes with Basketball/)
+				.waitFor({ timeout: 10_000 })
+
+			// Past the writing tab's fallback (stateGrace), which must
+			// not have fired: the frame came.
+			await first.waitForTimeout(2500)
+
+			assert.deepEqual(reads, ["PUT /student/api/my_enrollments"])
+		} finally {
+			stack.exec("DELETE FROM enrollments WHERE student_id = 's1001'")
+			await context.close()
+		}
 	})
 
 	// Everything sent while the socket was down is gone: the hub keeps

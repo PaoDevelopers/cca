@@ -135,6 +135,12 @@ type Client struct {
 	// ordinary one. Atomic because it is set by whoever decided to
 	// close the socket and read by the pump that does it.
 	closeStatus atomic.Int32 //exhaustruct:optional
+
+	// The newest student_state frame not yet sent, and the generation
+	// of the newest one ever accepted, both under mu. A state is only
+	// ever replaced by a newer one; see PushStudentState.
+	state    WSMessage //exhaustruct:optional
+	stateGen uint64    //exhaustruct:optional
 }
 
 func newWSClient(hub *WebSocketHub, conn wsConn, studentID string) *Client {
@@ -192,6 +198,9 @@ type WebSocketHub struct {
 	dirtyMu   sync.Mutex //exhaustruct:optional
 	dirty     map[string]struct{}
 	dirtyWake chan struct{}
+
+	// Orders student_state frames; see PushStudentState.
+	stateGen atomic.Uint64 //exhaustruct:optional
 }
 
 // NewWebSocketHub creates an empty hub; call Run to start the counts
@@ -346,6 +355,28 @@ func (h *WebSocketHub) BroadcastToStudentsAndAdmins(studentIDs []string, msg WSM
 
 	for client := range h.admins {
 		client.enqueue(msg)
+	}
+}
+
+// NextStateGeneration numbers a student state about to be read. Take it
+// after the write it follows has committed and before reading: a state
+// read after its number was taken includes every write whose number is
+// lower, so the highest number a page has seen is the newest state.
+func (h *WebSocketHub) NextStateGeneration() uint64 {
+	return h.stateGen.Add(1)
+}
+
+// PushStudentState sends a student's own pages their new state — the
+// enrollments, eligibility and standing their page shows — in place of
+// asking each of them to read it again. A page that has already been
+// given a newer state keeps it: two writes from two tabs can finish
+// reading in either order, and the older read must not be shown last.
+func (h *WebSocketHub) PushStudentState(studentID string, gen uint64, frame WSMessage) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	for client := range h.clients[studentID] {
+		client.setState(gen, frame)
 	}
 }
 
@@ -611,13 +642,38 @@ func (c *Client) notify() {
 	}
 }
 
+// takePending returns what is waiting to be sent: the student's new
+// state first, if there is one, then the events. First because an event
+// queued behind it may ask the page to re-read something the state also
+// carries, and the re-read is the fresher of the two.
 func (c *Client) takePending() []WSMessage {
 	c.mu.Lock()
 	msgs := c.pending
 	c.pending = nil
+
+	if c.state != "" {
+		msgs = append([]WSMessage{c.state}, msgs...)
+		c.state = ""
+	}
 	c.mu.Unlock()
 
 	return msgs
+}
+
+// setState queues a student_state frame unless one at least as new has
+// already been accepted.
+func (c *Client) setState(gen uint64, frame WSMessage) {
+	c.mu.Lock()
+	newer := gen > c.stateGen
+
+	if newer {
+		c.stateGen, c.state = gen, frame
+	}
+	c.mu.Unlock()
+
+	if newer {
+		c.notify()
+	}
 }
 
 // sendPump delivers pending events and count updates whenever woken,
