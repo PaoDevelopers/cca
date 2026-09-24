@@ -1007,3 +1007,110 @@ func TestTheCountsMirrorKeepsAskingUntilItIsFilled(t *testing.T) {
 		}
 	})
 }
+
+// Seat counts reach a page at most every wsCountInterval however fast
+// they change, the page still ends on the latest count, and an event
+// is not held back behind them.
+func TestCountsAreThrottledAndEventsAreNot(t *testing.T) {
+	t.Parallel()
+
+	synctest.Test(t, func(t *testing.T) {
+		hub := NewWebSocketHub(nil)
+		conn := newFakeConn()
+		client := newWSClient(hub, conn, "s1")
+		hub.register(client)
+
+		go client.sendPump(t.Context())
+
+		defer func() {
+			client.once.Do(func() { close(client.done) })
+			synctest.Wait()
+		}()
+
+		// The count changes every 50 ms for two seconds, as it would
+		// on a popular course in a rush.
+		const changes = 40
+
+		for i := 1; i <= changes; i++ {
+			hub.reconcileCounts([]string{"BB"}, []db.GetCourseCountsByIDsRow{{ID: "BB", CurrentStudents: int64(i)}})
+			client.notifyCounts()
+			time.Sleep(50 * time.Millisecond)
+		}
+
+		time.Sleep(wsCountInterval)
+		synctest.Wait()
+
+		var countWrites int
+
+		for _, w := range conn.sent() {
+			if strings.Contains(w, "course_count_update,") {
+				countWrites++
+			}
+		}
+
+		// Two seconds at one per half second, plus the first at once;
+		// unthrottled it was one per send cycle, 21.
+		if limit := 5; countWrites > limit {
+			t.Errorf("%d count writes for %d changes, want at most %d", countWrites, changes, limit)
+		}
+
+		sent := conn.sent()
+		if last := sent[len(sent)-1]; !strings.Contains(last, fmt.Sprintf("course_count_update,BB,%d", changes)) {
+			t.Errorf("last write %q, want the final count %d", last, changes)
+		}
+
+		// Counts have just gone out; an event must not wait for the
+		// next count interval.
+		hub.reconcileCounts([]string{"BB"}, []db.GetCourseCountsByIDsRow{{ID: "BB", CurrentStudents: 0}})
+		client.notifyCounts()
+
+		before := len(conn.sent())
+		start := time.Now()
+
+		client.enqueue("invalidate_courses")
+
+		for len(conn.sent()) == before {
+			time.Sleep(10 * time.Millisecond)
+		}
+
+		if waited := time.Since(start); waited > wsMinSendInterval {
+			t.Errorf("an event waited %v behind throttled counts, want at most %v", waited, wsMinSendInterval)
+		}
+	})
+}
+
+// Pages at the same cursor are handed the same rendered frames.
+func TestCountFramesAreRenderedOncePerChange(t *testing.T) {
+	t.Parallel()
+
+	hub := NewWebSocketHub(nil)
+	hub.reconcileCounts([]string{"BB", "CH"}, []db.GetCourseCountsByIDsRow{
+		{ID: "BB", CurrentStudents: 1}, {ID: "CH", CurrentStudents: 2},
+	})
+
+	var first, second uint64
+
+	a := hub.countFramesSince(&first)
+	b := hub.countFramesSince(&second)
+
+	if len(a) != 2 || len(b) != 2 || &a[0] != &b[0] {
+		t.Errorf("two pages at one cursor got separately rendered frames: %v, %v", a, b)
+	}
+
+	// A page further behind still gets its own, complete span.
+	hub.reconcileCounts([]string{"BB"}, []db.GetCourseCountsByIDsRow{{ID: "BB", CurrentStudents: 3}})
+
+	c := hub.countFramesSince(&first)
+
+	var fresh uint64
+
+	d := hub.countFramesSince(&fresh)
+
+	if !slices.Equal(c, []WSMessage{"course_count_update,BB,3"}) {
+		t.Errorf("a page one change behind got %v", c)
+	}
+
+	if len(d) != 2 {
+		t.Errorf("a new page got %v, want both courses", d)
+	}
+}

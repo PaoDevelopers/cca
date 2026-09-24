@@ -55,6 +55,18 @@ const wsHeartbeat = WSMessage("heartbeat")
 // sustained churn this bounds fan-out CPU at high client counts.
 const wsMinSendInterval = 100 * time.Millisecond
 
+// wsCountInterval is the least time between two seat-count updates to
+// one page. Events and student states still go at wsMinSendInterval.
+//
+// Counts are what every page is told about every enrollment, so under
+// a rush each page was written to up to ten times a second, and in a
+// simulated one those writes — a system call per page per update —
+// were a third of the server's CPU. A count is display: the page shows
+// a course as full from it, but the server enforces capacity on every
+// write, so a count half a second old costs a student at most a
+// refusal they would have got anyway.
+const wsCountInterval = 500 * time.Millisecond
+
 // wsMaxPerSubject bounds how many sockets one identity may hold.
 //
 // A session cookie is a bearer token with a three-day life and no
@@ -123,8 +135,11 @@ type Client struct {
 	cursor uint64 //exhaustruct:optional
 
 	wake chan struct{}
-	done chan struct{}
-	once sync.Once //exhaustruct:optional
+	// Rung when a count changed, apart from wake so that the pump can
+	// stop listening to it while counts are held back; see sendPump.
+	countsWake chan struct{}
+	done       chan struct{}
+	once       sync.Once //exhaustruct:optional
 
 	// seq orders this identity's sockets by arrival, so that the cap
 	// evicts the oldest. Assigned under the hub lock by register.
@@ -145,11 +160,12 @@ type Client struct {
 
 func newWSClient(hub *WebSocketHub, conn wsConn, studentID string) *Client {
 	return &Client{
-		hub:       hub,
-		conn:      conn,
-		studentID: studentID,
-		wake:      make(chan struct{}, 1),
-		done:      make(chan struct{}),
+		hub:        hub,
+		conn:       conn,
+		studentID:  studentID,
+		wake:       make(chan struct{}, 1),
+		countsWake: make(chan struct{}, 1),
+		done:       make(chan struct{}),
 	}
 }
 
@@ -201,6 +217,17 @@ type WebSocketHub struct {
 
 	// Orders student_state frames; see PushStudentState.
 	stateGen atomic.Uint64 //exhaustruct:optional
+
+	// The last count frames rendered, for the next page asking for the
+	// same span; see countFramesSince.
+	countsMemoMu sync.Mutex //exhaustruct:optional
+	countsMemo   countsMemo //exhaustruct:optional
+}
+
+// countsMemo is the count frames for the changes between two versions.
+type countsMemo struct {
+	from, to uint64
+	frames   []WSMessage
 }
 
 // NewWebSocketHub creates an empty hub; call Run to start the counts
@@ -285,7 +312,7 @@ func (h *WebSocketHub) Run(ctx context.Context) {
 
 			for _, set := range h.clients {
 				for client := range set {
-					client.notify()
+					client.notifyCounts()
 				}
 			}
 
@@ -601,14 +628,37 @@ func (h *WebSocketHub) remove(client *Client) {
 	client.once.Do(func() { close(client.done) })
 }
 
+// countsPendingSince reports whether any count changed after cursor.
+func (h *WebSocketHub) countsPendingSince(cursor uint64) bool {
+	h.countsMu.RLock()
+	defer h.countsMu.RUnlock()
+
+	return h.version > cursor
+}
+
 // countFramesSince renders one frame per course changed after cursor,
 // and advances it.
+//
+// Pages that are up to date sit at the same cursor, so after each
+// change they all ask for the same span; it is rendered for the first
+// and handed to the rest. The slice is shared and must not be
+// modified.
 func (h *WebSocketHub) countFramesSince(cursor *uint64) []WSMessage {
 	h.countsMu.RLock()
 	defer h.countsMu.RUnlock()
 
 	if h.version <= *cursor {
 		return nil
+	}
+
+	h.countsMemoMu.Lock()
+	memo := h.countsMemo
+	h.countsMemoMu.Unlock()
+
+	if memo.from == *cursor && memo.to == h.version {
+		*cursor = h.version
+
+		return memo.frames
 	}
 
 	var frames []WSMessage
@@ -618,6 +668,10 @@ func (h *WebSocketHub) countFramesSince(cursor *uint64) []WSMessage {
 			frames = append(frames, WSMessage("course_count_update,"+id+","+strconv.FormatInt(e.count, 10)))
 		}
 	}
+
+	h.countsMemoMu.Lock()
+	h.countsMemo = countsMemo{from: *cursor, to: h.version, frames: frames}
+	h.countsMemoMu.Unlock()
 
 	*cursor = h.version
 
@@ -638,6 +692,13 @@ func (c *Client) enqueue(msg WSMessage) {
 func (c *Client) notify() {
 	select {
 	case c.wake <- struct{}{}:
+	default:
+	}
+}
+
+func (c *Client) notifyCounts() {
+	select {
+	case c.countsWake <- struct{}{}:
 	default:
 	}
 }
@@ -677,8 +738,9 @@ func (c *Client) setState(gen uint64, frame WSMessage) {
 }
 
 // sendPump delivers pending events and count updates whenever woken,
-// reading current values at send time. Its own write pace is the only
-// throttle: a slow connection simply coalesces more per wake.
+// reading current values at send time: events at most every
+// wsMinSendInterval, counts at most every wsCountInterval, and a slow
+// connection simply coalesces more per wake.
 // The pumps take a context that outlives the request on purpose: the
 // connection is hijacked, so tying them to r.Context() would tear them
 // down the moment the handler returned. It is derived from the request
@@ -728,12 +790,41 @@ func (c *Client) sendPump(ctx context.Context) {
 		_ = c.conn.Close(status, reason)
 	}()
 
+	// When counts were last sent, and a timer for the next time they
+	// may be, while some are waiting; see wsCountInterval. The zero
+	// time lets the first counts, the snapshot a new page needs, go at
+	// once.
+	var (
+		countsSent time.Time
+		countsDue  <-chan time.Time
+	)
+
+	// One timer, re-armed each time round, rather than a new one per
+	// wake: at ten wakes a second on a thousand sockets the allocation
+	// showed in the profile.
+	ping := time.NewTimer(wsPingInterval)
+	defer ping.Stop()
+
 	for {
+		ping.Reset(wsPingInterval)
+
+		// While counts are held back, a count changing is no reason to
+		// wake: countsDue brings the pump back when they may go. Waking
+		// for each change anyway, only to find nothing to send, cost
+		// more than the writes the holding back saved.
+		countsWake := c.countsWake
+		if countsDue != nil {
+			countsWake = nil
+		}
+
 		select {
 		case <-c.done:
 			return
 		case <-c.wake:
-		case <-time.After(wsPingInterval):
+		case <-countsWake:
+		case <-countsDue:
+			countsDue = nil
+		case <-ping.C:
 			// Nothing to say, so ask whether anyone is listening.
 			// A peer that vanished without closing is detected here
 			// and nowhere else.
@@ -771,7 +862,17 @@ func (c *Client) sendPump(ctx context.Context) {
 
 		msgs := c.takePending()
 
-		msgs = append(msgs, c.hub.countFramesSince(&c.cursor)...)
+		if c.hub.countsPendingSince(c.cursor) {
+			if wait := wsCountInterval - time.Since(countsSent); wait > 0 {
+				if countsDue == nil {
+					countsDue = time.After(wait)
+				}
+			} else {
+				msgs = append(msgs, c.hub.countFramesSince(&c.cursor)...)
+				countsSent = time.Now()
+			}
+		}
+
 		if len(msgs) == 0 {
 			continue
 		}
