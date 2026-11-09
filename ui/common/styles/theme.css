@@ -155,3 +155,13 @@
 		position-try-fallbacks: flip-block, flip-inline;
 	}
 }
+
+@layer base {
+	/* Anchor positioning, as for the error popover above. */
+	.anchored-menu {
+		margin: 0.25rem 0;
+		inset: auto;
+		position-area: block-end span-inline-start;
+		position-try-fallbacks: flip-block, flip-inline;
+	}
+}

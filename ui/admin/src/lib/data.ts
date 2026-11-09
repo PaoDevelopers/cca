@@ -1,5 +1,7 @@
 // The admin app's shared data layer: one copy of every resource, one
 // event WebSocket, and one place that knows how to reload a resource.
+// A plain class that React reads through useSyncExternalStore, so the
+// write queue and the focus handling below do not depend on renders.
 //
 // Pages used to hold their own copies and open their own socket, which
 // meant a route change reconnected and the pages that share a resource
@@ -27,8 +29,7 @@ import type {
 	Period,
 	Violation,
 } from "@common/types"
-import { createContext, tick } from "svelte"
-import { SvelteSet } from "svelte/reactivity"
+import { createContext, useContext, useSyncExternalStore } from "react"
 
 const resourceNames = [
 	"categories",
@@ -61,31 +62,35 @@ function isResource(value: string): value is Resource {
 }
 
 export class AdminData {
-	public categories = $state.raw<Category[]>([])
-	public periods = $state.raw<Period[]>([])
-	public grades = $state.raw<Grade[]>([])
-	public courses = $state.raw<Course[]>([])
-	public students = $state.raw<AdminStudent[]>([])
-	public enrollments = $state.raw<Enrollment[]>([])
+	public categories: Category[] = []
+	public periods: Period[] = []
+	public grades: Grade[] = []
+	public courses: Course[] = []
+	public students: AdminStudent[] = []
+	public enrollments: Enrollment[] = []
 
 	// Advisory standing, read from the server rather than derived
 	// here: requirement satisfaction is a rule, and the rules have one
 	// definition. Loaded with "students", because that is the only
 	// page that shows it.
-	public studentStatus = $state.raw<StudentStatus[]>([])
+	public studentStatus: StudentStatus[] = []
 
 	// Most callers want the IDs alone, in display order.
-	public periodIDs = $derived(this.periods.map((p): string => p.id))
-	public categoryIDs = $derived(this.categories.map((c): string => c.id))
+	public get periodIDs(): string[] {
+		return this.periods.map((p): string => p.id)
+	}
+	public get categoryIDs(): string[] {
+		return this.categories.map((c): string => c.id)
+	}
 
-	public error = $state<string | null>(null)
+	public error: string | null = null
 
 	// A write the server refused because it would break negotiable
 	// rules, waiting for the administrator to confirm or abandon it.
 	// One field and one dialog for every such write: the protocol is
 	// the same wherever it surfaces, so it is presented in one place
 	// rather than re-implemented per form.
-	public pendingViolations = $state<PendingViolations | null>(null)
+	public pendingViolations: PendingViolations | null = null
 	// Whether any write is outstanding.
 	//
 	// Disable *buttons* with this, so an action is not repeated by
@@ -97,8 +102,28 @@ export class AdminData {
 	// on another — which is how every one of these forms is used — hits
 	// exactly that window. Serialising the writes below is what makes
 	// leaving the editors live safe.
-	public busy = $state(false)
-	public unauthenticated = $state(false)
+	public busy = false
+	public unauthenticated = false
+
+	// Bumped on every change, and what React compares: the fields above
+	// are replaced, never mutated, but there are several of them, and
+	// one number is a snapshot of all of them at once.
+	public version = 0
+	readonly #listeners = new Set<() => void>()
+
+	public subscribe = (listener: () => void): (() => void) => {
+		this.#listeners.add(listener)
+		return (): void => {
+			this.#listeners.delete(listener)
+		}
+	}
+
+	#changed(): void {
+		this.version++
+		for (const listener of this.#listeners) {
+			listener()
+		}
+	}
 
 	// Writes run one at a time, in the order they were asked for, so
 	// two edits in flight cannot interleave their read-modify-write of
@@ -129,7 +154,7 @@ export class AdminData {
 	// page-load path was tested against this one. Navigating to
 	// Enrollments after saving a course therefore issued no request at
 	// all and showed a table that had been wrong since the save.
-	readonly #loaded = new SvelteSet<Resource>()
+	readonly #loaded = new Set<Resource>()
 
 	// What the page currently on screen reads, which is a smaller set
 	// and the one an invalidation frame should act on.
@@ -257,9 +282,13 @@ export class AdminData {
 
 		this.#outstanding++
 		this.busy = true
+		this.#changed()
 
 		const next = this.#queue.then(async (): Promise<boolean> => {
-			this.error = null
+			if (this.error !== null) {
+				this.error = null
+				this.#changed()
+			}
 			try {
 				await action()
 				await this.refresh(...touched)
@@ -271,6 +300,7 @@ export class AdminData {
 				this.#outstanding--
 				if (this.#outstanding === 0) {
 					this.busy = false
+					this.#changed()
 					void this.#returnFocus()
 				}
 			}
@@ -310,7 +340,9 @@ export class AdminData {
 			return
 		}
 
-		await tick()
+		// React commits the re-enable on its next render, which a
+		// frame is enough for.
+		await nextFrame()
 
 		for (let frame = 0; frame < focusRestoreFrames; frame++) {
 			if (document.activeElement === document.body) {
@@ -398,9 +430,11 @@ export class AdminData {
 					this.pendingViolations = null
 					this.#outstanding = held
 					this.busy = held > 0
+					this.#changed()
 					resolve(accepted)
 				},
 			}
+			this.#changed()
 		})
 	}
 
@@ -416,6 +450,12 @@ export class AdminData {
 			// the caller to put to the user, not an error to display.
 			this.error = batchErrorMessage(err, fallback)
 		}
+		this.#changed()
+	}
+
+	public dismissError(): void {
+		this.error = null
+		this.#changed()
 	}
 
 	// Opens the one event socket. Returns its teardown, so the caller
@@ -450,6 +490,7 @@ export class AdminData {
 						? { ...c, current_students: currentStudents }
 						: c,
 				)
+				this.#changed()
 			},
 			// Whatever changed while the socket was down was never
 			// delivered, and there is no way to find out what it was.
@@ -472,6 +513,7 @@ export class AdminData {
 			// rather than left to notice.
 			ongiveup: (reason: string): void => {
 				this.error = reason
+				this.#changed()
 			},
 		})
 	}
@@ -486,6 +528,7 @@ export class AdminData {
 		const pending = fetcher()
 			.then((): void => {
 				this.#loaded.add(resource)
+				this.#changed()
 			})
 			.catch((err: unknown): void => {
 				this.report(err, fallback)
@@ -506,4 +549,16 @@ export interface PendingViolations {
 	answer: (accepted: boolean) => void
 }
 
-export const [getAdminData, setAdminData] = createContext<AdminData>()
+export const AdminDataContext = createContext<AdminData | null>(null)
+
+// The data layer, re-rendering the caller whenever anything in it
+// changes. Coarse on purpose: the pages are small, and one subscription
+// cannot disagree with itself the way per-field ones can.
+export function useAdminData(): AdminData {
+	const data = useContext(AdminDataContext)
+	if (data === null) {
+		throw new Error("useAdminData outside AdminDataContext")
+	}
+	useSyncExternalStore(data.subscribe, (): number => data.version)
+	return data
+}

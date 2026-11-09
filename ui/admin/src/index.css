@@ -1,0 +1,6 @@
+@import "tailwindcss" source(none);
+@import "../../common/styles/theme.css";
+
+/* Scoped to this panel, as in the student panel's stylesheet. */
+@source ".";
+@source "../../common/src/components";

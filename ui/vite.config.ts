@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url"
 import { defineConfig } from "vite"
 import { devServer } from "./dev"
 
-// The two React frontends, built together so that they share one copy
-// of React.
+// The React frontends, built together so that they share one copy of
+// React.
 //
 // They are separate pages, not one app with two views: the portal at
 // the root chooses between the areas and the student panel is one of
@@ -17,7 +17,8 @@ import { devServer } from "./dev"
 // The price is that one build has one `base`, so both pages take "/"
 // and the panel's assets moved from /student/assets/ to /assets/. The
 // SPA still lives at /student/; only where its script comes from
-// changed. The Svelte admin panel keeps its own build.
+// changed. The admin panel at /admin/ is the third page, on the same
+// terms.
 export default defineConfig({
 	root: fileURLToPath(new URL(".", import.meta.url)),
 	base: "/",
@@ -47,6 +48,9 @@ export default defineConfig({
 				student: fileURLToPath(
 					new URL("./student/index.html", import.meta.url),
 				),
+				admin: fileURLToPath(
+					new URL("./admin/index.html", import.meta.url),
+				),
 			},
 		},
 	},
@@ -54,5 +58,8 @@ export default defineConfig({
 		"/student/api",
 		"/student/logout",
 		"/api/session",
+		"/admin/api",
+		"/admin/static",
+		"/admin/logout",
 	]),
 })
