@@ -108,3 +108,20 @@ export function SignOutIcon(): ReactElement {
 		</svg>
 	)
 }
+
+export function UploadIcon(): ReactElement {
+	return (
+		<svg
+			aria-hidden="true"
+			viewBox="0 0 16 16"
+			className="size-[1.125rem]"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="M8 10.5v-8M5 5.5l3-3 3 3M2.5 10v2A1.5 1.5 0 0 0 4 13.5h8a1.5 1.5 0 0 0 1.5-1.5v-2" />
+		</svg>
+	)
+}

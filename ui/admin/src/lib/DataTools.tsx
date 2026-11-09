@@ -7,7 +7,7 @@ import { Button } from "@common/components/ui/button"
 import { Input, Label } from "@common/components/ui/input"
 import { toast } from "@common/components/ui/toast"
 import { useId, useState, type ReactElement, type ReactNode } from "react"
-import { TrashIcon } from "./icons"
+import { TrashIcon, UploadIcon } from "./icons"
 
 interface Props {
 	section: string
@@ -145,10 +145,12 @@ export function DataTools({
 								/>
 							</Label>
 							<Button
-								size="default"
+								size="icon"
 								disabled={busy || file === null}
+								aria-label={`Import into ${section}`}
+								tooltip={`Import into ${section}`}
 							>
-								Import into {section}
+								<UploadIcon />
 							</Button>
 						</div>
 					</form>
