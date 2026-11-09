@@ -19,6 +19,7 @@ import {
 import { Input, Label } from "@common/components/ui/input"
 import { toast } from "@common/components/ui/toast"
 import { useState, type ReactElement, type ReactNode } from "react"
+import { TrashIcon } from "./ConfirmDelete"
 
 interface Props {
 	section: string
@@ -106,6 +107,7 @@ export function DataTools({
 						setDialog("reset")
 					}}
 				>
+					<TrashIcon />
 					Delete all {section}…
 				</DropdownMenuItem>
 			</DropdownMenu>

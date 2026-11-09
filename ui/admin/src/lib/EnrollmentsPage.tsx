@@ -505,7 +505,6 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 										<TableCell className="text-right">
 											<ConfirmDelete
 												action="Delete"
-												size="xs"
 												target={`the enrollment of ${enrollment.course_id} for ${enrollment.student_id}`}
 												disabled={data.busy}
 												onconfirm={(): void => {

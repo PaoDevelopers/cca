@@ -27,7 +27,7 @@ import {
 	type ReactElement,
 	type ReactNode,
 } from "react"
-import { ConfirmDelete } from "./ConfirmDelete"
+import { ConfirmDelete, TrashIcon } from "./ConfirmDelete"
 import { formatInstant, fromLocalInput, toLocalInput } from "./datetime"
 
 interface Props {
@@ -587,8 +587,10 @@ export function GradeCard({
 								<Button
 									type="button"
 									variant="ghost"
-									size="xs"
+									size="icon-sm"
+									className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 									aria-label="Remove this requirement"
+									title="Remove this requirement"
 									onClick={(): void => {
 										editRequirements((drafts) =>
 											drafts.filter(
@@ -597,7 +599,7 @@ export function GradeCard({
 										)
 									}}
 								>
-									Remove
+									<TrashIcon />
 								</Button>
 							</TableCell>
 						</TableRow>

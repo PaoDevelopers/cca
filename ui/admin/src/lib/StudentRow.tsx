@@ -108,7 +108,6 @@ export function StudentRow({
 							action="Delete"
 							target={student.id}
 							disabled={busy}
-							size="xs"
 							onconfirm={ondelete}
 						/>
 					</div>
