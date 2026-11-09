@@ -1,8 +1,565 @@
-import type { ReactElement } from "react"
+import {
+	checkEnrollmentImport,
+	commitEnrollmentImport,
+	removeEnrollments,
+	type EnrollmentImportCheck,
+} from "@common/adminApi"
+import { filterByCel, type FilterMode } from "@common/cel"
+import { Button } from "@common/components/ui/button"
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@common/components/ui/card"
+import { Checkbox } from "@common/components/ui/input"
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@common/components/ui/table"
+import { toast } from "@common/components/ui/toast"
+import { matchesFilter } from "@common/filter"
+import { isViolationError } from "@common/http"
+import type { Course, Enrollment } from "@common/types"
+import { useEffect, useMemo, useState, type ReactElement } from "react"
+import { ConfirmDelete } from "./ConfirmDelete"
+import { DataTools } from "./DataTools"
+import { useAdminData } from "./data"
+import { EnrollmentForm } from "./EnrollmentForm"
+import { EnrollmentImportDraft } from "./EnrollmentImportDraft"
+import {
+	courseLabel as courseLabelOf,
+	enrollmentCelContext,
+	enrollmentKey as key,
+	policyLabel,
+} from "./enrollments"
+import { FilterBar } from "./FilterBar"
 
-export function EnrollmentsPage(_: {
+interface Props {
+	// The route's ?q=, owned by the shell so the box and the URL stay
+	// one value.
 	filter: string
 	setFilter: (filter: string) => void
-}): ReactElement {
-	return <p>TODO</p>
+}
+
+// The sortable columns, each with the text it sorts by.
+const columns = {
+	student: (e: Enrollment): string => e.student_id,
+	name: (e: Enrollment): string => e.student_name,
+	grade: (e: Enrollment): string => e.grade_id,
+	course: (e: Enrollment): string => e.course_id,
+	title: (e: Enrollment): string => e.course_name,
+	policy: (e: Enrollment): string => policyLabel(e),
+} as const
+type Column = keyof typeof columns
+
+export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
+	const data = useAdminData()
+
+	useEffect((): void => {
+		data.want("enrollments", "courses")
+	}, [data])
+
+	const courseByID = useMemo(
+		(): Map<string, Course> =>
+			new Map(data.courses.map((c): [string, Course] => [c.id, c])),
+		[data.courses],
+	)
+
+	function courseLabel(id: string, name: string): string {
+		return courseLabelOf(courseByID, id, name)
+	}
+
+	// When the course meets. Held on the course rather than the
+	// enrollment, so a course that is no longer listed leaves this
+	// blank rather than the row missing.
+	function coursePeriods(id: string): string[] {
+		return courseByID.get(id)?.period_ids ?? []
+	}
+
+	const [mode, setMode] = useState<FilterMode>("simple")
+	// Row selection for bulk deletion.
+	const [selected, setSelected] = useState<string[]>([])
+	const [sort, setSort] = useState<{
+		column: Column
+		ascending: boolean
+	} | null>(null)
+
+	function run(action: () => Promise<void>): Promise<boolean> {
+		return data.run(action, "enrollments", "courses")
+	}
+
+	// Placement can break every negotiable rule, so it is confirmed
+	// rather than overridden. Removal cannot break anything, so it takes
+	// the plain path.
+	function runAccepting(
+		action: (accept: string[]) => Promise<void>,
+	): Promise<boolean> {
+		return data.runAccepting(action, "enrollments", "courses")
+	}
+
+	// A clean file goes straight in; one with conflicts is held as a
+	// draft until every conflict has been decided. Numbered so a
+	// reopened draft starts with no choices made.
+	const [draft, setDraft] = useState<{
+		id: number
+		file: File
+		check: EnrollmentImportCheck
+	} | null>(null)
+
+	function importFile(file: File): void {
+		let held = false
+		void run(async (): Promise<void> => {
+			const check = await checkEnrollmentImport(file)
+			if (check.violations.length === 0 && check.unknown.length === 0) {
+				await commitEnrollmentImport(file, [], [])
+			} else {
+				held = true
+				setDraft({ id: Date.now(), file, check })
+			}
+		}).then((ok): void => {
+			if (ok && !held) {
+				toast(`Imported ${file.name} into enrollments.`)
+			}
+		})
+	}
+
+	// Something changed between the check and the upload if the upload
+	// is refused, so the file is checked again and the draft reopened.
+	function commitDraft(file: File, drop: string[], accept: string[]): void {
+		setDraft(null)
+		let reopened = false
+		void run(async (): Promise<void> => {
+			try {
+				await commitEnrollmentImport(file, drop, accept)
+			} catch (err) {
+				if (!isViolationError(err)) {
+					throw err
+				}
+				reopened = true
+				setDraft({
+					id: Date.now(),
+					file,
+					check: await checkEnrollmentImport(file),
+				})
+			}
+		}).then((ok): void => {
+			if (ok && !reopened) {
+				toast(`Imported ${file.name} into enrollments.`)
+			}
+		})
+	}
+
+	// Removals are grouped by course: remove_enrollments takes one
+	// course and many students, which is also the order its locks are
+	// taken in.
+	function removeMany(targets: Enrollment[]): void {
+		const byCourse = new Map<string, string[]>()
+		for (const target of targets) {
+			byCourse.set(target.course_id, [
+				...(byCourse.get(target.course_id) ?? []),
+				target.student_id,
+			])
+		}
+		void run(async (): Promise<void> => {
+			for (const [courseID, studentIDs] of [...byCourse].sort()) {
+				await removeEnrollments(courseID, studentIDs)
+			}
+		}).then((ok): void => {
+			if (ok) {
+				toast(
+					targets.length === 1
+						? "Enrollment deleted."
+						: `${String(targets.length)} enrollments deleted.`,
+				)
+			}
+		})
+	}
+
+	const celResult =
+		mode === "cel"
+			? filterByCel(filter, data.enrollments, (s) =>
+					enrollmentCelContext(s, courseByID.get(s.course_id)),
+				)
+			: { rows: data.enrollments, error: null, unfiltered: false }
+
+	const matching =
+		mode === "cel"
+			? celResult.rows
+			: data.enrollments.filter((s): boolean =>
+					matchesFilter(filter, {
+						student: { exact: s.student_id },
+						name: s.student_name,
+						grade: { exact: s.grade_id },
+						course: { exact: s.course_id },
+						title: s.course_name,
+						period: { exact: coursePeriods(s.course_id) },
+						policy: policyLabel(s),
+						droppable: s.student_droppable ? "yes" : "no",
+						budgeted: s.counts_toward_budget ? "yes" : "no",
+					}),
+				)
+
+	const filtered =
+		sort === null
+			? matching
+			: [...matching].sort((a, b): number => {
+					const by = columns[sort.column]
+					const order = by(a).localeCompare(by(b), undefined, {
+						numeric: true,
+					})
+					return sort.ascending ? order : -order
+				})
+
+	// An enrollment deleted elsewhere leaves a stale key behind.
+	// Dropping those at read time rather than writing the selection back
+	// keeps it a plain input to the render, with nothing to converge.
+	const liveKeys = new Set(data.enrollments.map(key))
+	const liveSelected = selected.filter((k): boolean => liveKeys.has(k))
+	const selectedSet = new Set(liveSelected)
+
+	const allFilteredSelected =
+		filtered.length > 0 &&
+		filtered.every((s): boolean => selectedSet.has(key(s)))
+
+	// A filter that did not compile shows every row, so "all filtered"
+	// would be "everything" — and the bulk controls are the one place
+	// where that is destructive rather than merely wrong. The rows stay
+	// on screen; only acting on them in bulk is withheld until the
+	// expression means something.
+	const bulkUnavailable = mode === "cel" && celResult.unfiltered
+
+	function header(column: Column, label: string): ReactElement {
+		const current = sort?.column === column ? sort : null
+		let direction: "ascending" | "descending" | undefined
+		if (current !== null) {
+			direction = current.ascending ? "ascending" : "descending"
+		}
+		const arrows = { ascending: "↑", descending: "↓" }
+		return (
+			<TableHead scope="col" aria-sort={direction}>
+				<button
+					type="button"
+					className="inline-flex items-center gap-1 hover:text-foreground"
+					onClick={(): void => {
+						setSort({
+							column,
+							ascending: !(current?.ascending ?? false),
+						})
+					}}
+				>
+					{label}
+					<span aria-hidden="true" className="text-xs">
+						{direction === undefined ? "↕" : arrows[direction]}
+					</span>
+				</button>
+			</TableHead>
+		)
+	}
+
+	return (
+		<section
+			aria-labelledby="enrollments-heading"
+			className="flex flex-col gap-4"
+		>
+			{/*
+				tabIndex because it is also where the data layer puts the
+				focus when the control that started a write no longer
+				exists.
+			*/}
+			<div className="flex flex-wrap items-center justify-between gap-2">
+				<h2
+					id="enrollments-heading"
+					tabIndex={-1}
+					className="text-2xl font-semibold tracking-tight outline-none"
+				>
+					Enrollments
+				</h2>
+				{data.ready("enrollments", "courses") && (
+					<DataTools
+						section="enrollments"
+						exportHref="/admin/api/enrollments/export"
+						importAction="/admin/api/enrollments/import"
+						onimport={importFile}
+						busy={data.busy}
+						run={run}
+					/>
+				)}
+			</div>
+
+			{!data.ready("enrollments", "courses") ? (
+				<p className="text-muted-foreground">Loading…</p>
+			) : (
+				<>
+					<Card>
+						<CardHeader>
+							<CardTitle>Place students</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<EnrollmentForm
+								courses={data.courses}
+								courseByID={courseByID}
+								busy={data.busy}
+								runAccepting={runAccepting}
+							/>
+						</CardContent>
+					</Card>
+
+					<FilterBar
+						query={filter}
+						onQuery={setFilter}
+						mode={mode}
+						onMode={setMode}
+						error={mode === "cel" ? celResult.error : null}
+						summary={
+							filtered.length === data.enrollments.length
+								? `${String(data.enrollments.length)} enrollments`
+								: `${String(filtered.length)} of ${String(data.enrollments.length)} enrollments shown`
+						}
+						fields={{
+							student: "student ID (exact)",
+							name: "student name",
+							grade: "year group (exact)",
+							course: "course ID (exact)",
+							title: "course title",
+							period: "meeting period ID (exact)",
+							policy: "Own pick, Invitation, Committed, or Placed",
+							droppable: "may the student drop it (yes or no)",
+							budgeted: "does it charge their budget (yes or no)",
+						}}
+						celFields={{
+							"student.id": "student ID",
+							"student.name": "student name",
+							"student.grade": "year group",
+							"course.id": "course ID",
+							"course.name": "course title",
+							"course.category_id":
+								"category of the enrolled course",
+							"course.term": "term label",
+							"course.teacher": "lead teacher",
+							"course.location": "room or venue",
+							"course.cost": "cost text, empty when free",
+							"course.invite_only": "invite-only (boolean)",
+							"course.periods": "list of meeting period IDs",
+							"course.max_students":
+								"capacity (number), null when uncapped",
+							"course.full":
+								"at or over capacity (boolean); false when uncapped",
+							"course.current_students":
+								"enrolled count (number)",
+							droppable: "may the student drop it (boolean)",
+							budgeted: "does it charge their budget (boolean)",
+						}}
+						celExample={
+							'course.category_id == "SPORT" && student.grade == "Y9"'
+						}
+					/>
+
+					{liveSelected.length > 0 && (
+						<div className="flex items-center gap-3 rounded-lg border bg-muted/50 px-3 py-2 text-sm">
+							<span>
+								{liveSelected.length}{" "}
+								{liveSelected.length === 1
+									? "enrollment"
+									: "enrollments"}{" "}
+								selected.
+							</span>
+							<ConfirmDelete
+								action="Delete"
+								target={`the ${String(liveSelected.length)} selected enrollments`}
+								disabled={data.busy || bulkUnavailable}
+								onconfirm={(): void => {
+									removeMany(
+										data.enrollments.filter((s): boolean =>
+											selectedSet.has(key(s)),
+										),
+									)
+								}}
+							/>
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								onClick={(): void => {
+									setSelected([])
+								}}
+							>
+								Clear selection
+							</Button>
+						</div>
+					)}
+
+					<Table>
+						<TableHeader>
+							<TableRow>
+								<TableHead scope="col" className="w-8">
+									<Checkbox
+										aria-label="Select all filtered enrollments"
+										disabled={bulkUnavailable}
+										checked={
+											allFilteredSelected &&
+											!bulkUnavailable
+										}
+										onChange={(event): void => {
+											const keys = filtered.map(key)
+											if (event.currentTarget.checked) {
+												setSelected([
+													...new Set([
+														...selected,
+														...keys,
+													]),
+												])
+											} else {
+												const drop = new Set(keys)
+												setSelected(
+													selected.filter(
+														(k): boolean =>
+															!drop.has(k),
+													),
+												)
+											}
+										}}
+									/>
+								</TableHead>
+								{header("student", "Student")}
+								{header("name", "Name")}
+								{header("grade", "Grade")}
+								{header("course", "Course")}
+								{header("title", "Title")}
+								<TableHead scope="col">Periods</TableHead>
+								{header("policy", "Policy")}
+								<TableHead scope="col">
+									<span className="sr-only">Actions</span>
+								</TableHead>
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{filtered.map((enrollment) => {
+								const k = key(enrollment)
+								const periods = coursePeriods(
+									enrollment.course_id,
+								)
+								return (
+									<TableRow
+										key={k}
+										data-state={
+											selectedSet.has(k)
+												? "selected"
+												: undefined
+										}
+									>
+										<TableCell>
+											<Checkbox
+												aria-label={`Select the enrollment of ${enrollment.course_id} for ${enrollment.student_id}`}
+												checked={selectedSet.has(k)}
+												onChange={(event): void => {
+													setSelected(
+														event.currentTarget
+															.checked
+															? [...selected, k]
+															: selected.filter(
+																	(
+																		s,
+																	): boolean =>
+																		s !== k,
+																),
+													)
+												}}
+											/>
+										</TableCell>
+										<th
+											scope="row"
+											className="px-3 py-2 text-left font-medium"
+										>
+											{enrollment.student_id}
+										</th>
+										<TableCell>
+											{enrollment.student_name}
+										</TableCell>
+										<TableCell>
+											{enrollment.grade_id}
+										</TableCell>
+										<TableCell>
+											<code className="rounded bg-muted px-1 py-0.5 text-xs">
+												{enrollment.course_id}
+											</code>
+										</TableCell>
+										<TableCell>
+											{courseLabel(
+												enrollment.course_id,
+												enrollment.course_name,
+											)}
+										</TableCell>
+										{/*
+											Labelled when blank, as in the courses table: an
+											empty cell read out as nothing says only that the
+											reader lost their place.
+										*/}
+										<TableCell
+											aria-label={
+												periods.length === 0
+													? "None"
+													: undefined
+											}
+										>
+											{periods.join(", ")}
+										</TableCell>
+										<TableCell>
+											{policyLabel(enrollment)}
+										</TableCell>
+										<TableCell className="text-right">
+											<ConfirmDelete
+												action="Delete"
+												size="xs"
+												target={`the enrollment of ${enrollment.course_id} for ${enrollment.student_id}`}
+												disabled={data.busy}
+												onconfirm={(): void => {
+													removeMany([enrollment])
+												}}
+											/>
+										</TableCell>
+									</TableRow>
+								)
+							})}
+							{filtered.length === 0 && (
+								<TableRow>
+									<TableCell
+										colSpan={9}
+										className="text-muted-foreground"
+									>
+										{data.enrollments.length === 0
+											? "No enrollments yet."
+											: "No enrollments match your filter."}
+									</TableCell>
+								</TableRow>
+							)}
+						</TableBody>
+					</Table>
+				</>
+			)}
+
+			{draft !== null && (
+				<EnrollmentImportDraft
+					key={draft.id}
+					check={draft.check}
+					holds={(studentID, courseID): boolean =>
+						liveKeys.has(`${studentID}:${courseID}`)
+					}
+					courseLabel={(id): string =>
+						courseLabel(id, courseByID.get(id)?.name ?? id)
+					}
+					upload={(drop, accept): void => {
+						commitDraft(draft.file, drop, accept)
+					}}
+					cancel={(): void => {
+						setDraft(null)
+					}}
+				/>
+			)}
+		</section>
+	)
 }
