@@ -24,6 +24,10 @@ type Server struct {
 	// on the first sign-in.
 	sessionKey sessionKey
 
+	// -dev-login: the sign-in page takes any account name, and no
+	// identity provider is consulted. See devlogin.go.
+	devLogin bool
+
 	// Fires at the next enrollment-window boundary so open pages
 	// repaint; see window_timer.go for why it is allowed to miss.
 	windowTimer *windowTimer

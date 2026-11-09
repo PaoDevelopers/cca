@@ -2,20 +2,18 @@
 // real cca serving it, and a browser.
 //
 // One thing is faked, because the test cannot host it and it is not
-// what is under test: the identity provider. An empty JWKS is enough
-// to get the server past startup, and the session cookies the callback
-// would have set are minted with `cca -session`, which is the server's
-// own encoder — not a reimplementation of the cookie format that could
-// keep passing after the real one changed. Every request the browser
-// makes is answered by the production handlers.
+// what is under test: the identity provider. cca runs with -dev-login,
+// and each context signs in through that form, so the session cookie
+// is set by the server's own encoder after the same allowlist and
+// roster checks a real sign-in gets. Every request the browser makes
+// is answered by the production handlers.
 //
 // Chromium is taken from PATH or the standard macOS application path
 // and never downloaded, which is why the dependency is playwright-core
 // rather than playwright.
 
 import { execFileSync, spawn, type ChildProcess } from "node:child_process"
-import { accessSync, constants, rmSync } from "node:fs"
-import { tmpdir } from "node:os"
+import { accessSync, constants } from "node:fs"
 import { createServer, type Server } from "node:http"
 import { createServer as createSocketServer } from "node:net"
 import { dirname, join } from "node:path"
@@ -48,8 +46,7 @@ export interface Harness {
 	// budget cap, a fixed placement, a closed window. What is under
 	// test is always still driven through the browser.
 	exec: (sql: string) => void
-	// A context already carrying a freshly minted session cookie for
-	// this subject.
+	// A context already signed in as this subject.
 	contextFor: (
 		role: "student" | "admin",
 		subject: string,
@@ -149,40 +146,19 @@ function freePort(): Promise<number> {
 	})
 }
 
-// A second origin, on its own port. It exists mainly to serve a JWKS
-// that keyfunc will accept at startup (the tests never present a
-// token, so it never needs a key in it), and doubles as somewhere to
-// host a page from a *different* origin than cca, which is what the
-// cross-origin write test needs.
+// A second origin, on its own port: somewhere to host a page from a
+// *different* origin than cca, which is what the cross-origin write
+// test needs.
 //
 // Binds port 0 and reads back what it got, rather than going through
 // freePort: this one holds its port for the whole run, so the port
 // picked for cca afterwards cannot collide with it.
-// One RSA public key. Public halves are not secrets, and no private
-// half exists anywhere: it was generated, the modulus taken, and the
-// private key discarded.
-const JWKS_BODY =
-	'{"keys":[{"kty":"RSA","use":"sig","alg":"RS256","kid":"cca-test-key","n":"yUTE4rJiXNo1638MtAfLikr7tmeyrvlR34lWDEsyyWEhXTNNgGQscxEcWUeLNJWOjSEJCuge6z-8x39bRWtvdPJMNuW6veAREf7R13ZzE4F_OnQFwSvuVvRMQoo7Dmybr0I5TfrAfSBT1g8Hgd-bYLxvth3Bmh6nWL6pR7xsXZ_j4cRIDq8cjcypY6fBARuIjPzxppk_julfhTHggb2yqMF6Gi59fA9OGX40J2r3e88HNuK3w6gAdJtGu7ChHD5f2u2KB5sYWEgsSBtHHbuwtSfGW8M9Aw0NFy8_b-Ta9XimKft4vjIVXySNo87fSnZI4Yv-8-rtHw-glV46Z5gY9w","e":"AQAB"}]}'
-
-async function startJWKS(): Promise<{
+async function startOtherOrigin(): Promise<{
 	origin: string
-	url: string
 	server: Server
 }> {
 	const server = createServer((req, res): void => {
-		if (req.url?.startsWith("/jwks.json") === true) {
-			res.writeHead(200, { "content-type": "application/json" })
-			// A real signing key, not an empty set. Nothing here ever
-			// verifies a token — the tests mint session cookies
-			// directly — but the server now refuses to start against a
-			// key set that served no keys, because serving on one
-			// means every probe is green while nobody can sign in. A
-			// stub that answers the way no real identity provider ever
-			// would would exempt the tests from that check.
-			res.end(JWKS_BODY)
-			return
-		}
-		// Any other path is a blank page, so a test can run script in
+		// A blank page, so a test can run script in
 		// this origin rather than cca's.
 		res.writeHead(200, { "content-type": "text/html" })
 		res.end("<!doctype html><title>other origin</title>")
@@ -192,7 +168,7 @@ async function startJWKS(): Promise<{
 		server.listen(0, "127.0.0.1", (): void => {
 			const address = server.address()
 			if (address === null || typeof address === "string") {
-				reject(new Error("no port assigned to the jwks stub"))
+				reject(new Error("no port assigned to the other origin"))
 				return
 			}
 			resolve(address.port)
@@ -200,7 +176,7 @@ async function startJWKS(): Promise<{
 	})
 	const origin = `http://127.0.0.1:${String(port)}`
 
-	return { origin, url: `${origin}/jwks.json`, server }
+	return { origin, server }
 }
 
 async function waitForServer(
@@ -220,7 +196,7 @@ async function waitForServer(
 			})
 			if (response.ok) {
 				// A port cca failed to bind may be answering for
-				// something else entirely — the jwks stub, or another
+				// something else entirely — the other origin, or another
 				// run's server. Anything but cca's landing page here
 				// would surface much later as an inexplicable timeout
 				// in whichever test looked at the page first.
@@ -254,14 +230,7 @@ export async function startHarness(): Promise<Harness> {
 	const port = await freePort()
 	const baseURL = `http://127.0.0.1:${String(port)}`
 	const dbName = `cca_e2e_${String(process.pid)}`
-	const jwks = await startJWKS()
-
-	// Named rather than left to the backend script's mktemp, because
-	// minting a cookie needs the same file.
-	const confPath = join(
-		tmpdir(),
-		`cca-e2e-${String(process.pid)}-${String(port)}.conf`,
-	)
+	const other = await startOtherOrigin()
 
 	// Keep the backend in this process group, so an interrupt from the
 	// terminal reaches it too. Its trap stops cca and drops the database.
@@ -270,8 +239,6 @@ export async function startHarness(): Promise<Harness> {
 			...process.env,
 			CCA_E2E_DB: dbName,
 			CCA_E2E_ADDR: `127.0.0.1:${String(port)}`,
-			CCA_E2E_JWKS: jwks.url,
-			CCA_E2E_CONF: confPath,
 		},
 		stdio: ["ignore", "pipe", "pipe"],
 	})
@@ -324,31 +291,14 @@ export async function startHarness(): Promise<Harness> {
 			}
 			await exited
 			await new Promise<void>((resolve): void => {
-				jwks.server.close((): void => {
+				other.server.close((): void => {
 					resolve()
 				})
 			})
-			try {
-				rmSync(confPath, { force: true })
-			} catch {
-				// the backend script may have removed it already
-			}
 		})()
 
 		return shutdownPromise
 	}
-
-	// The server's own encoder, so the tests cannot drift from the
-	// cookie format they depend on.
-	const mint = (role: "student" | "admin", subject: string): string =>
-		execFileSync(join(scriptDir, "..", "..", "cca"), [
-			"-c",
-			confPath,
-			"-session",
-			`${role}:${subject}`,
-		])
-			.toString()
-			.trim()
 
 	let browser: Browser
 	try {
@@ -399,7 +349,7 @@ export async function startHarness(): Promise<Harness> {
 	return {
 		baseURL,
 		exec,
-		otherOrigin: jwks.origin,
+		otherOrigin: other.origin,
 		browser,
 		describe: async (page: Page): Promise<string> => {
 			let body = "<unreadable>"
@@ -427,16 +377,26 @@ export async function startHarness(): Promise<Harness> {
 				contexts.delete(context)
 			})
 			try {
-				await context.addCookies([
-					{
-						name:
-							role === "admin"
-								? "admin_session"
-								: "student_session",
-						value: mint(role, subject),
-						url: baseURL,
-					},
-				])
+				const response = await fetch(`${baseURL}/dev/login`, {
+					method: "POST",
+					body: new URLSearchParams({ role, email: subject }),
+					redirect: "manual",
+				})
+				const name = `${role}_session`
+				const value = response.headers
+					.getSetCookie()
+					.map((c) => c.split(";")[0] ?? "")
+					.find((c) => c.startsWith(`${name}=`))
+					?.slice(name.length + 1)
+				if (value === undefined || value === "") {
+					throw new Error(
+						`dev login as ${role}:${subject} set no session (status ${String(response.status)})`,
+					)
+				}
+				// Copied in rather than left to a cookie jar: the
+				// server marks it Secure, and this origin is plain
+				// http.
+				await context.addCookies([{ name, value, url: baseURL }])
 			} catch (err) {
 				await context.close()
 				throw err

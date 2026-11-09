@@ -94,4 +94,5 @@ const (
 	logMsgStartupRoutesRegister = "startup.routes.register" //#nosec:G101
 	logMsgStartupListenerStart  = "startup.listener.start"  //#nosec:G101
 	logMsgStartupServing        = "startup.server.serve"    //#nosec:G101
+	logMsgStartupDevLogin       = "startup.dev_login"       //#nosec:G101
 )

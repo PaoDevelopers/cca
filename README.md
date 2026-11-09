@@ -26,6 +26,17 @@ then you should be able to use the vite development server.
 You need to set up a few environment variables
 as seen in `ui/dev.ts`.
 
+## Running without the identity provider
+
+`./cca -dev-login` adds a form to the sign-in pages
+that signs you in as any account you name,
+without contacting the identity provider.
+The domain rule, the administrator list and the student roster
+still apply.
+It refuses to start unless `listen.address`
+is a loopback address such as `127.0.0.1:8080`.
+Never use it on a server other people can reach.
+
 ## Configuration and setup
 
 Copy `cca.conf.example` to `cca.conf`

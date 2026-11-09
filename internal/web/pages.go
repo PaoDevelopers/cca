@@ -101,6 +101,11 @@ var signinTemplate = template.Must(template.New("signin").Parse(`<!doctype html>
 <h1>CCA {{ .Role }} area</h1>
 {{ if .Error }}<p class="error">{{ .Error }}</p>{{ end }}
 <p><a class="button" href="{{ .URL }}">Sign in with your school account</a></p>
+{{ if .DevLogin }}<form method="post" action="/dev/login">
+<input type="hidden" name="role" value="{{ .Role }}" />
+<p><label>Development sign-in as <input name="email" required placeholder="localpart or address" /></label>
+<button class="button">Sign in</button></p>
+</form>{{ end }}
 <p><small><a href="/">Back</a></small></p>
 </main>` + pageFooter + `
 </body>
@@ -108,9 +113,10 @@ var signinTemplate = template.Must(template.New("signin").Parse(`<!doctype html>
 `))
 
 type signinData struct {
-	Role  string
-	URL   string
-	Error string
+	Role     string
+	URL      string
+	Error    string
+	DevLogin bool
 }
 
 func (app *Server) renderPage(w http.ResponseWriter, r *http.Request, tmpl *template.Template, data any) {

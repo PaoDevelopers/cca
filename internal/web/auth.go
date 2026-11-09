@@ -184,9 +184,10 @@ func (app *Server) serveSignin(w http.ResponseWriter, r *http.Request, role stri
 	}
 
 	app.renderPage(w, r, signinTemplate, signinData{
-		Role:  role,
-		URL:   target,
-		Error: errMsg,
+		Role:     role,
+		URL:      target,
+		Error:    errMsg,
+		DevLogin: app.devLogin,
 	})
 }
 
@@ -263,9 +264,15 @@ func (app *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims.Email = strings.ToLower(claims.Email)
+	app.startSession(w, r, role, claims.Email)
+}
 
-	lp, dp, ok := strings.Cut(claims.Email, "@")
+// startSession signs in whoever owns email, once something has vouched
+// for the address: the identity provider's token, or -dev-login.
+func (app *Server) startSession(w http.ResponseWriter, r *http.Request, role string, email string) {
+	email = strings.ToLower(email)
+
+	lp, dp, ok := strings.Cut(email, "@")
 	if !ok {
 		signinRedirect(w, r, role, "bad_email")
 
@@ -273,7 +280,7 @@ func (app *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if dp != "ykpaoschool.cn" && dp != "stu.ykpaoschool.cn" {
-		app.logWarn(r, logMsgAuthWrongDomain, slog.String("email", claims.Email))
+		app.logWarn(r, logMsgAuthWrongDomain, slog.String("email", email))
 		signinRedirect(w, r, role, "domain")
 
 		return
@@ -287,7 +294,7 @@ func (app *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 		// two school domains are separate namespaces, and a student
 		// account whose localpart happened to equal a member of staff
 		// would otherwise be handed an administrator session.
-		if !app.isAdmin(claims.Email, lp) {
+		if !app.isAdmin(email, lp) {
 			app.logWarn(r, logMsgAuthNotAdmin, slog.String("username", lp))
 			signinRedirect(w, r, role, "not_admin")
 

@@ -18,6 +18,7 @@ import (
 	"github.com/PaoDevelopers/cca/internal/config"
 	"github.com/PaoDevelopers/cca/internal/db"
 	"github.com/PaoDevelopers/cca/ui"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -71,7 +72,7 @@ func immutable(h http.Handler) http.Handler {
 
 // Run wires up and serves the entire application until it is asked to
 // stop, or fails. It is the only place that ends the process.
-func Run(configPath string) {
+func Run(configPath string, devLogin bool) {
 	// Cancelled on the first SIGINT or SIGTERM. Startup work uses this
 	// too, so a signal during startup stops it rather than being
 	// noticed only once it finishes.
@@ -80,7 +81,7 @@ func Run(configPath string) {
 	// a deferred cleanup would not run.
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
-	app, err := newServer(ctx, configPath)
+	app, err := newServer(ctx, configPath, devLogin)
 	if err != nil {
 		fatal("start", err)
 	}
@@ -126,7 +127,7 @@ func fatal(stage string, err error) {
 }
 
 // newServer brings up everything a request needs, in dependency order.
-func newServer(ctx context.Context, configPath string) (*Server, error) {
+func newServer(ctx context.Context, configPath string, devLogin bool) (*Server, error) {
 	// Every field is assigned below, before the server is used.
 	//exhaustruct:ignore
 	app := &Server{}
@@ -138,6 +139,14 @@ func newServer(ctx context.Context, configPath string) (*Server, error) {
 	app.config, err = config.Load(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("load configuration: %w", err)
+	}
+
+	if devLogin {
+		if err := checkLoopback(app.config.Listen.Network, app.config.Listen.Address); err != nil {
+			return nil, err
+		}
+
+		slog.Warn(logMsgStartupDevLogin, slog.String("address", app.config.Listen.Address))
 	}
 
 	slog.Info(logMsgStartupDBConnect)
@@ -158,9 +167,24 @@ func newServer(ctx context.Context, configPath string) (*Server, error) {
 		return nil, fmt.Errorf("session key: %w", err)
 	}
 
-	slog.Info(logMsgStartupJWKSFetch, slog.String("jwks", app.config.OIDC.JWKS))
+	app.devLogin = devLogin
+	if devLogin {
+		app.verifyKey = refuseTokens
+	} else if app.verifyKey, err = fetchKeys(ctx, app.config.OIDC.JWKS); err != nil {
+		return nil, err
+	}
 
-	keys, err := keyfunc.NewDefault([]string{app.config.OIDC.JWKS})
+	slog.Info(logMsgStartupWebsocketSetup)
+
+	app.wsHub = NewWebSocketHub(app.queries)
+
+	return app, nil
+}
+
+func fetchKeys(ctx context.Context, jwks string) (jwt.Keyfunc, error) {
+	slog.Info(logMsgStartupJWKSFetch, slog.String("jwks", jwks))
+
+	keys, err := keyfunc.NewDefault([]string{jwks})
 	if err != nil {
 		return nil, fmt.Errorf("fetch jwks: %w", err)
 	}
@@ -178,16 +202,10 @@ func newServer(ctx context.Context, configPath string) (*Server, error) {
 
 	if len(loaded) == 0 {
 		return nil, fmt.Errorf("fetch jwks from %s: %w",
-			app.config.OIDC.JWKS, errNoJWKSKeys)
+			jwks, errNoJWKSKeys)
 	}
 
-	app.verifyKey = keys.Keyfunc
-
-	slog.Info(logMsgStartupWebsocketSetup)
-
-	app.wsHub = NewWebSocketHub(app.queries)
-
-	return app, nil
+	return keys.Keyfunc, nil
 }
 
 // openDatabase applies the pool settings from the configuration.
@@ -293,6 +311,11 @@ func (app *Server) router() *http.ServeMux {
 		http.ServeFileFS(w, r, staticFS, "static/favicon.ico")
 	})
 	mux.HandleFunc("POST /auth", app.handleAuth)
+
+	if app.devLogin {
+		mux.HandleFunc("POST /dev/login", app.handleDevLogin)
+	}
+
 	app.registerAdminAPI(mux, routes)
 
 	// More specific than "/admin/" and less specific than every route

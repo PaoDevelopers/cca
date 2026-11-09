@@ -16,12 +16,11 @@ backend. A stub is a second implementation of the API, and it drifts
 from the first silently — the drift is only noticed when it hides a
 bug rather than when it is introduced.
 
-Not real: the identity provider. The tests serve an empty JWKS so the
-server gets past startup, and mint the cookie the OIDC callback would
-have set by shelling out to `cca -session`. Nothing is seeded into the
-database for this, because there is nothing to seed: a session is a
-signed cookie and no table records one. Nothing under test lives on
-that path.
+Not real: the identity provider. cca runs with -dev-login, and each
+browser context signs in through that form, so the session cookie comes
+from the server's own encoder after the same administrator-list and
+roster checks a real sign-in gets. Nothing is seeded into the database
+for this: a session is a signed cookie and no table records one.
 
 Why these tests and not more
 ----------------------------
@@ -49,9 +48,9 @@ Layout
 
 backend         POSIX sh: scratch database, schema, seed, run ./cca
 seed.sql        the fixture: vocabulary, courses, students. No
-                sessions; harness.ts mints those cookies with
-                `cca -session`
-harness.ts      per-file stack: jwks stub, backend, browser, teardown
+                sessions; harness.ts signs in through -dev-login
+harness.ts      per-file stack: second origin, backend, browser,
+                teardown
 *.test.ts       node:test specs
 
 They compile to node_modules/.e2e with the repository's own typescript

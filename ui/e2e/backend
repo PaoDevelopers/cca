@@ -5,14 +5,13 @@
 # a stub backend is a second implementation of the API that drifts from
 # the first, and the drift is invisible until it hides a bug.
 #
-# The harness (harness.ts) supplies the database name, listen address
-# and JWKS URL, and kills this script's process group when it is done;
+# The harness (harness.ts) supplies the database name and listen
+# address, and kills this script's process group when it is done;
 # the trap below drops the database on the way out.
 #
-# The written config is also what `cca -session` reads to mint the test
-# cookies. Its path comes in as CCA_E2E_CONF, chosen by the harness; it
-# is still printed on the first line of stdout, for somebody running
-# this script by hand.
+# cca runs with -dev-login, which is how the harness signs its browser
+# contexts in. The written config's path is printed on the first line
+# of stdout, for somebody running this script by hand.
 #
 # Mirrors what the internal/db tests do: same schema concatenation, same
 # psql-with-ON_ERROR_STOP.
@@ -21,7 +20,6 @@ set -eu
 
 : "${CCA_E2E_DB:?database name required}"
 : "${CCA_E2E_ADDR:?listen address required}"
-: "${CCA_E2E_JWKS:?jwks url required}"
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 
@@ -30,9 +28,7 @@ if [ ! -x "$root/cca" ]; then
 	exit 1
 fi
 
-# Not mktemp'd into a directory the harness cannot guess: it has to
-# read this file too.
-conf="${CCA_E2E_CONF:-$(mktemp)}"
+conf=$(mktemp)
 cca_pid=""
 
 cleanup() {
@@ -79,8 +75,8 @@ listen {
 }
 
 session {
-	# Fixed rather than random: the harness mints cookies against the
-	# same file, and a fixed key makes a failing run reproducible.
+	# Fixed rather than random: a fixed key makes a failing run
+	# reproducible.
 	# Never a real deployment's key.
 	key 00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff
 }
@@ -88,7 +84,8 @@ session {
 oidc {
 	client e2e
 	authorize http://127.0.0.1:1/authorize
-	jwks $CCA_E2E_JWKS
+	# Never fetched under -dev-login.
+	jwks http://127.0.0.1:1/jwks
 }
 
 admins {
@@ -96,10 +93,8 @@ admins {
 }
 EOF
 
-# Announced before the server starts, so the harness can mint cookies
-# while it waits for the port.
 printf 'config %s\n' "$conf"
 
-"$root/cca" -c "$conf" &
+"$root/cca" -dev-login -c "$conf" &
 cca_pid=$!
 wait "$cca_pid"
