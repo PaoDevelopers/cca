@@ -591,7 +591,7 @@ export function GradeCard({
 									size="icon"
 									className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 									aria-label="Remove this requirement"
-									title="Remove this requirement"
+									tooltip="Remove this requirement"
 									onClick={(): void => {
 										editRequirements((drafts) =>
 											drafts.filter(

@@ -45,7 +45,7 @@ export function ConfirmDelete({
 				disabled={disabled}
 				aria-label={`${action} ${target}`}
 				// The icon alone says "delete"; the tooltip says what.
-				title={`${action} ${target}`}
+				tooltip={`${action} ${target}`}
 				onClick={(): void => {
 					setOpen(true)
 				}}

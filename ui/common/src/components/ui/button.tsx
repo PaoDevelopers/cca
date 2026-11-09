@@ -28,19 +28,62 @@ function Button({
 	className,
 	variant = "default",
 	size,
+	tooltip,
+	style,
+	onClick,
 	...props
 }: React.ComponentProps<"button"> & {
 	variant?: keyof typeof variants
 	size: keyof typeof sizes
+	// Shown on hover and keyboard focus, in place of a native title,
+	// which appears late and looks foreign. Read as the description
+	// unless it only repeats the aria-label.
+	tooltip?: string
 }) {
-	return (
+	const uid = React.useId().replaceAll(":", "")
+	const tip = React.useRef<HTMLDivElement>(null)
+	const show = (): void => tip.current?.showPopover()
+	const hide = (): void => tip.current?.hidePopover()
+	const button = (
 		<button
 			data-slot="button"
 			data-variant={variant}
 			data-size={size}
 			className={cn(base, variants[variant], sizes[size], className)}
+			style={tooltip ? { anchorName: `--${uid}-tip`, ...style } : style}
+			onClick={(event): void => {
+				// A click usually opens something the tip would cover.
+				hide()
+				onClick?.(event)
+			}}
+			{...(tooltip && {
+				onPointerEnter: show,
+				onPointerLeave: hide,
+				onFocus: (event: React.FocusEvent<HTMLButtonElement>): void => {
+					if (event.currentTarget.matches(":focus-visible")) show()
+				},
+				onBlur: hide,
+				"aria-describedby":
+					tooltip === props["aria-label"] ? undefined : `${uid}-tip`,
+			})}
 			{...props}
 		/>
+	)
+	if (!tooltip) return button
+	return (
+		<>
+			{button}
+			<div
+				ref={tip}
+				id={`${uid}-tip`}
+				popover="manual"
+				role="tooltip"
+				style={{ positionAnchor: `--${uid}-tip` }}
+				className="anchored-tooltip pointer-events-none max-w-64 rounded-md bg-foreground px-2 py-1 text-xs text-background shadow-md"
+			>
+				{tooltip}
+			</div>
+		</>
 	)
 }
 

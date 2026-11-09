@@ -376,7 +376,7 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 										size="icon"
 										className="text-muted-foreground hover:text-foreground"
 										aria-label={`View enrollments of ${course.id}`}
-										title={`View enrollments of ${course.id}`}
+										tooltip={`View enrollments of ${course.id}`}
 										onClick={(): void => {
 											window.location.hash = `#/enrollments?q=${encodeURIComponent(
 												`course:${course.id}`,
@@ -392,7 +392,7 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 										className="text-muted-foreground hover:text-foreground"
 										disabled={data.busy}
 										aria-label={`Edit ${course.id}`}
-										title={`Edit ${course.id}`}
+										tooltip={`Edit ${course.id}`}
 										onClick={(): void => {
 											setEditing(course.id)
 										}}

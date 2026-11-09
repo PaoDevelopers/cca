@@ -65,7 +65,7 @@ export function GradesPage(): ReactElement {
 							type="button"
 							variant="outline"
 							size="sm"
-							title="Ends enrollment everywhere at once. Schedules are kept: a grade that has not opened yet is left as it is."
+							tooltip="Ends enrollment everywhere at once. Schedules are kept: a grade that has not opened yet is left as it is."
 							disabled={
 								data.busy ||
 								!data.grades.some((g): boolean => g.is_open)

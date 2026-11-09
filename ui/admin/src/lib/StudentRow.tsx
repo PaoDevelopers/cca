@@ -78,7 +78,7 @@ export function StudentRow({
 									? `Close the schedule of ${student.id}`
 									: `View the schedule of ${student.id}`
 							}
-							title={
+							tooltip={
 								scheduleOpen
 									? `Close the schedule of ${student.id}`
 									: `View the schedule of ${student.id}`
@@ -92,7 +92,7 @@ export function StudentRow({
 							size="icon"
 							className="text-muted-foreground hover:text-foreground"
 							aria-label={`View enrollments of ${student.id}`}
-							title={`View enrollments of ${student.id}`}
+							tooltip={`View enrollments of ${student.id}`}
 							onClick={(): void => {
 								window.location.hash = `#/enrollments?q=${encodeURIComponent(
 									`student:${student.id}`,
@@ -107,7 +107,7 @@ export function StudentRow({
 							className="text-muted-foreground hover:text-foreground"
 							disabled={busy}
 							aria-label={`Sign in as ${student.id}`}
-							title={`Sign in as ${student.id}`}
+							tooltip={`Sign in as ${student.id}`}
 							onClick={onimpersonate}
 						>
 							<SignInIcon />
@@ -118,7 +118,7 @@ export function StudentRow({
 							className="text-muted-foreground hover:text-foreground"
 							disabled={busy}
 							aria-label={`Edit ${student.id}`}
-							title={`Edit ${student.id}`}
+							tooltip={`Edit ${student.id}`}
 							onClick={onedit}
 						>
 							<PencilIcon />
