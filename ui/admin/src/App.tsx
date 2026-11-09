@@ -103,7 +103,7 @@ function Shell(): ReactElement {
 			<div className="flex flex-1 flex-col md:flex-row">
 				<aside className="z-20 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b bg-muted/40 px-4 py-3 md:sticky md:top-0 md:h-svh md:w-56 md:flex-col md:flex-nowrap md:items-stretch md:border-r md:border-b-0 md:px-3 md:py-5">
 					<h1 className="text-lg font-semibold tracking-tight md:px-3 md:pb-3">
-						CCA administration
+						CCA Admin Panel
 					</h1>
 					{/*
 						Link-based navigation: each entry changes the hash
