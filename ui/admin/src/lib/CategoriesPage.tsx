@@ -54,8 +54,9 @@ export function CategoriesPage(): ReactElement {
 						The kinds of activity a course belongs to.
 					</p>
 				</div>
-				<DataTools section="categories" busy={data.busy} run={run} />
 			</div>
+
+			<DataTools section="categories" busy={data.busy} run={run} />
 
 			{!data.ready("categories") ? (
 				<p>Loading…</p>

@@ -240,17 +240,18 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 				>
 					Enrollments
 				</h2>
-				{data.ready("enrollments", "courses") && (
-					<DataTools
-						section="enrollments"
-						exportHref="/admin/api/enrollments/export"
-						importAction="/admin/api/enrollments/import"
-						onimport={importFile}
-						busy={data.busy}
-						run={run}
-					/>
-				)}
 			</div>
+
+			{data.ready("enrollments", "courses") && (
+				<DataTools
+					section="enrollments"
+					exportHref="/admin/api/enrollments/export"
+					importAction="/admin/api/enrollments/import"
+					onimport={importFile}
+					busy={data.busy}
+					run={run}
+				/>
+			)}
 
 			{!data.ready("enrollments", "courses") ? (
 				<p className="text-muted-foreground">Loading…</p>

@@ -6,7 +6,6 @@ import {
 } from "@common/adminApi"
 import { filterByCel, type FilterMode } from "@common/cel"
 import { Button } from "@common/components/ui/button"
-import { DropdownMenuItem } from "@common/components/ui/dropdown-menu"
 import {
 	Table,
 	TableBody,
@@ -226,35 +225,36 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 	return (
 		<Section
 			actions={
-				<>
-					<Button
-						size="sm"
-						onClick={(): void => {
-							setEditing("new")
-						}}
-					>
-						Add student
-					</Button>
-					<DataTools
-						section="students"
-						exportHref="/admin/api/students/export"
-						importAction="/admin/api/students/import"
-						busy={data.busy}
-						run={run}
-						extra={
-							<DropdownMenuItem
-								disabled={addresses.length === 0}
-								onClick={(): void => {
-									void copyAddresses()
-								}}
-							>
-								Copy students’ email addresses
-							</DropdownMenuItem>
-						}
-					/>
-				</>
+				<Button
+					size="sm"
+					onClick={(): void => {
+						setEditing("new")
+					}}
+				>
+					Add student
+				</Button>
 			}
 		>
+			<DataTools
+				section="students"
+				exportHref="/admin/api/students/export"
+				importAction="/admin/api/students/import"
+				busy={data.busy}
+				run={run}
+				extra={
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						disabled={addresses.length === 0}
+						onClick={(): void => {
+							void copyAddresses()
+						}}
+					>
+						Copy students’ email addresses
+					</Button>
+				}
+			/>
 			<FilterBar
 				query={filter}
 				onQuery={setFilter}

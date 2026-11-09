@@ -82,14 +82,13 @@ export function GradesPage(): ReactElement {
 						>
 							Close every open window
 						</Button>
-						<DataTools
-							section="grades"
-							busy={data.busy}
-							run={run}
-						/>
 					</div>
 				)}
 			</div>
+
+			{data.ready("grades", "categories") && (
+				<DataTools section="grades" busy={data.busy} run={run} />
+			)}
 
 			{!data.ready("grades", "categories") ? (
 				<p className="text-muted-foreground">Loading…</p>

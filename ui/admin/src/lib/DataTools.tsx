@@ -1,24 +1,12 @@
-// Bulk operations for one data section, behind one menu: they are
-// occasional, and the page is for the rows. Import and the full reset
-// open dialogs; the reset is gated behind typing an exact phrase.
+// Bulk operations for one data section, in a panel that expands in
+// place above the rows: they are occasional, and stay folded away
+// until asked for. The full reset is gated behind typing an exact
+// confirmation phrase.
 import { clearSection, importSpreadsheet } from "@common/adminApi"
 import { Button } from "@common/components/ui/button"
-import {
-	Dialog,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	closeDialog,
-} from "@common/components/ui/dialog"
-import {
-	DropdownMenu,
-	DropdownMenuItem,
-	DropdownMenuLink,
-} from "@common/components/ui/dropdown-menu"
 import { Input, Label } from "@common/components/ui/input"
 import { toast } from "@common/components/ui/toast"
-import { useState, type ReactElement, type ReactNode } from "react"
+import { useId, useState, type ReactElement, type ReactNode } from "react"
 import { TrashIcon } from "./icons"
 
 interface Props {
@@ -30,11 +18,14 @@ interface Props {
 	onimport?: ((file: File) => void) | undefined
 	busy: boolean
 	run: (action: () => Promise<void>) => Promise<boolean>
-	// A section's own menu items, above the ones every section gets.
+	// A section's own tools, beside the ones every section gets.
 	extra?: ReactNode
 }
 
 const confirmation = "I confirm that I wish to destroy all data here."
+
+const linkClass =
+	"text-sm font-medium underline underline-offset-4 hover:text-primary"
 
 export function DataTools({
 	section,
@@ -45,84 +36,74 @@ export function DataTools({
 	run,
 	extra,
 }: Props): ReactElement {
-	const [dialog, setDialog] = useState<"import" | "reset" | null>(null)
 	const [file, setFile] = useState<File | null>(null)
 	const [phrase, setPhrase] = useState("")
-
-	const close = (): void => {
-		setDialog(null)
-		setFile(null)
-		setPhrase("")
-	}
+	const uid = useId()
 
 	return (
-		<>
-			<DropdownMenu
-				trigger={(props): ReactElement => (
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						{...props}
-					>
-						Data tools
-					</Button>
-				)}
-			>
-				{extra}
-				{exportHref !== undefined && (
-					<DropdownMenuLink href={exportHref}>
-						Export {section} as CSV
-					</DropdownMenuLink>
-				)}
-				{importAction !== undefined && (
-					<>
-						{/*
-							An import with no example is how a wrong file
-							gets made: the columns are not guessable, and
-							the identifier forms are not either. Named by
-							section rather than passed in, so a section
-							that imports always has one; that the files'
-							headers still match the importers is held by
-							TestTheShippedExamplesHaveTheHeadersTheImportersWant.
-						*/}
-						<DropdownMenuLink
-							href={`/admin/static/${section}_example.csv`}
-							download
-						>
-							Download {section} CSV template
-						</DropdownMenuLink>
-						<DropdownMenuItem
-							onClick={(): void => {
-								setDialog("import")
-							}}
-						>
-							Import {section}…
-						</DropdownMenuItem>
-					</>
-				)}
-				<DropdownMenuItem
-					className="text-destructive"
-					onClick={(): void => {
-						setDialog("reset")
-					}}
+		<details className="data-tools group rounded-lg border">
+			<summary className="flex cursor-pointer list-none items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium select-none hover:bg-accent/50 [&::-webkit-details-marker]:hidden">
+				<svg
+					aria-hidden="true"
+					viewBox="0 0 16 16"
+					className="size-4 text-muted-foreground transition-transform group-open:rotate-90"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.5"
+					strokeLinecap="round"
+					strokeLinejoin="round"
 				>
-					<TrashIcon />
-					Delete all {section}…
-				</DropdownMenuItem>
-			</DropdownMenu>
+					<path d="m6 4 4 4-4 4" />
+				</svg>
+				Data tools
+			</summary>
 
-			{dialog === "import" && importAction !== undefined && (
-				<Dialog onClose={close}>
+			<div className="flex flex-col gap-5 border-t px-4 py-4">
+				{(extra !== undefined ||
+					exportHref !== undefined ||
+					importAction !== undefined) && (
+					<div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+						{extra}
+						{exportHref !== undefined && (
+							<a className={linkClass} href={exportHref}>
+								Export {section} as CSV
+							</a>
+						)}
+						{importAction !== undefined && (
+							// An import with no example is how a wrong file
+							// gets made: the columns are not guessable, and
+							// the identifier forms are not either. Named by
+							// section rather than passed in, so a section
+							// that imports always has one; that the files'
+							// headers still match the importers is held by
+							// TestTheShippedExamplesHaveTheHeadersTheImportersWant.
+							<a
+								className={linkClass}
+								href={`/admin/static/${section}_example.csv`}
+								download
+							>
+								Download {section} CSV template
+							</a>
+						)}
+					</div>
+				)}
+
+				{importAction !== undefined && (
 					<form
+						className="flex flex-col gap-2"
 						onSubmit={(event): void => {
 							event.preventDefault()
 							if (file === null) {
 								return
 							}
-							closeDialog(event.currentTarget, "import")
+							const form = event.currentTarget
+							const done = (): void => {
+								form.reset()
+								setFile(null)
+							}
 							if (onimport !== undefined) {
 								onimport(file)
+								done()
 								return
 							}
 							// No override: an import accepts nothing. A row
@@ -133,6 +114,7 @@ export function DataTools({
 								importSpreadsheet(importAction, file),
 							).then((ok): void => {
 								if (ok) {
+									done()
 									toast(
 										`Imported ${file.name} into ${section}.`,
 									)
@@ -140,103 +122,79 @@ export function DataTools({
 							})
 						}}
 					>
-						<DialogHeader>
-							<DialogTitle>Import {section}</DialogTitle>
-							<DialogDescription>
-								Upload the CSV template format directly, or put
-								the same columns in the first row of one visible
-								worksheet in an XLSX file. Paste formulas as
-								values first.
-							</DialogDescription>
-						</DialogHeader>
-						<Label className="flex-col items-start">
-							Import CSV or XLSX
-							<Input
-								type="file"
-								accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-								required
-								onChange={(event): void => {
-									setFile(
-										event.currentTarget.files?.item(0) ??
-											null,
-									)
-								}}
-							/>
-						</Label>
-						<DialogFooter>
-							<Button
-								type="button"
-								variant="outline"
-								size="default"
-								onClick={(event): void => {
-									closeDialog(event.currentTarget, "cancel")
-								}}
-							>
-								Cancel
-							</Button>
+						<p className="max-w-3xl text-sm text-muted-foreground">
+							Upload that CSV format directly, or put the same
+							columns in the first row of one visible worksheet in
+							an XLSX file. Paste formulas as values first.
+						</p>
+						<div className="flex flex-wrap items-end gap-2">
+							<Label className="flex-col items-start">
+								Import CSV or XLSX
+								<Input
+									type="file"
+									className="w-80 max-w-full"
+									accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+									required
+									onChange={(event): void => {
+										setFile(
+											event.currentTarget.files?.item(
+												0,
+											) ?? null,
+										)
+									}}
+								/>
+							</Label>
 							<Button
 								size="default"
 								disabled={busy || file === null}
 							>
 								Import into {section}
 							</Button>
-						</DialogFooter>
+						</div>
 					</form>
-				</Dialog>
-			)}
+				)}
 
-			{dialog === "reset" && (
-				<Dialog role="alertdialog" onClose={close}>
-					<form
-						onSubmit={(event): void => {
-							event.preventDefault()
-							if (phrase !== confirmation) {
-								return
+				<form
+					className="flex flex-col gap-2 border-t pt-4"
+					onSubmit={(event): void => {
+						event.preventDefault()
+						if (phrase !== confirmation) {
+							return
+						}
+						void run((): Promise<void> =>
+							clearSection(section),
+						).then((ok): void => {
+							if (ok) {
+								setPhrase("")
 							}
-							closeDialog(event.currentTarget, "reset")
-							void run((): Promise<void> => clearSection(section))
-						}}
-					>
-						<DialogHeader>
-							<DialogTitle>Delete all {section}?</DialogTitle>
-							<DialogDescription>
-								Every row in this section goes, and cannot be
-								restored.
-							</DialogDescription>
-						</DialogHeader>
-						<Label className="flex-col items-start leading-normal">
-							Type “{confirmation}” to enable the reset
-							<Input
-								type="text"
-								value={phrase}
-								onChange={(event): void => {
-									setPhrase(event.currentTarget.value)
-								}}
-							/>
-						</Label>
-						<DialogFooter>
-							<Button
-								type="button"
-								variant="outline"
-								size="default"
-								onClick={(event): void => {
-									closeDialog(event.currentTarget, "cancel")
-								}}
-							>
-								Cancel
-							</Button>
-							<Button
-								variant="destructive"
-								size="default"
-								disabled={busy || phrase !== confirmation}
-								aria-label={`Delete all ${section}`}
-							>
-								Delete all {section}
-							</Button>
-						</DialogFooter>
-					</form>
-				</Dialog>
-			)}
-		</>
+						})
+					}}
+				>
+					<Label htmlFor={`${uid}-phrase`} className="leading-normal">
+						Type “{confirmation}” to enable the reset
+					</Label>
+					<div className="flex flex-wrap gap-2">
+						<Input
+							id={`${uid}-phrase`}
+							type="text"
+							className="w-96 max-w-full"
+							value={phrase}
+							onChange={(event): void => {
+								setPhrase(event.currentTarget.value)
+							}}
+						/>
+						<Button
+							variant="destructive"
+							size="default"
+							disabled={busy || phrase !== confirmation}
+							aria-label={`Delete all ${section}`}
+						>
+							<TrashIcon />
+							Delete all {section}
+						</Button>
+					</div>
+				</form>
+			</div>
+		</details>
 	)
 }

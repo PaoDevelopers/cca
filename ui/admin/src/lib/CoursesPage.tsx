@@ -157,25 +157,24 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 				>
 					Courses
 				</h2>
-				<div className="flex items-center gap-2">
-					<DataTools
-						section="courses"
-						exportHref="/admin/api/courses/export"
-						importAction="/admin/api/courses/import"
-						busy={data.busy}
-						run={run}
-					/>
-					<Button
-						type="button"
-						size="sm"
-						onClick={(): void => {
-							setCreating(true)
-						}}
-					>
-						Add course
-					</Button>
-				</div>
+				<Button
+					type="button"
+					size="sm"
+					onClick={(): void => {
+						setCreating(true)
+					}}
+				>
+					Add course
+				</Button>
 			</div>
+
+			<DataTools
+				section="courses"
+				exportHref="/admin/api/courses/export"
+				importAction="/admin/api/courses/import"
+				busy={data.busy}
+				run={run}
+			/>
 
 			<FilterBar
 				query={filter}

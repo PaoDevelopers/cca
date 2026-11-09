@@ -62,8 +62,9 @@ export function PeriodsPage(): ReactElement {
 						order.
 					</p>
 				</div>
-				<DataTools section="periods" busy={data.busy} run={run} />
 			</div>
+
+			<DataTools section="periods" busy={data.busy} run={run} />
 
 			{!data.ready("periods") ? (
 				<p>Loading…</p>

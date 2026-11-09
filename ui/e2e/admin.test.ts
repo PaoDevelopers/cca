@@ -100,16 +100,15 @@ describe("admin", (): void => {
 		await page.goto("/admin/#/students")
 		await page.getByText("Alice Example").waitFor()
 
-		// The copy is an item in the Data tools menu, which closes on
-		// every choice, so each copy opens it again.
-		const tools = page.getByRole("button", { name: "Data tools" })
+		// The copy is a button in the Data tools panel, which stays
+		// open once expanded.
+		await page.getByText("Data tools", { exact: true }).click()
 		const copy = page.getByRole("button", {
 			name: "Copy students’ email addresses",
 		})
 		const clipboard = (): Promise<string> =>
 			page.evaluate((): Promise<string> => navigator.clipboard.readText())
 
-		await tools.click()
 		await copy.click()
 		await page.getByText("Copied 2.").waitFor()
 		assert.equal(
@@ -121,7 +120,6 @@ describe("admin", (): void => {
 		// has narrowed the table means the people in it.
 		await page.locator("input[type=search]").fill(`id:${subjects.bob}`)
 		await page.getByText("1 of 2 students shown").waitFor()
-		await tools.click()
 		await copy.click()
 		await page.getByText("Copied 1.").waitFor()
 		assert.equal(await clipboard(), `${subjects.bob}@stu.ykpaoschool.cn`)
@@ -130,7 +128,6 @@ describe("admin", (): void => {
 		// clipboard silently replacing what was in it.
 		await page.locator("input[type=search]").fill("id:nobody")
 		await page.getByText("0 of 2 students shown").waitFor()
-		await tools.click()
 		assert.equal(await copy.isDisabled(), true)
 	})
 
@@ -948,10 +945,11 @@ describe("admin", (): void => {
 
 		// The selector is scoped to a form, and the rename boxes in the
 		// table are not inside one — so these two are the create
-		// form's id and name, in that order. (Not "the last two on the
-		// page": the data tools below carry a text input of their own,
-		// and it is inside a form.)
-		const inputs = page.locator('form input[type="text"]')
+		// form's id and name, in that order, once the data tools'
+		// own text input (inside a form too) is left out.
+		const inputs = page.locator(
+			'form input[type="text"]:not(.data-tools *)',
+		)
 		await inputs.nth(0).fill("ROBOTICS")
 		await inputs.nth(1).fill("Robotics")
 		await page.getByRole("button", { name: "Add" }).click()
@@ -1044,12 +1042,9 @@ describe("admin", (): void => {
 	it("holds a conflicting enrollment file as a draft", async (): Promise<void> => {
 		const page = await adminPage("#/enrollments")
 
-		// Each import opens its own dialog from the Data tools menu.
+		// The Data tools panel stays open across imports.
+		await page.getByText("Data tools", { exact: true }).click()
 		const upload = async (name: string, csv: string): Promise<void> => {
-			await page.getByRole("button", { name: "Data tools" }).click()
-			await page
-				.getByRole("button", { name: "Import enrollments…" })
-				.click()
 			await page.getByLabel("Import CSV or XLSX").setInputFiles({
 				name,
 				mimeType: "text/csv",
