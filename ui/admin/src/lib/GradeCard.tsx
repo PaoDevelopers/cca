@@ -7,7 +7,6 @@ import {
 	setGradeWindow,
 	updateGrade,
 } from "@common/adminApi"
-import { Badge } from "@common/components/ui/badge"
 import { Button } from "@common/components/ui/button"
 import { DropdownMenu } from "@common/components/ui/dropdown-menu"
 import { Checkbox, Input, Label } from "@common/components/ui/input"
@@ -43,6 +42,24 @@ interface Props {
 		action: (accept: string[]) => Promise<void>,
 	) => Promise<boolean>
 	move: (direction: "up" | "down") => void
+}
+
+// A drawn chevron, one stroke weight with the rest of the card's marks.
+function Chevron({ direction }: { direction: "up" | "down" }): ReactElement {
+	return (
+		<svg
+			aria-hidden="true"
+			viewBox="0 0 16 16"
+			className="size-4"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.75"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d={direction === "up" ? "M4 10l4-4 4 4" : "M4 6l4 4 4-4"} />
+		</svg>
+	)
 }
 
 type SaveState = "saving" | "saved" | null
@@ -374,38 +391,46 @@ export function GradeCard({
 	// neither touches a draft: there is no half-finished edit here to
 	// protect.
 	const windowTab = (
-		<fieldset className="flex flex-col gap-3">
+		// The bounds and what they mean stay together; acting now is a
+		// separate decision, so it sits apart, below them.
+		<fieldset className="@container flex flex-col gap-4">
 			<legend className="sr-only">Enrollment window</legend>
-			<div className="flex flex-wrap items-end gap-3">
-				<Label className="flex-col items-start">
-					Opens
-					<Input
-						type="datetime-local"
-						className="w-auto"
-						aria-label={`Window opens for ${grade.id}`}
-						value={opensDraft ?? toLocalInput(grade.opens_at)}
-						onChange={(event): void => {
-							setOpensDraft(event.currentTarget.value)
-						}}
-						onBlur={saveWindow}
-					/>
-				</Label>
-				<Label className="flex-col items-start">
-					Closes
-					<Input
-						type="datetime-local"
-						className="w-auto"
-						aria-label={`Window closes for ${grade.id}`}
-						value={closesDraft ?? toLocalInput(grade.closes_at)}
-						onChange={(event): void => {
-							setClosesDraft(event.currentTarget.value)
-						}}
-						onBlur={saveWindow}
-					/>
-				</Label>
-				<SaveStatus state={windowState} />
+			<div className="flex flex-col gap-1.5">
+				<div className="grid gap-3 @sm:grid-cols-2">
+					<Label className="flex-col items-start">
+						Opens
+						<Input
+							type="datetime-local"
+							aria-label={`Window opens for ${grade.id}`}
+							value={opensDraft ?? toLocalInput(grade.opens_at)}
+							onChange={(event): void => {
+								setOpensDraft(event.currentTarget.value)
+							}}
+							onBlur={saveWindow}
+						/>
+					</Label>
+					<Label className="flex-col items-start">
+						Closes
+						<Input
+							type="datetime-local"
+							aria-label={`Window closes for ${grade.id}`}
+							value={closesDraft ?? toLocalInput(grade.closes_at)}
+							onChange={(event): void => {
+								setClosesDraft(event.currentTarget.value)
+							}}
+							onBlur={saveWindow}
+						/>
+					</Label>
+				</div>
+				<div className="flex items-baseline justify-between gap-3">
+					<p className="text-xs text-muted-foreground">
+						Empty opening = closed. Empty closing = no automatic
+						close.
+					</p>
+					<SaveStatus state={windowState} />
+				</div>
 			</div>
-			<div className="flex flex-wrap items-center gap-2">
+			<div className="flex items-center gap-2">
 				<Button
 					type="button"
 					size="sm"
@@ -428,9 +453,6 @@ export function GradeCard({
 					Close now
 				</Button>
 			</div>
-			<p className="text-xs text-muted-foreground">
-				Empty opening = closed. Empty closing = no automatic close.
-			</p>
 		</fieldset>
 	)
 
@@ -664,89 +686,101 @@ export function GradeCard({
 	return (
 		<article
 			aria-labelledby={`${uid}-title`}
-			className="card flex flex-col gap-4 rounded-xl border bg-card p-4 text-card-foreground shadow-xs"
+			className="card flex flex-col gap-5 rounded-xl border bg-card p-5 text-card-foreground shadow-xs"
 		>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="flex min-w-0 flex-col gap-1.5">
-					<div className="flex flex-wrap items-center gap-2">
-						<h3
-							id={`${uid}-title`}
-							className="text-lg font-semibold"
-						>
-							{grade.id}
-						</h3>
-						<Input
-							type="text"
-							className="h-8 w-48"
-							aria-label={`Name of ${grade.id}`}
-							value={nameDraft ?? grade.name}
-							onChange={(event): void => {
-								setNameDraft(event.currentTarget.value)
-							}}
-							onBlur={saveName}
-						/>
-						<SaveStatus state={nameState} />
-						{/*
-							Visible text says what is open, for everybody: an
-							aria-label on a generic element is not allowed and
-							is dropped by browsers.
-						*/}
-						<Badge
-							variant={grade.is_open ? "default" : "secondary"}
-						>
-							Window: {grade.is_open ? "open" : "closed"}
-						</Badge>
-					</div>
-					<p className="text-sm text-muted-foreground">
-						{windowSummary(grade)}
-					</p>
-				</div>
-				<div className="flex items-center gap-1">
-					<Button
-						variant="ghost"
-						size="sm"
-						aria-label={`View students in ${grade.id}`}
-						onClick={(): void => {
-							window.location.hash = `#/students?q=${encodeURIComponent(
-								`grade:${grade.id}`,
-							)}`
-						}}
+			<header className="flex flex-col gap-1">
+				<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+					<h3
+						id={`${uid}-title`}
+						className="text-lg font-semibold tracking-tight"
 					>
-						Students
-					</Button>
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						aria-label={`Move ${grade.id} up`}
-						disabled={busy}
-						onClick={(): void => {
-							move("up")
+						{grade.id}
+					</h3>
+					{/*
+						Reads as the grade's title until it is pointed at:
+						the border only appears on hover and focus, so a
+						card of settings does not open with an empty-looking
+						form field.
+					*/}
+					<Input
+						type="text"
+						className="h-8 w-48 border-transparent! bg-transparent px-2 shadow-none! hover:border-input! focus-visible:border-ring! dark:bg-transparent"
+						aria-label={`Name of ${grade.id}`}
+						value={nameDraft ?? grade.name}
+						onChange={(event): void => {
+							setNameDraft(event.currentTarget.value)
 						}}
-					>
-						↑
-					</Button>
-					<Button
-						variant="ghost"
-						size="icon-sm"
-						aria-label={`Move ${grade.id} down`}
-						disabled={busy}
-						onClick={(): void => {
-							move("down")
-						}}
-					>
-						↓
-					</Button>
-					<ConfirmDelete
-						action="Delete"
-						target={grade.id}
-						detail="Its window, limits and requirements go with it. This cannot be undone."
-						disabled={busy}
-						onconfirm={(): void => {
-							void run((): Promise<void> => deleteGrade(grade.id))
-						}}
+						onBlur={saveName}
 					/>
+					<SaveStatus state={nameState} />
+					<div className="ml-auto flex items-center gap-1">
+						<Button
+							variant="ghost"
+							size="sm"
+							aria-label={`View students in ${grade.id}`}
+							onClick={(): void => {
+								window.location.hash = `#/students?q=${encodeURIComponent(
+									`grade:${grade.id}`,
+								)}`
+							}}
+						>
+							Students
+						</Button>
+						<div className="flex items-center rounded-md border">
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								className="rounded-r-none"
+								aria-label={`Move ${grade.id} up`}
+								disabled={busy}
+								onClick={(): void => {
+									move("up")
+								}}
+							>
+								<Chevron direction="up" />
+							</Button>
+							<Button
+								variant="ghost"
+								size="icon-sm"
+								className="rounded-l-none border-l"
+								aria-label={`Move ${grade.id} down`}
+								disabled={busy}
+								onClick={(): void => {
+									move("down")
+								}}
+							>
+								<Chevron direction="down" />
+							</Button>
+						</div>
+						<ConfirmDelete
+							action="Delete"
+							target={grade.id}
+							detail="Its window, limits and requirements go with it. This cannot be undone."
+							disabled={busy}
+							onconfirm={(): void => {
+								void run((): Promise<void> =>
+									deleteGrade(grade.id),
+								)
+							}}
+						/>
+					</div>
 				</div>
-			</div>
+				{/*
+					The summary is the status, in words, for everybody; the
+					dot only repeats it for the eye.
+				*/}
+				<p className="flex items-start gap-2 text-sm text-muted-foreground">
+					<span
+						aria-hidden="true"
+						className={
+							grade.is_open
+								? "mt-1.5 size-2 shrink-0 rounded-full bg-primary"
+								: "mt-1.5 size-2 shrink-0 rounded-full bg-muted-foreground/40"
+						}
+					/>
+					{windowSummary(grade)}
+				</p>
+			</header>
 
 			<Tabs
 				label={`Settings for ${grade.id}`}
