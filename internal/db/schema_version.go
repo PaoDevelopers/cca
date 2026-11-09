@@ -30,4 +30,4 @@ const ExpectedSchemaVersion = 1
 // A fingerprint change is not automatically a version bump. Rewriting
 // a comment, or a function whose behaviour is unchanged, moves the
 // fingerprint and not the version. The changelog records which it was.
-const SchemaFingerprint = "5f2ba9f2f4fa07a4324fe4d1235f87842fa89b77f9af96013d208d69a7ff3c3a"
+const SchemaFingerprint = "1cd95b6ae70e3e55cd61570d894e4ae7497801f4daf42b0abdd0cd246274f714"
