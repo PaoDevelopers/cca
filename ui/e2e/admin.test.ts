@@ -1033,6 +1033,89 @@ describe("admin", (): void => {
 		})
 	})
 
+	// A clean file goes straight in; a file with conflicts opens a
+	// draft listing every one, and only what the administrator kept
+	// is placed. Basketball and Baking both meet on MON1.
+	it("holds a conflicting enrollment file as a draft", async (): Promise<void> => {
+		const page = await adminPage("#/enrollments")
+		await page.locator("details.data-tools").getByText("Data tools").click()
+
+		const upload = async (name: string, csv: string): Promise<void> => {
+			await page.getByLabel("Import CSV or XLSX").setInputFiles({
+				name,
+				mimeType: "text/csv",
+				buffer: Buffer.from(
+					`course_id,student_id,student_droppable,counts_toward_budget
+${csv}`,
+				),
+			})
+			await page
+				.getByRole("button", { name: "Import into enrollments" })
+				.click()
+		}
+
+		const held = async (): Promise<string[]> =>
+			(
+				(await (
+					await page.request.get("/admin/api/enrollments")
+				).json()) as Array<{
+					student_id: string
+					course_id: string
+				}>
+			)
+				.map((e): string => `${e.student_id}:${e.course_id}`)
+				.sort()
+
+		await upload("clean.csv", `CH,${subjects.bob},true,true\n`)
+		await page.getByRole("cell", { name: subjects.bob }).first().waitFor()
+		assert.equal(
+			await page.getByRole("dialog").count(),
+			0,
+			"a clean file opened a draft",
+		)
+		assert.deepEqual(await held(), [`${subjects.bob}:CH`])
+
+		await upload(
+			"conflicts.csv",
+			`BB,${subjects.alice},true,true\n` +
+				`BK,${subjects.alice},true,true\n` +
+				`CH,${subjects.alice},true,true\n` +
+				"CH,s9999,true,true\n",
+		)
+		const dialog = page.getByRole("dialog")
+		await dialog.getByText("1 conflict in this file").waitFor()
+		await dialog.getByText("s9999").waitFor()
+
+		const send = dialog.getByRole("button", { name: "Upload" })
+		assert.ok(
+			await send.isDisabled(),
+			"upload was offered before every conflict was decided",
+		)
+		await dialog.getByLabel(/Keep Basketball/).check()
+		await send.click()
+		await dialog.waitFor({ state: "detached" })
+
+		// The upload finishes after the dialog closes.
+		for (let i = 0; i < 50 && (await held()).length !== 3; i++) {
+			await page.waitForTimeout(100)
+		}
+		assert.deepEqual(await held(), [
+			`${subjects.alice}:BB`,
+			`${subjects.alice}:CH`,
+			`${subjects.bob}:CH`,
+		])
+
+		await page.request.delete("/admin/api/enrollments", {
+			data: {
+				course_id: "CH",
+				student_ids: [subjects.alice, subjects.bob],
+			},
+		})
+		await page.request.delete("/admin/api/enrollments", {
+			data: { course_id: "BB", student_ids: [subjects.alice] },
+		})
+	})
+
 	// A card's window boxes are seeded when the card is built and then
 	// belong to whoever is typing, which is right for a box someone is
 	// typing in and wrong for one nobody has touched: it holds a value

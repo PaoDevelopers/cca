@@ -8,6 +8,9 @@
 		section: string
 		exportHref?: string | undefined
 		importAction?: string | undefined
+		// Takes the upload over from the plain import, for a section
+		// whose import is a conversation rather than one request.
+		onimport?: ((file: File) => void) | undefined
 		busy: boolean
 		run: (action: () => Promise<void>) => Promise<boolean>
 		// A section's own tool, rendered beside the ones every section
@@ -17,8 +20,15 @@
 		extra?: Snippet | undefined
 	}
 
-	const { section, exportHref, importAction, busy, run, extra }: Props =
-		$props()
+	const {
+		section,
+		exportHref,
+		importAction,
+		onimport,
+		busy,
+		run,
+		extra,
+	}: Props = $props()
 
 	const confirmation = "I confirm that I wish to destroy all data here."
 
@@ -64,6 +74,11 @@
 				event.preventDefault()
 				const file = files?.item(0)
 				if (file === null || file === undefined) {
+					return
+				}
+				if (onimport !== undefined) {
+					onimport(file)
+					files = null
 					return
 				}
 				// No override: an import accepts nothing. A row that

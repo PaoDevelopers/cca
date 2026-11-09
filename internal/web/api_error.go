@@ -297,6 +297,22 @@ func elementMessage(element apiMalformed) string {
 	return "This row could not be read."
 }
 
+// violationsOf returns what a YKV01 refusal names, or nil for any
+// other error.
+func violationsOf(err error) []apiViolation {
+	pgErr, ok := errors.AsType[*pgconn.PgError](err)
+	if !ok || pgErr.Code != "YKV01" {
+		return nil
+	}
+
+	var vs []apiViolation
+	if json.Unmarshal([]byte(pgErr.Detail), &vs) != nil {
+		return nil
+	}
+
+	return vs
+}
+
 // dbErrorDetail classifies an error raised by a database write
 // function. ok is false when the error is not a recognized rejection,
 // which is the caller's cue to treat it as internal: an unclassified
@@ -327,8 +343,8 @@ func dbErrorDetail(err error, deleting bool) (status int, detail apiErrorDetail,
 		// offer to accept anything. A DETAIL that will not decode is
 		// a defect in the schema, so it becomes an internal error
 		// rather than a dialog with nothing in it.
-		var vs []apiViolation
-		if json.Unmarshal([]byte(pgErr.Detail), &vs) != nil || len(vs) == 0 {
+		vs := violationsOf(err)
+		if len(vs) == 0 {
 			return 0, detail, false
 		}
 

@@ -9,6 +9,7 @@ import type {
 	Period,
 	PeriodID,
 	StudentID,
+	Violation,
 } from "./types"
 
 // Writes that can surface negotiable violations take an `accept` list:
@@ -347,6 +348,59 @@ export function importSpreadsheet(url: string, file: File): Promise<void> {
 	const form = new FormData()
 	form.set("spreadsheet", file)
 	return sendForm(url, form)
+}
+
+// An enrollment file's dry run: every rule it would break, each with
+// the row that raised it, and the rows naming a student or course that
+// does not exist. Nothing is written.
+export interface ImportViolation extends Violation {
+	course_id: EntityID
+}
+
+export interface ImportSeat {
+	course_id: EntityID
+	student_id: StudentID
+}
+
+export interface EnrollmentImportCheck {
+	violations: ImportViolation[]
+	unknown: ImportSeat[]
+}
+
+const enrollmentImportURL = "/admin/api/enrollments/import"
+
+export async function checkEnrollmentImport(
+	file: File,
+): Promise<EnrollmentImportCheck> {
+	const form = new FormData()
+	form.set("spreadsheet", file)
+	form.set("check", "1")
+	const found = await getJSON<EnrollmentImportCheck>(enrollmentImportURL, {
+		method: "POST",
+		body: form,
+	})
+	return {
+		violations: asArray(found.violations),
+		unknown: asArray(found.unknown),
+	}
+}
+
+// drop names rows as "course_id:student_id"; accept names the
+// violations the administrator chose to keep.
+export function commitEnrollmentImport(
+	file: File,
+	drop: string[],
+	accept: string[],
+): Promise<void> {
+	const form = new FormData()
+	form.set("spreadsheet", file)
+	for (const d of drop) {
+		form.append("drop", d)
+	}
+	for (const a of accept) {
+		form.append("accept", a)
+	}
+	return sendForm(enrollmentImportURL, form)
 }
 
 export function clearSection(section: string): Promise<void> {

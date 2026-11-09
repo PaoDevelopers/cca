@@ -1,5 +1,12 @@
 <script lang="ts">
-	import { removeEnrollments } from "@common/adminApi"
+	import {
+		checkEnrollmentImport,
+		commitEnrollmentImport,
+		removeEnrollments,
+		type EnrollmentImportCheck,
+	} from "@common/adminApi"
+	import { isViolationError } from "@common/http"
+	import EnrollmentImportDraft from "./EnrollmentImportDraft.svelte"
 	import type { Course, Enrollment } from "@common/types"
 	import FilterBar from "./FilterBar.svelte"
 	import DataTools from "./DataTools.svelte"
@@ -55,6 +62,39 @@
 		action: (accept: string[]) => Promise<void>,
 	): Promise<boolean> {
 		return data.runAccepting(action, "enrollments", "courses")
+	}
+
+	// A clean file goes straight in; one with conflicts is held as a
+	// draft until every conflict has been decided.
+	let draft = $state<{ file: File; check: EnrollmentImportCheck } | null>(
+		null,
+	)
+
+	function importFile(file: File): void {
+		void run(async (): Promise<void> => {
+			const check = await checkEnrollmentImport(file)
+			if (check.violations.length === 0 && check.unknown.length === 0) {
+				await commitEnrollmentImport(file, [], [])
+			} else {
+				draft = { file, check }
+			}
+		})
+	}
+
+	// Something changed between the check and the upload if the upload
+	// is refused, so the file is checked again and the draft reopened.
+	function commitDraft(file: File, drop: string[], accept: string[]): void {
+		draft = null
+		void run(async (): Promise<void> => {
+			try {
+				await commitEnrollmentImport(file, drop, accept)
+			} catch (err) {
+				if (!isViolationError(err)) {
+					throw err
+				}
+				draft = { file, check: await checkEnrollmentImport(file) }
+			}
+		})
 	}
 
 	// Removals are grouped by course: remove_enrollments takes one
@@ -156,6 +196,7 @@
 				section="enrollments"
 				exportHref="/admin/api/enrollments/export"
 				importAction="/admin/api/enrollments/import"
+				onimport={importFile}
 				busy={data.busy}
 				{run}
 			/>
@@ -327,5 +368,21 @@
 				</tbody>
 			</table>
 		</div>
+	{/if}
+	{#if draft !== null}
+		{@const file = draft.file}
+		<EnrollmentImportDraft
+			check={draft.check}
+			holds={(studentID, courseID): boolean =>
+				liveKeys.has(`${studentID}:${courseID}`)}
+			courseLabel={(id): string =>
+				courseLabel(id, courseByID.get(id)?.name ?? id)}
+			upload={(drop, accept): void => {
+				commitDraft(file, drop, accept)
+			}}
+			cancel={(): void => {
+				draft = null
+			}}
+		/>
 	{/if}
 </section>

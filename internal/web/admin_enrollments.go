@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"log/slog"
 	"maps"
 	"net/http"
@@ -193,8 +194,93 @@ func reduceExportRows(rows [][]string) [][]string {
 	return out
 }
 
+// importSeat names one row of an enrollment file.
+type importSeat struct {
+	CourseID  string `json:"course_id"`
+	StudentID string `json:"student_id"`
+}
+
+// importViolation is a violation with the row that raised it. The code
+// names the course for every rule but budget, so the course is carried
+// alongside rather than parsed back out of it.
+type importViolation struct {
+	apiViolation
+
+	CourseID string `json:"course_id"`
+}
+
+// importCheck is what a dry run found: every rule the file would break,
+// and every row naming a student or course that does not exist.
+type importCheck struct {
+	Violations []importViolation `json:"violations"`
+	Unknown    []importSeat      `json:"unknown"`
+}
+
+// dropRows removes the rows named "course_id:student_id"; neither id
+// may contain ':'.
+func dropRows(rows [][]string, drop []string) [][]string {
+	if len(drop) == 0 {
+		return rows
+	}
+
+	gone := make(map[string]struct{}, len(drop))
+	for _, d := range drop {
+		gone[d] = struct{}{}
+	}
+
+	return slices.DeleteFunc(rows, func(row []string) bool {
+		_, ok := gone[row[0]+":"+row[1]]
+
+		return ok
+	})
+}
+
+// unknownRows splits off the rows naming a student or course that does
+// not exist, which a placement would refuse outright.
+func unknownRows(ctx context.Context, qtx *db.Queries, rows [][]string) ([][]string, []importSeat, error) {
+	students, err := qtx.GetStudents(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	courses, err := qtx.GetCourses(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	knownStudents := make(map[string]struct{}, len(students))
+	for _, s := range students {
+		knownStudents[s.ID] = struct{}{}
+	}
+
+	knownCourses := make(map[string]struct{}, len(courses))
+	for _, c := range courses {
+		knownCourses[c.ID] = struct{}{}
+	}
+
+	var unknown []importSeat
+
+	rows = slices.DeleteFunc(rows, func(row []string) bool {
+		_, course := knownCourses[row[0]]
+		_, student := knownStudents[row[1]]
+
+		if !course || !student {
+			unknown = append(unknown, importSeat{CourseID: row[0], StudentID: row[1]})
+		}
+
+		return !course || !student
+	})
+
+	return rows, unknown, nil
+}
+
 // All-or-nothing, like the course import and for the same reason: half
 // an allocation is worse than none.
+//
+// Three optional form fields make it a draft. check=1 is a dry run that
+// reports every conflict instead of stopping at the first; drop names
+// rows to leave out; accept names the violations the administrator
+// chose to keep. A clean file needs none of them.
 //
 // Unlike the course import, though, the transaction is held here: an
 // allocation is a batch of place_enrollments calls, one per course,
@@ -223,12 +309,9 @@ func (app *Server) handleAdmEnrollmentsImport(w http.ResponseWriter, r *http.Req
 		rows = reduceExportRows(rows)
 	}
 
-	groups, err := groupEnrollmentRows(rows)
-	if err != nil {
-		app.apiBadRequest(r, w, err.Error(), err, slog.String("admin_username", aui.Username))
-
-		return
-	}
+	check := r.MultipartForm.Value["check"] != nil
+	accept := r.MultipartForm.Value["accept"]
+	rows = dropRows(rows, r.MultipartForm.Value["drop"])
 
 	ctx, cancel := writeCtx(r.Context())
 	defer cancel()
@@ -244,6 +327,67 @@ func (app *Server) handleAdmEnrollmentsImport(w http.ResponseWriter, r *http.Req
 	}()
 
 	qtx := app.queries.WithTx(tx)
+
+	var found importCheck
+
+	if check {
+		rows, found.Unknown, err = unknownRows(ctx, qtx, rows)
+		if err != nil {
+			app.apiDBError(r, w, err, slog.String("admin_username", aui.Username))
+
+			return
+		}
+	}
+
+	groups, err := groupEnrollmentRows(rows)
+	if err != nil {
+		app.apiBadRequest(r, w, err.Error(), err, slog.String("admin_username", aui.Username))
+
+		return
+	}
+
+	// write runs one placement call. Under check, a refusal is
+	// recorded and the call retried accepting exactly what it named,
+	// so later courses are judged as if every row had been kept: that
+	// is what surfaces both sides of a clash, and every row past a
+	// course's capacity, in one pass.
+	write := func(courseID string, call func(accept []string) error) error {
+		if !check {
+			return call(accept)
+		}
+
+		sp, err := tx.Begin(ctx)
+		if err != nil {
+			return err
+		}
+
+		err = call(nil)
+		if vs := violationsOf(err); vs != nil {
+			if err := sp.Rollback(ctx); err != nil {
+				return err
+			}
+
+			codes := make([]string, len(vs))
+			for i, v := range vs {
+				codes[i] = v.Code
+				found.Violations = append(found.Violations, importViolation{apiViolation: v, CourseID: courseID})
+			}
+
+			if sp, err = tx.Begin(ctx); err != nil {
+				return err
+			}
+
+			err = call(codes)
+		}
+
+		if err != nil {
+			_ = sp.Rollback(ctx)
+
+			return err
+		}
+
+		return sp.Commit(ctx)
+	}
 
 	// What is already there, so that re-uploading a file changes only
 	// what the file changed.
@@ -292,16 +436,18 @@ func (app *Server) handleAdmEnrollmentsImport(w http.ResponseWriter, r *http.Req
 			}
 		}
 
-		// An import accepts nothing, as with the roster: a placement
-		// that breaks a rule is reported so it can be decided on
+		// An import accepts only what the administrator chose to keep in
+		// the draft: a placement that breaks a rule is decided on
 		// deliberately, not waved through by uploading a file.
 		if len(fresh) > 0 {
-			if err := qtx.PlaceEnrollments(ctx, db.PlaceEnrollmentsParams{
-				PCourseID:           group.courseID,
-				PStudentIds:         fresh,
-				PStudentDroppable:   group.droppable,
-				PCountsTowardBudget: group.budgeted,
-				PAccept:             nil,
+			if err := write(group.courseID, func(accept []string) error {
+				return qtx.PlaceEnrollments(ctx, db.PlaceEnrollmentsParams{
+					PCourseID:           group.courseID,
+					PStudentIds:         fresh,
+					PStudentDroppable:   group.droppable,
+					PCountsTowardBudget: group.budgeted,
+					PAccept:             accept,
+				})
 			}); err != nil {
 				app.apiDBError(r, w, err,
 					slog.String("admin_username", aui.Username),
@@ -314,12 +460,14 @@ func (app *Server) handleAdmEnrollmentsImport(w http.ResponseWriter, r *http.Req
 		// Same course, so the same lock, taken again in the same
 		// order. Nothing about the sequence changes.
 		if len(repolicy) > 0 {
-			if err := qtx.SetEnrollmentPolicy(ctx, db.SetEnrollmentPolicyParams{
-				PCourseID:           group.courseID,
-				PStudentIds:         repolicy,
-				PStudentDroppable:   group.droppable,
-				PCountsTowardBudget: group.budgeted,
-				PAccept:             nil,
+			if err := write(group.courseID, func(accept []string) error {
+				return qtx.SetEnrollmentPolicy(ctx, db.SetEnrollmentPolicyParams{
+					PCourseID:           group.courseID,
+					PStudentIds:         repolicy,
+					PStudentDroppable:   group.droppable,
+					PCountsTowardBudget: group.budgeted,
+					PAccept:             accept,
+				})
 			}); err != nil {
 				app.apiDBError(r, w, err,
 					slog.String("admin_username", aui.Username),
@@ -338,6 +486,13 @@ func (app *Server) handleAdmEnrollmentsImport(w http.ResponseWriter, r *http.Req
 		for _, id := range group.studentIDs {
 			students[id] = struct{}{}
 		}
+	}
+
+	// A dry run never commits; the deferred rollback undoes it.
+	if check {
+		app.writeJSON(r, w, found, slog.String("admin_username", aui.Username))
+
+		return
 	}
 
 	if err := tx.Commit(ctx); err != nil {
