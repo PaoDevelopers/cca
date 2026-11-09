@@ -37,12 +37,18 @@ export function FilterBar({
 	return (
 		<div className="flex flex-col gap-2">
 			<div className="flex flex-wrap items-center gap-2">
-				<label className="flex min-w-0 flex-1 items-center gap-2">
-					<span className="sr-only">Filter</span>
+				{/*
+					Named by aria-label rather than a wrapping <label>: React
+					keeps a controlled textarea's text content equal to its
+					value, so a wrapping label's name would grow with every
+					expression typed into it.
+				*/}
+				<div className="flex min-w-0 flex-1 items-center gap-2">
 					{mode === "cel" ? (
 						<Textarea
 							rows={2}
 							spellCheck={false}
+							aria-label="Filter"
 							placeholder="CEL expression"
 							className="min-w-64 font-mono"
 							value={query}
@@ -53,6 +59,7 @@ export function FilterBar({
 					) : (
 						<Input
 							type="search"
+							aria-label="Filter"
 							placeholder="Filter…"
 							value={query}
 							onChange={(event): void => {
@@ -60,7 +67,7 @@ export function FilterBar({
 							}}
 						/>
 					)}
-				</label>
+				</div>
 				<Button
 					type="button"
 					variant="outline"

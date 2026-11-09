@@ -99,14 +99,17 @@ describe("admin", (): void => {
 		const page = await context.newPage()
 		await page.goto("/admin/#/students")
 		await page.getByText("Alice Example").waitFor()
-		await page.locator("details.data-tools").getByText("Data tools").click()
 
+		// The copy is an item in the Data tools menu, which closes on
+		// every choice, so each copy opens it again.
+		const tools = page.getByRole("button", { name: "Data tools" })
 		const copy = page.getByRole("button", {
 			name: "Copy students’ email addresses",
 		})
 		const clipboard = (): Promise<string> =>
 			page.evaluate((): Promise<string> => navigator.clipboard.readText())
 
+		await tools.click()
 		await copy.click()
 		await page.getByText("Copied 2.").waitFor()
 		assert.equal(
@@ -118,6 +121,7 @@ describe("admin", (): void => {
 		// has narrowed the table means the people in it.
 		await page.locator("input[type=search]").fill(`id:${subjects.bob}`)
 		await page.getByText("1 of 2 students shown").waitFor()
+		await tools.click()
 		await copy.click()
 		await page.getByText("Copied 1.").waitFor()
 		assert.equal(await clipboard(), `${subjects.bob}@stu.ykpaoschool.cn`)
@@ -126,6 +130,7 @@ describe("admin", (): void => {
 		// clipboard silently replacing what was in it.
 		await page.locator("input[type=search]").fill("id:nobody")
 		await page.getByText("0 of 2 students shown").waitFor()
+		await tools.click()
 		assert.equal(await copy.isDisabled(), true)
 	})
 
@@ -298,6 +303,10 @@ describe("admin", (): void => {
 		const y9 = page.locator("article.card", { hasText: "Y9" })
 		const y10 = page.locator("article.card", { hasText: "Y10" })
 
+		// The budget boxes are on each card's Limits tab.
+		await y9.getByRole("tab", { name: "Limits" }).click()
+		await y10.getByRole("tab", { name: "Limits" }).click()
+
 		// Typing commits nothing yet.
 		await y9.locator('input[type="number"]').first().fill("3")
 
@@ -350,10 +359,14 @@ describe("admin", (): void => {
 			const requirements = card.getByRole("group", {
 				name: "Requirements",
 			})
+			await card.getByRole("tab", { name: "Limits" }).click()
+			await limits.waitFor()
 			assert.equal(
 				await limits.getByLabel("Distinct categories for Y9").count(),
 				0,
 			)
+			await card.getByRole("tab", { name: "Requirements" }).click()
+			await requirements.waitFor()
 			assert.equal(
 				await requirements
 					.getByLabel("Distinct categories for Y9")
@@ -361,6 +374,7 @@ describe("admin", (): void => {
 				1,
 			)
 
+			await card.getByRole("tab", { name: "Window" }).click()
 			await open.click()
 			await card
 				.getByText(/Open since .*; no automatic closing time\./)
@@ -631,17 +645,17 @@ describe("admin", (): void => {
 		const row = page.locator("tr", { hasText: "Basketball" })
 		await row.getByRole("button", { name: /Edit BB/ }).click()
 
-		// Scope this to the row: the create editor also exists, collapsed
-		// in the actions above the table.
-		const editor = row
-			.locator("xpath=following-sibling::tr[1]")
+		// The edit sheet is its own dialog, named for the course.
+		const editor = page
+			.getByRole("dialog", { name: "Edit BB" })
 			.locator("form.editor")
 		await editor.getByLabel("Capacity").fill("1")
 		await editor.getByRole("button", { name: "Save" }).click()
 
 		// The refusal arrives as a dialog naming the violated fact in
-		// the database's own words, not a generic failure.
-		const dialog = page.getByRole("dialog")
+		// the database's own words, not a generic failure. It opens over
+		// the sheet, so it is picked out by its own name.
+		const dialog = page.getByRole("dialog", { name: /would break/ })
 		await dialog.waitFor()
 		await dialog.getByText(/BB is over its new capacity \(2\/1\)/).waitFor()
 
@@ -1038,9 +1052,13 @@ describe("admin", (): void => {
 	// is placed. Basketball and Baking both meet on MON1.
 	it("holds a conflicting enrollment file as a draft", async (): Promise<void> => {
 		const page = await adminPage("#/enrollments")
-		await page.locator("details.data-tools").getByText("Data tools").click()
 
+		// Each import opens its own dialog from the Data tools menu.
 		const upload = async (name: string, csv: string): Promise<void> => {
+			await page.getByRole("button", { name: "Data tools" }).click()
+			await page
+				.getByRole("button", { name: "Import enrollments…" })
+				.click()
 			await page.getByLabel("Import CSV or XLSX").setInputFiles({
 				name,
 				mimeType: "text/csv",
@@ -1191,6 +1209,7 @@ ${csv}`,
 		})
 
 		const card = page.locator("article.card", { hasText: "Y9" }).first()
+		await card.getByRole("tab", { name: "Limits" }).click()
 		const budget = card.getByLabel("Period budget for Y9")
 		const asStored = await budget.inputValue()
 
