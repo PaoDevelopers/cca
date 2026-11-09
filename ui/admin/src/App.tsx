@@ -2,7 +2,7 @@ import { ErrorPopup } from "@common/components/ErrorPopup"
 import { Footer } from "@common/components/Footer"
 import { Button } from "@common/components/ui/button"
 import { Toaster } from "@common/components/ui/toast"
-import { errorMessage } from "@common/http"
+import { errorMessage, getJSON } from "@common/http"
 import { cn } from "@common/lib/utils"
 import {
 	Component,
@@ -17,6 +17,7 @@ import { AdminData, AdminDataContext, useAdminData } from "./lib/data"
 import { EnrollmentsPage } from "./lib/EnrollmentsPage"
 import { GradesPage } from "./lib/GradesPage"
 import { PeriodsPage } from "./lib/PeriodsPage"
+import { SignOutIcon } from "./lib/icons"
 import { StudentsPage } from "./lib/StudentsPage"
 import { ViolationDialog } from "./lib/ViolationDialog"
 
@@ -63,6 +64,20 @@ export function App(): ReactElement {
 function Shell(): ReactElement {
 	const data = useAdminData()
 	const [{ route, query }, setLocation] = useState(parseHash)
+	// Who is signed in, for the foot of the sidebar. A decoration: if
+	// the lookup fails, the name is simply not shown.
+	const [account, setAccount] = useState<string | null>(null)
+
+	useEffect((): void => {
+		getJSON<{ admin: string }>("/api/session").then(
+			(session): void => {
+				setAccount(session.admin === "" ? null : session.admin)
+			},
+			(): void => {
+				setAccount(null)
+			},
+		)
+	}, [])
 
 	useEffect((): (() => void) => {
 		const onhashchange = (): void => {
@@ -85,18 +100,17 @@ function Shell(): ReactElement {
 
 	return (
 		<>
-			<header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
-				<div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-x-6 px-4 pt-3 sm:px-6">
-					<h1 className="pb-3 text-lg font-semibold tracking-tight">
+			<div className="flex flex-1 flex-col md:flex-row">
+				<aside className="z-20 flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b bg-muted/40 px-4 py-3 md:sticky md:top-0 md:h-svh md:w-56 md:flex-col md:flex-nowrap md:items-stretch md:border-r md:border-b-0 md:px-3 md:py-5">
+					<h1 className="text-lg font-semibold tracking-tight md:px-3 md:pb-3">
 						CCA administration
 					</h1>
 					{/*
-						Link-based navigation, not ARIA tabs: each entry
-						changes the hash route, so <nav> plus
-						aria-current="page" is the accurate markup. The tab
-						look is purely presentational.
+						Link-based navigation: each entry changes the hash
+						route, so <nav> plus aria-current="page" is the
+						accurate markup.
 					*/}
-					<nav className="-mb-px flex min-w-0 gap-1 overflow-x-auto">
+					<nav className="order-last flex w-full min-w-0 gap-1 overflow-x-auto md:order-none md:flex-col md:overflow-visible">
 						{Object.entries(pages).map(([hash, label]) => (
 							<a
 								key={hash}
@@ -105,51 +119,79 @@ function Shell(): ReactElement {
 									route === hash ? "page" : undefined
 								}
 								className={cn(
-									"border-b-2 border-transparent px-3 pb-2.5 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:text-foreground",
-									"aria-[current=page]:border-primary aria-[current=page]:text-foreground",
+									"rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+									"aria-[current=page]:bg-accent aria-[current=page]:text-foreground",
 								)}
 							>
 								{label}
 							</a>
 						))}
 					</nav>
+					<div className="ml-auto flex min-w-0 items-center gap-1 md:mt-auto md:ml-0 md:border-t md:pt-3 md:pl-3">
+						{account !== null && (
+							<span
+								className="min-w-0 flex-1 truncate text-sm"
+								title={account}
+							>
+								<span className="sr-only">Signed in as </span>
+								{account}
+							</span>
+						)}
+						<form method="post" action="/admin/logout">
+							<Button
+								type="submit"
+								variant="ghost"
+								size="icon"
+								className="text-muted-foreground hover:text-foreground"
+								aria-label="Sign out"
+								tooltip="Sign out"
+							>
+								<SignOutIcon />
+							</Button>
+						</form>
+					</div>
+				</aside>
+
+				<div className="flex min-w-0 flex-1 flex-col">
+					{/*
+						tabIndex so the data layer has somewhere to put the
+						focus when the control that started a write no longer
+						exists — a save that closes its own editor, a delete
+						that removes its own row. Landing here continues the
+						tab order inside the page rather than restarting it at
+						the top of the document.
+					*/}
+					<main
+						tabIndex={-1}
+						className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 outline-none sm:px-6"
+					>
+						{/*
+							Keyed by route so a page that failed to render gets
+							a fresh boundary, and a fresh chance, on the next
+							tab.
+						*/}
+						<Boundary key={route}>
+							{data.unauthenticated ? (
+								<p role="alert">
+									You are not signed in, or your session has
+									expired.{" "}
+									<a className="underline" href="/admin/">
+										Sign in
+									</a>
+								</p>
+							) : (
+								<Page
+									route={route}
+									filter={query}
+									setFilter={setFilter}
+								/>
+							)}
+						</Boundary>
+					</main>
+
+					<Footer />
 				</div>
-			</header>
-
-			{/*
-				tabIndex so the data layer has somewhere to put the focus
-				when the control that started a write no longer exists — a
-				save that closes its own editor, a delete that removes its
-				own row. Landing here continues the tab order inside the
-				page rather than restarting it at the top of the document.
-			*/}
-			<main
-				tabIndex={-1}
-				className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 outline-none sm:px-6"
-			>
-				{/*
-					Keyed by route so a page that failed to render gets a
-					fresh boundary, and a fresh chance, on the next tab.
-				*/}
-				<Boundary key={route}>
-					{data.unauthenticated ? (
-						<p role="alert">
-							You are not signed in, or your session has expired.{" "}
-							<a className="underline" href="/admin/">
-								Sign in
-							</a>
-						</p>
-					) : (
-						<Page
-							route={route}
-							filter={query}
-							setFilter={setFilter}
-						/>
-					)}
-				</Boundary>
-			</main>
-
-			<Footer />
+			</div>
 
 			<ErrorPopup
 				message={data.error}
@@ -198,18 +240,7 @@ function Page({
 		case "#/enrollments":
 			return <EnrollmentsPage filter={filter} setFilter={setFilter} />
 		case "#/":
-			return (
-				<section className="flex flex-col items-start gap-4">
-					<p className="text-muted-foreground">
-						Choose a section above.
-					</p>
-					<form method="post" action="/admin/logout">
-						<Button variant="outline" size="default">
-							Sign out
-						</Button>
-					</form>
-				</section>
-			)
+			return <p className="text-muted-foreground">Choose a section.</p>
 	}
 }
 

@@ -91,3 +91,20 @@ export function SignInIcon(): ReactElement {
 		</svg>
 	)
 }
+
+export function SignOutIcon(): ReactElement {
+	return (
+		<svg
+			aria-hidden="true"
+			viewBox="0 0 16 16"
+			className="size-[1.125rem]"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="M6.5 2.5H4A1.5 1.5 0 0 0 2.5 4v8A1.5 1.5 0 0 0 4 13.5h2.5M6.5 8h7M11 5l3 3-3 3" />
+		</svg>
+	)
+}
