@@ -303,10 +303,6 @@ describe("admin", (): void => {
 		const y9 = page.locator("article.card", { hasText: "Y9" })
 		const y10 = page.locator("article.card", { hasText: "Y10" })
 
-		// The budget boxes are on each card's Limits tab.
-		await y9.getByRole("tab", { name: "Limits" }).click()
-		await y10.getByRole("tab", { name: "Limits" }).click()
-
 		// Typing commits nothing yet.
 		await y9.locator('input[type="number"]').first().fill("3")
 
@@ -359,14 +355,10 @@ describe("admin", (): void => {
 			const requirements = card.getByRole("group", {
 				name: "Requirements",
 			})
-			await card.getByRole("tab", { name: "Limits" }).click()
-			await limits.waitFor()
 			assert.equal(
 				await limits.getByLabel("Distinct categories for Y9").count(),
 				0,
 			)
-			await card.getByRole("tab", { name: "Requirements" }).click()
-			await requirements.waitFor()
 			assert.equal(
 				await requirements
 					.getByLabel("Distinct categories for Y9")
@@ -374,7 +366,6 @@ describe("admin", (): void => {
 				1,
 			)
 
-			await card.getByRole("tab", { name: "Window" }).click()
 			await open.click()
 			await card
 				.getByText(/Open since .*; no automatic closing time\./)
@@ -1209,7 +1200,6 @@ ${csv}`,
 		})
 
 		const card = page.locator("article.card", { hasText: "Y9" }).first()
-		await card.getByRole("tab", { name: "Limits" }).click()
 		const budget = card.getByLabel("Period budget for Y9")
 		const asStored = await budget.inputValue()
 

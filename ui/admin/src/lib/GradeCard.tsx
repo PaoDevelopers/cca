@@ -18,7 +18,6 @@ import {
 	TableHeader,
 	TableRow,
 } from "@common/components/ui/table"
-import { Tabs } from "@common/components/ui/tabs"
 import type { Category, Grade } from "@common/types"
 import {
 	useEffect,
@@ -390,11 +389,13 @@ export function GradeCard({
 	// follows the write brings the new bounds in, which is also why
 	// neither touches a draft: there is no half-finished edit here to
 	// protect.
-	const windowTab = (
+	const windowSection = (
 		// The bounds and what they mean stay together; acting now is a
 		// separate decision, so it sits apart, below them.
 		<fieldset className="@container flex flex-col gap-4">
-			<legend className="sr-only">Enrollment window</legend>
+			<legend className="mb-3 text-sm font-semibold">
+				Enrollment window
+			</legend>
 			<div className="flex flex-col gap-1.5">
 				<div className="grid gap-3 @sm:grid-cols-2">
 					<Label className="flex-col items-start">
@@ -456,9 +457,9 @@ export function GradeCard({
 		</fieldset>
 	)
 
-	const limitsTab = (
+	const limitsSection = (
 		<fieldset className="flex flex-wrap items-center gap-2">
-			<legend className="sr-only">Limits</legend>
+			<legend className="mb-3 text-sm font-semibold">Limits</legend>
 			<span className="text-sm font-medium">Period budget</span>
 			<Help label="Explain the period budget">
 				The number of periods a student in this grade may occupy with
@@ -485,9 +486,9 @@ export function GradeCard({
 	// and removed here, and one Save replaces the lot. Nothing is
 	// written until then, so a half-built requirement never reaches the
 	// server.
-	const requirementsTab = (
+	const requirementsSection = (
 		<fieldset className="flex flex-col gap-3">
-			<legend className="sr-only">Requirements</legend>
+			<legend className="mb-3 text-sm font-semibold">Requirements</legend>
 			<div className="flex flex-wrap items-center gap-2">
 				<span className="text-sm font-medium">Distinct categories</span>
 				<Help label="Explain the category minimum">
@@ -686,7 +687,7 @@ export function GradeCard({
 	return (
 		<article
 			aria-labelledby={`${uid}-title`}
-			className="card flex flex-col gap-5 rounded-xl border bg-card p-5 text-card-foreground shadow-xs"
+			className="card flex flex-col gap-4 rounded-xl border bg-card p-5 text-card-foreground shadow-xs"
 		>
 			<header className="flex flex-col gap-1">
 				<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -782,18 +783,17 @@ export function GradeCard({
 				</p>
 			</header>
 
-			<Tabs
-				label={`Settings for ${grade.id}`}
-				tabs={[
-					{ id: "window", title: "Window", content: windowTab },
-					{ id: "limits", title: "Limits", content: limitsTab },
-					{
-						id: "requirements",
-						title: "Requirements",
-						content: requirementsTab,
-					},
-				]}
-			/>
+			{/*
+				All three sections at once, each under its own heading: a
+				grade's settings are few enough to read in one pass, and
+				nothing about one of them is hidden behind another.
+			*/}
+			<div className="flex flex-col divide-y border-t [&>*]:py-4 [&>*:last-child]:pb-0">
+				{/* Wrapped: a legend ignores its fieldset's top padding. */}
+				<div>{windowSection}</div>
+				<div>{limitsSection}</div>
+				<div>{requirementsSection}</div>
+			</div>
 		</article>
 	)
 }
