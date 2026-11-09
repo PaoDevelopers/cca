@@ -42,15 +42,34 @@ function Button({
 }) {
 	const uid = React.useId().replaceAll(":", "")
 	const tip = React.useRef<HTMLDivElement>(null)
-	const show = (): void => tip.current?.showPopover()
-	const hide = (): void => tip.current?.hidePopover()
+	const [open, setOpen] = React.useState(false)
+	const describes = tooltip !== undefined && tooltip !== props["aria-label"]
+	// The tip exists only while shown, bar one that is also the
+	// description: a table of icon buttons would otherwise carry
+	// thousands of hidden popovers through every style recalculation.
+	const rendered = open || describes
+	React.useLayoutEffect((): void => {
+		if (open) tip.current?.showPopover()
+		else if (tip.current?.matches(":popover-open"))
+			tip.current.hidePopover()
+	}, [open])
+	const show = (): void => {
+		setOpen(true)
+	}
+	const hide = (): void => {
+		setOpen(false)
+	}
 	const button = (
 		<button
 			data-slot="button"
 			data-variant={variant}
 			data-size={size}
 			className={cn(base, variants[variant], sizes[size], className)}
-			style={tooltip ? { anchorName: `--${uid}-tip`, ...style } : style}
+			style={
+				tooltip && rendered
+					? { anchorName: `--${uid}-tip`, ...style }
+					: style
+			}
 			onClick={(event): void => {
 				// A click usually opens something the tip would cover.
 				hide()
@@ -63,8 +82,7 @@ function Button({
 					if (event.currentTarget.matches(":focus-visible")) show()
 				},
 				onBlur: hide,
-				"aria-describedby":
-					tooltip === props["aria-label"] ? undefined : `${uid}-tip`,
+				"aria-describedby": describes ? `${uid}-tip` : undefined,
 			})}
 			{...props}
 		/>
@@ -73,16 +91,18 @@ function Button({
 	return (
 		<>
 			{button}
-			<div
-				ref={tip}
-				id={`${uid}-tip`}
-				popover="manual"
-				role="tooltip"
-				style={{ positionAnchor: `--${uid}-tip` }}
-				className="anchored-tooltip pointer-events-none max-w-64 rounded-md bg-foreground px-2 py-1 text-xs text-background shadow-md"
-			>
-				{tooltip}
-			</div>
+			{rendered && (
+				<div
+					ref={tip}
+					id={`${uid}-tip`}
+					popover="manual"
+					role="tooltip"
+					style={{ positionAnchor: `--${uid}-tip` }}
+					className="anchored-tooltip pointer-events-none max-w-64 rounded-md bg-foreground px-2 py-1 text-xs text-background shadow-md"
+				>
+					{tooltip}
+				</div>
+			)}
 		</>
 	)
 }

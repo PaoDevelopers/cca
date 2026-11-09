@@ -344,10 +344,8 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 									impersonate(student.id)
 								}}
 								ontoggleschedule={(): void => {
-									setScheduleFor(
-										scheduleFor === student.id
-											? null
-											: student.id,
+									setScheduleFor((open) =>
+										open === student.id ? null : student.id,
 									)
 								}}
 							/>

@@ -4,7 +4,7 @@ import { Badge } from "@common/components/ui/badge"
 import { Button } from "@common/components/ui/button"
 import { TableCell, TableRow } from "@common/components/ui/table"
 import type { Course, Enrollment } from "@common/types"
-import type { ReactElement } from "react"
+import { memo, type ReactElement } from "react"
 import { AdminSchedule } from "./AdminSchedule"
 import { ConfirmDelete } from "./ConfirmDelete"
 import { CalendarIcon, ListIcon, PencilIcon, SignInIcon } from "./icons"
@@ -24,7 +24,7 @@ interface Props {
 	ontoggleschedule: () => void
 }
 
-export function StudentRow({
+function StudentRowImpl({
 	student,
 	budget,
 	requirements,
@@ -147,3 +147,19 @@ export function StudentRow({
 		</>
 	)
 }
+
+// A roster is hundreds of rows, and the page re-renders on every
+// keystroke in the filter, so a row re-renders only when what it shows
+// changes. The callbacks are ignored: they reach the page's state only
+// through setters and the shared AdminData, never a captured value. The
+// open row always re-renders, since its schedule reads courses too.
+export const StudentRow = memo(
+	StudentRowImpl,
+	(a, b): boolean =>
+		!a.scheduleOpen &&
+		!b.scheduleOpen &&
+		a.student === b.student &&
+		a.budget === b.budget &&
+		a.requirements === b.requirements &&
+		a.busy === b.busy,
+)
