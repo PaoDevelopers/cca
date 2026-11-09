@@ -39,7 +39,7 @@ function NativeSelect({ className, ...props }: React.ComponentProps<"select">) {
 			data-slot="native-select"
 			className={cn(
 				field,
-				"[:where(&)]:h-9 [:where(&)]:w-auto pr-8",
+				"[:where(&)]:h-9 [:where(&)]:w-auto appearance-none pr-9",
 				className,
 			)}
 			{...props}
