@@ -27,6 +27,7 @@ import { courseCelContext } from "./courses"
 import { useAdminData } from "./data"
 import { DataTools } from "./DataTools"
 import { FilterBar } from "./FilterBar"
+import { SortableHead, sortRows, type Sort } from "./sorting"
 
 interface Props {
 	// The route's ?q=, owned by the shell so the box and the URL stay
@@ -59,9 +60,7 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 	// nothing. A course deleted elsewhere closes its own sheet.
 	const [editing, setEditing] = useState<string | null>(null)
 	const [creating, setCreating] = useState(false)
-	const [sort, setSort] = useState<{ key: SortKey; desc: boolean } | null>(
-		null,
-	)
+	const [sort, setSort] = useState<Sort<SortKey> | null>(null)
 
 	// Row selection for bulk deletion, keyed by course ID. Pairs with
 	// the term filter to clear out a season in one go.
@@ -114,19 +113,7 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 					}),
 				)
 
-	const shown =
-		sort === null
-			? filtered
-			: [...filtered].sort((a, b): number => {
-					const by = sortKeys[sort.key]
-					const x = by(a)
-					const y = by(b)
-					const order =
-						typeof x === "number" && typeof y === "number"
-							? x - y
-							: String(x).localeCompare(String(y))
-					return sort.desc ? -order : order
-				})
+	const shown = sortRows(filtered, sort, (c, key) => sortKeys[key](c))
 
 	// A course deleted elsewhere leaves a stale ID behind. Dropping
 	// those at read time rather than writing the selection back keeps it
@@ -150,40 +137,6 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 		editing === null
 			? undefined
 			: data.courses.find((c): boolean => c.id === editing)
-
-	const header = (key: SortKey, label: string): ReactElement => {
-		const active = sort?.key === key
-		let ariaSort: "ascending" | "descending" | undefined
-		let arrow = ""
-		if (active) {
-			ariaSort = sort.desc ? "descending" : "ascending"
-			arrow = sort.desc ? "▼" : "▲"
-		}
-		return (
-			<TableHead scope="col" aria-sort={ariaSort}>
-				<button
-					type="button"
-					className="inline-flex items-center gap-1 hover:text-foreground"
-					onClick={(): void => {
-						// Ascending, then descending, then back to the
-						// server's order.
-						if (!active) {
-							setSort({ key, desc: false })
-						} else if (!sort.desc) {
-							setSort({ key, desc: true })
-						} else {
-							setSort(null)
-						}
-					}}
-				>
-					{label}
-					<span aria-hidden="true" className="w-3 text-xs">
-						{arrow}
-					</span>
-				</button>
-			</TableHead>
-		)
-	}
 
 	return (
 		<section
@@ -324,12 +277,37 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 								}}
 							/>
 						</TableHead>
-						{header("id", "ID")}
-						{header("name", "Name")}
-						{header("category", "Category")}
+						<SortableHead
+							column="id"
+							label="ID"
+							sort={sort}
+							onSort={setSort}
+						/>
+						<SortableHead
+							column="name"
+							label="Name"
+							sort={sort}
+							onSort={setSort}
+						/>
+						<SortableHead
+							column="category"
+							label="Category"
+							sort={sort}
+							onSort={setSort}
+						/>
 						<TableHead scope="col">Periods</TableHead>
-						{header("term", "Term")}
-						{header("students", "Students")}
+						<SortableHead
+							column="term"
+							label="Term"
+							sort={sort}
+							onSort={setSort}
+						/>
+						<SortableHead
+							column="students"
+							label="Students"
+							sort={sort}
+							onSort={setSort}
+						/>
 						<TableHead scope="col">Invite only</TableHead>
 						<TableHead scope="col" className="text-right">
 							Actions

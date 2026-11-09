@@ -38,6 +38,7 @@ import {
 	policyLabel,
 } from "./enrollments"
 import { FilterBar } from "./FilterBar"
+import { SortableHead, sortRows, type Sort } from "./sorting"
 
 interface Props {
 	// The route's ?q=, owned by the shell so the box and the URL stay
@@ -84,10 +85,7 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 	const [mode, setMode] = useState<FilterMode>("simple")
 	// Row selection for bulk deletion.
 	const [selected, setSelected] = useState<string[]>([])
-	const [sort, setSort] = useState<{
-		column: Column
-		ascending: boolean
-	} | null>(null)
+	const [sort, setSort] = useState<Sort<Column> | null>(null)
 
 	function run(action: () => Promise<void>): Promise<boolean> {
 		return data.run(action, "enrollments", "courses")
@@ -204,16 +202,7 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 					}),
 				)
 
-	const filtered =
-		sort === null
-			? matching
-			: [...matching].sort((a, b): number => {
-					const by = columns[sort.column]
-					const order = by(a).localeCompare(by(b), undefined, {
-						numeric: true,
-					})
-					return sort.ascending ? order : -order
-				})
+	const filtered = sortRows(matching, sort, (e, column) => columns[column](e))
 
 	// An enrollment deleted elsewhere leaves a stale key behind.
 	// Dropping those at read time rather than writing the selection back
@@ -232,34 +221,6 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 	// on screen; only acting on them in bulk is withheld until the
 	// expression means something.
 	const bulkUnavailable = mode === "cel" && celResult.unfiltered
-
-	function header(column: Column, label: string): ReactElement {
-		const current = sort?.column === column ? sort : null
-		let direction: "ascending" | "descending" | undefined
-		if (current !== null) {
-			direction = current.ascending ? "ascending" : "descending"
-		}
-		const arrows = { ascending: "↑", descending: "↓" }
-		return (
-			<TableHead scope="col" aria-sort={direction}>
-				<button
-					type="button"
-					className="inline-flex items-center gap-1 hover:text-foreground"
-					onClick={(): void => {
-						setSort({
-							column,
-							ascending: !(current?.ascending ?? false),
-						})
-					}}
-				>
-					{label}
-					<span aria-hidden="true" className="text-xs">
-						{direction === undefined ? "↕" : arrows[direction]}
-					</span>
-				</button>
-			</TableHead>
-		)
-	}
 
 	return (
 		<section
@@ -425,13 +386,43 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 										}}
 									/>
 								</TableHead>
-								{header("student", "Student")}
-								{header("name", "Name")}
-								{header("grade", "Grade")}
-								{header("course", "Course")}
-								{header("title", "Title")}
+								<SortableHead
+									column="student"
+									label="Student"
+									sort={sort}
+									onSort={setSort}
+								/>
+								<SortableHead
+									column="name"
+									label="Name"
+									sort={sort}
+									onSort={setSort}
+								/>
+								<SortableHead
+									column="grade"
+									label="Grade"
+									sort={sort}
+									onSort={setSort}
+								/>
+								<SortableHead
+									column="course"
+									label="Course"
+									sort={sort}
+									onSort={setSort}
+								/>
+								<SortableHead
+									column="title"
+									label="Title"
+									sort={sort}
+									onSort={setSort}
+								/>
 								<TableHead scope="col">Periods</TableHead>
-								{header("policy", "Policy")}
+								<SortableHead
+									column="policy"
+									label="Policy"
+									sort={sort}
+									onSort={setSort}
+								/>
 								<TableHead scope="col">
 									<span className="sr-only">Actions</span>
 								</TableHead>

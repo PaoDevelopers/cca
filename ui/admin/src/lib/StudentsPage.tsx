@@ -22,6 +22,7 @@ import { useEffect, useState, type ReactElement, type ReactNode } from "react"
 import { DataTools } from "./DataTools"
 import { useAdminData } from "./data"
 import { FilterBar } from "./FilterBar"
+import { SortableHead, sortRows, type Sort } from "./sorting"
 import { StudentEditor } from "./StudentEditor"
 import { StudentRow } from "./StudentRow"
 import {
@@ -52,28 +53,6 @@ const sexes: LegalSex[] = ["F", "M", "X"]
 const studentDomain = "stu.ykpaoschool.cn"
 
 type SortKey = "id" | "name" | "grade" | "sex" | "budget" | "requirements"
-type Sort = { key: SortKey; desc: boolean } | null
-
-// Ascending, then descending, then back to the server's order.
-function nextSort(sort: Sort, key: SortKey): Sort {
-	if (sort?.key !== key) {
-		return { key, desc: false }
-	}
-	return sort.desc ? null : { key, desc: true }
-}
-
-function ariaSort(
-	sort: Sort,
-	key: SortKey,
-): "ascending" | "descending" | "none" {
-	if (sort?.key !== key) {
-		return "none"
-	}
-	return sort.desc ? "descending" : "ascending"
-}
-
-const sortGlyph = { ascending: "↑", descending: "↓", none: "↕" } as const
-
 const columns: Array<{ key: SortKey; label: string }> = [
 	{ key: "id", label: "ID" },
 	{ key: "name", label: "Name" },
@@ -97,7 +76,7 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 	// when it is closed.
 	const [editing, setEditing] = useState<string | null>(null)
 	// null keeps the server's order.
-	const [sort, setSort] = useState<Sort>(null)
+	const [sort, setSort] = useState<Sort<SortKey> | null>(null)
 
 	if (
 		!data.ready("students", "grades", "courses", "periods", "enrollments")
@@ -217,20 +196,7 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 		}
 	}
 
-	const shown =
-		sort === null
-			? filtered
-			: [...filtered].sort((a, b): number => {
-					const x = sortValue(a, sort.key)
-					const y = sortValue(b, sort.key)
-					const order =
-						typeof x === "number" && typeof y === "number"
-							? x - y
-							: String(x).localeCompare(String(y), undefined, {
-									numeric: true,
-								})
-					return sort.desc ? -order : order
-				})
+	const shown = sortRows(filtered, sort, sortValue)
 
 	// The listed students, not every student: an administrator who has
 	// filtered to one grade means that grade.
@@ -327,27 +293,13 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 				<TableHeader>
 					<TableRow className="hover:bg-transparent">
 						{columns.map(({ key, label }) => (
-							<TableHead
+							<SortableHead
 								key={key}
-								scope="col"
-								aria-sort={ariaSort(sort, key)}
-							>
-								<button
-									type="button"
-									className="inline-flex items-center gap-1 hover:text-foreground"
-									onClick={(): void => {
-										setSort(nextSort(sort, key))
-									}}
-								>
-									{label}
-									<span
-										aria-hidden="true"
-										className="text-xs"
-									>
-										{sortGlyph[ariaSort(sort, key)]}
-									</span>
-								</button>
-							</TableHead>
+								column={key}
+								label={label}
+								sort={sort}
+								onSort={setSort}
+							/>
 						))}
 						<TableHead scope="col">Actions</TableHead>
 					</TableRow>

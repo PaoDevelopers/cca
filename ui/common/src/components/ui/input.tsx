@@ -2,8 +2,10 @@ import * as React from "react"
 
 import { cn } from "@common/lib/utils"
 
+// The default size is wrapped in :where(), which has no specificity, so
+// a width or height passed in className wins without a class merger.
 const field =
-	"w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30"
+	"[:where(&)]:w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30"
 
 function Input({ className, ...props }: React.ComponentProps<"input">) {
 	return (
@@ -11,7 +13,7 @@ function Input({ className, ...props }: React.ComponentProps<"input">) {
 			data-slot="input"
 			className={cn(
 				field,
-				"h-9 file:mr-2 file:border-0 file:bg-transparent file:text-sm file:font-medium",
+				"[:where(&)]:h-9 file:mr-2 file:border-0 file:bg-transparent file:text-sm file:font-medium",
 				className,
 			)}
 			{...props}
@@ -35,7 +37,11 @@ function NativeSelect({ className, ...props }: React.ComponentProps<"select">) {
 	return (
 		<select
 			data-slot="native-select"
-			className={cn(field, "h-9 w-auto pr-8", className)}
+			className={cn(
+				field,
+				"[:where(&)]:h-9 [:where(&)]:w-auto pr-8",
+				className,
+			)}
 			{...props}
 		/>
 	)
