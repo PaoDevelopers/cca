@@ -19,7 +19,6 @@ import {
 	useState,
 } from "react"
 import { flushSync } from "react-dom"
-import { isFull } from "@common/capacity"
 import { connectEvents } from "@common/events"
 import { AuthError, errorMessage } from "@common/http"
 import {
@@ -254,32 +253,17 @@ export function useStudentData(): StudentData {
 							break
 					}
 				},
+				// No eligibility read: capacity is derived from this count
+				// (violationsFor), and nothing else in the map depends on
+				// another student's enrollment.
 				oncoursecount: (courseID, currentStudents): void => {
-					// Fullness is a rule, and the rules are the server's:
-					// "capacity" is one of the violations the eligibility
-					// map carries. Re-read it only on the crossing, not
-					// on every count — under a busy window these arrive
-					// ten a second.
-					setCourses((previous): Course[] => {
-						const before = previous.find(
-							(c): boolean => c.id === courseID,
-						)
-						const wasFull = before !== undefined && isFull(before)
-						const nowFull =
-							before !== undefined &&
-							isFull({
-								current_students: currentStudents,
-								max_students: before.max_students,
-							})
-						if (wasFull !== nowFull) {
-							eligibilityPull.trigger()
-						}
-						return previous.map((c): Course =>
+					setCourses((previous): Course[] =>
+						previous.map((c): Course =>
 							c.id === courseID
 								? { ...c, current_students: currentStudents }
 								: c,
-						)
-					})
+						),
+					)
 				},
 				// Whatever changed while the socket was down was never
 				// delivered, and there is no way to find out what it was.
@@ -319,8 +303,14 @@ export function useStudentData(): StudentData {
 	const windowOpen = gradeInfo?.is_open ?? false
 
 	const violations = useCallback(
-		(course: Course): Violation[] => violationsFor(eligibility, course),
-		[eligibility],
+		(course: Course): Violation[] =>
+			violationsFor(
+				eligibility,
+				course,
+				enrollmentByCourse.has(course.id),
+				user?.id ?? "",
+			),
+		[eligibility, enrollmentByCourse, user],
 	)
 
 	// The catalogue is the whole catalogue, enrolled courses included.
@@ -497,7 +487,7 @@ export function useStudentData(): StudentData {
 	// to move between two courses that clash.
 	const swap = useCallback(
 		(course: Course): void => {
-			const replacing = conflictingEnrollments(eligibility, course)
+			const replacing = conflictingEnrollments(violations(course))
 			void write(
 				course,
 				() => swapIntoCourse(course.id, replacing),
@@ -505,7 +495,7 @@ export function useStudentData(): StudentData {
 				"Swapped into",
 			)
 		},
-		[eligibility, write],
+		[violations, write],
 	)
 	// Hoisted rather than written inline in the object below: a hook
 	// called from inside a return literal is legal only for as long as
@@ -527,8 +517,8 @@ export function useStudentData(): StudentData {
 
 	const canSwap = useCallback(
 		(course: Course): boolean =>
-			swappable(eligibility, course, enrollments),
-		[eligibility, enrollments],
+			swappable(violations(course), course, enrollments),
+		[violations, enrollments],
 	)
 
 	return {
