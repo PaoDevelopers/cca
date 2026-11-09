@@ -7,7 +7,7 @@ import type { Course, Enrollment } from "@common/types"
 import type { ReactElement } from "react"
 import { AdminSchedule } from "./AdminSchedule"
 import { ConfirmDelete } from "./ConfirmDelete"
-import { PencilIcon } from "./icons"
+import { CalendarIcon, ListIcon, PencilIcon, SignInIcon } from "./icons"
 
 interface Props {
 	student: AdminStudent
@@ -61,40 +61,56 @@ export function StudentRow({
 					</Badge>
 				</TableCell>
 				<TableCell>
-					<div className="flex flex-wrap gap-1">
+					<div className="flex flex-wrap gap-0.5">
 						<Button
 							variant="ghost"
-							size="xs"
+							size="icon"
+							// Pressed-looking while the schedule is open under the
+							// row, which is what "Close" used to say in words.
+							className={
+								scheduleOpen
+									? "bg-accent text-foreground"
+									: "text-muted-foreground hover:text-foreground"
+							}
 							aria-expanded={scheduleOpen}
 							aria-label={
 								scheduleOpen
 									? `Close the schedule of ${student.id}`
 									: `View the schedule of ${student.id}`
 							}
+							title={
+								scheduleOpen
+									? `Close the schedule of ${student.id}`
+									: `View the schedule of ${student.id}`
+							}
 							onClick={ontoggleschedule}
 						>
-							{scheduleOpen ? "Close" : "Schedule"}
+							<CalendarIcon />
 						</Button>
 						<Button
 							variant="ghost"
-							size="xs"
+							size="icon"
+							className="text-muted-foreground hover:text-foreground"
 							aria-label={`View enrollments of ${student.id}`}
+							title={`View enrollments of ${student.id}`}
 							onClick={(): void => {
 								window.location.hash = `#/enrollments?q=${encodeURIComponent(
 									`student:${student.id}`,
 								)}`
 							}}
 						>
-							Enrollments
+							<ListIcon />
 						</Button>
 						<Button
 							variant="ghost"
-							size="xs"
+							size="icon"
+							className="text-muted-foreground hover:text-foreground"
 							disabled={busy}
 							aria-label={`Sign in as ${student.id}`}
+							title={`Sign in as ${student.id}`}
 							onClick={onimpersonate}
 						>
-							Sign in as
+							<SignInIcon />
 						</Button>
 						<Button
 							variant="ghost"

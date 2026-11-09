@@ -27,7 +27,7 @@ import { courseCelContext } from "./courses"
 import { useAdminData } from "./data"
 import { DataTools } from "./DataTools"
 import { FilterBar } from "./FilterBar"
-import { PencilIcon } from "./icons"
+import { ListIcon, PencilIcon } from "./icons"
 import { SortableHead, sortRows, type Sort } from "./sorting"
 
 interface Props {
@@ -369,19 +369,21 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 								{course.invite_only ? "Yes" : "No"}
 							</TableCell>
 							<TableCell>
-								<div className="flex justify-end gap-1">
+								<div className="flex justify-end gap-0.5">
 									<Button
 										type="button"
 										variant="ghost"
-										size="sm"
+										size="icon"
+										className="text-muted-foreground hover:text-foreground"
 										aria-label={`View enrollments of ${course.id}`}
+										title={`View enrollments of ${course.id}`}
 										onClick={(): void => {
 											window.location.hash = `#/enrollments?q=${encodeURIComponent(
 												`course:${course.id}`,
 											)}`
 										}}
 									>
-										Enrollments
+										<ListIcon />
 									</Button>
 									<Button
 										type="button"
