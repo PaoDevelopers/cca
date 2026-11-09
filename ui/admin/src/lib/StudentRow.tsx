@@ -7,6 +7,7 @@ import type { Course, Enrollment } from "@common/types"
 import type { ReactElement } from "react"
 import { AdminSchedule } from "./AdminSchedule"
 import { ConfirmDelete } from "./ConfirmDelete"
+import { PencilIcon } from "./icons"
 
 interface Props {
 	student: AdminStudent
@@ -97,12 +98,14 @@ export function StudentRow({
 						</Button>
 						<Button
 							variant="ghost"
-							size="xs"
+							size="icon"
+							className="text-muted-foreground hover:text-foreground"
 							disabled={busy}
 							aria-label={`Edit ${student.id}`}
+							title={`Edit ${student.id}`}
 							onClick={onedit}
 						>
-							Edit
+							<PencilIcon />
 						</Button>
 						<ConfirmDelete
 							action="Delete"

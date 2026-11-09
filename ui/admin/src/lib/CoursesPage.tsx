@@ -27,6 +27,7 @@ import { courseCelContext } from "./courses"
 import { useAdminData } from "./data"
 import { DataTools } from "./DataTools"
 import { FilterBar } from "./FilterBar"
+import { PencilIcon } from "./icons"
 import { SortableHead, sortRows, type Sort } from "./sorting"
 
 interface Props {
@@ -384,15 +385,17 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 									</Button>
 									<Button
 										type="button"
-										variant="outline"
-										size="sm"
+										variant="ghost"
+										size="icon"
+										className="text-muted-foreground hover:text-foreground"
 										disabled={data.busy}
 										aria-label={`Edit ${course.id}`}
+										title={`Edit ${course.id}`}
 										onClick={(): void => {
 											setEditing(course.id)
 										}}
 									>
-										Edit
+										<PencilIcon />
 									</Button>
 									<ConfirmDelete
 										action="Delete"

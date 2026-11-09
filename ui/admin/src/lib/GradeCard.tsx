@@ -27,7 +27,8 @@ import {
 	type ReactElement,
 	type ReactNode,
 } from "react"
-import { ConfirmDelete, TrashIcon } from "./ConfirmDelete"
+import { ConfirmDelete } from "./ConfirmDelete"
+import { TrashIcon } from "./icons"
 import { formatInstant, fromLocalInput, toLocalInput } from "./datetime"
 
 interface Props {
@@ -587,7 +588,7 @@ export function GradeCard({
 								<Button
 									type="button"
 									variant="ghost"
-									size="icon-sm"
+									size="icon"
 									className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
 									aria-label="Remove this requirement"
 									title="Remove this requirement"

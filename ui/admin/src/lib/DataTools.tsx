@@ -19,7 +19,7 @@ import {
 import { Input, Label } from "@common/components/ui/input"
 import { toast } from "@common/components/ui/toast"
 import { useState, type ReactElement, type ReactNode } from "react"
-import { TrashIcon } from "./ConfirmDelete"
+import { TrashIcon } from "./icons"
 
 interface Props {
 	section: string
