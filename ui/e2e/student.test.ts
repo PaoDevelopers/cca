@@ -1,5 +1,5 @@
 // The student's own path through the app, against the real server.
-// What these reach that svelte-check and the Go tests cannot is the
+// What these reach that tsc and the Go tests cannot is the
 // join between them: whether the JSON the handlers emit is the shape
 // the components read, and whether a rule the database enforces is
 // also presented before the user runs into it.

@@ -5,17 +5,9 @@
 	"singleQuote": false,
 	"semi": false,
 	"endOfLine": "lf",
-	"plugins": ["prettier-plugin-svelte"],
 	"overrides": [
 		{
-			"files": [
-				"*.js",
-				"*.jsx",
-				"*.ts",
-				"*.tsx",
-				"*.html",
-				"*.svelte"
-			],
+			"files": ["*.js", "*.jsx", "*.ts", "*.tsx", "*.html"],
 			"options": {
 				"tabWidth": 4
 			}

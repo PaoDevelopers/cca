@@ -1,5 +1,3 @@
-import svelteParser from "svelte-eslint-parser"
-import sveltePlugin from "eslint-plugin-svelte"
 import tsParser from "@typescript-eslint/parser"
 import tsPlugin from "@typescript-eslint/eslint-plugin"
 import reactHooksPlugin from "eslint-plugin-react-hooks"
@@ -92,17 +90,6 @@ const tsRules = {
 	"@typescript-eslint/no-useless-empty-export": "error",
 }
 
-const svelteRules = {
-	"svelte/indent": "off",
-	"svelte/no-unused-svelte-ignore": "error",
-	"svelte/no-at-html-tags": "off",
-	"svelte/no-reactive-functions": "error",
-	"svelte/no-reactive-literals": "error",
-	"svelte/require-optimized-style-attribute": "error",
-	"svelte/valid-compile": "error",
-	"svelte/valid-each-key": "error",
-}
-
 export default [
 	{
 		files: ["**/src/**/*.ts", "**/src/**/*.tsx"],
@@ -174,40 +161,7 @@ export default [
 		},
 	},
 	{
-		files: ["**/src/**/*.svelte"],
-		ignores: ["**/dist/**", "node_modules/**"],
-		languageOptions: {
-			parser: svelteParser,
-			parserOptions: {
-				parser: tsParser,
-				extraFileExtensions: [".svelte"],
-				ecmaVersion: "latest",
-				sourceType: "module",
-				project: ["./tsconfig.json"],
-				tsconfigRootDir: import.meta.dirname,
-				warnOnUnsupportedTypeScriptVersion: true,
-			},
-			globals: {
-				...globals.browser,
-				...globals.es2021,
-			},
-		},
-		plugins: {
-			svelte: sveltePlugin,
-			"@typescript-eslint": tsPlugin,
-		},
-		rules: {
-			...tsRules,
-			...svelteRules,
-			// $bindable() props have to be declared with let, which the
-			// core rule cannot know. The Svelte version understands the
-			// runes and is otherwise identical.
-			"prefer-const": "off",
-			"svelte/prefer-const": "error",
-		},
-	},
-	{
-		// React components and the hooks they call. The block above
+		// React components and the hooks they call. The first block
 		// already supplies the parser and the shared TypeScript rules;
 		// this one only adds what the core rules cannot see — the hook
 		// rules, which are the whole of what React itself enforces.

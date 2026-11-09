@@ -117,8 +117,8 @@ export interface Violation {
 // Why a student may not take each course, for the courses they do not
 // already hold. Courses they do hold are absent too, so absence means
 // "nothing to say here", not "free to take" — read it after
-// partitioning on what the student holds, which is what App.svelte
-// does.
+// partitioning on what the student holds, which is what the student
+// panel does.
 export type Eligibility = Record<EntityID, Violation[]>
 
 // A batch element the server could not read at all. Not a violation:

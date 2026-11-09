@@ -265,10 +265,10 @@ export class AdminData {
 	// leave the page showing what the user just changed away from.
 	//
 	// Reports whether the state actually moved. A control whose value
-	// the browser owns — a bare `value=` on an input, with no binding
-	// — keeps whatever was typed into it when the write is refused,
-	// because the expression behind it never changed and Svelte has no
-	// reason to touch the DOM. The box then shows a number the server
+	// the browser owns — an uncontrolled input, with only a
+	// defaultValue — keeps whatever was typed into it when the write is
+	// refused, because the value behind it never changed and React has
+	// no reason to touch the DOM. The box then shows a number the server
 	// rejected, indefinitely, next to a grade that does not have it.
 	public run(
 		action: () => Promise<void>,

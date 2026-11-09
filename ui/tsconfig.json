@@ -19,7 +19,7 @@
 		"noFallthroughCasesInSwitch": true,
 		"noEmit": true,
 		"jsx": "react-jsx",
-		"types": ["svelte", "vite/client"],
+		"types": ["vite/client"],
 		"baseUrl": ".",
 		"paths": {
 			"@common/*": ["common/src/*"],
@@ -28,22 +28,17 @@
 	},
 	"include": [
 		"common/src/**/*.ts",
-		"common/src/**/*.svelte",
 		"common/src/**/*.tsx",
 		"student/src/**/*.ts",
 		"student/src/**/*.d.ts",
-		"student/src/**/*.svelte",
 		"student/src/**/*.tsx",
 		"admin/src/**/*.ts",
 		"admin/src/**/*.d.ts",
-		"admin/src/**/*.svelte",
 		"admin/src/**/*.tsx",
 		"portal/src/**/*.ts",
 		"portal/src/**/*.d.ts",
 		"portal/src/**/*.tsx",
 		"dev.ts",
-		"vite.config.ts",
-		"admin/vite.config.ts",
-		"svelte.config.js"
+		"vite.config.ts"
 	]
 }

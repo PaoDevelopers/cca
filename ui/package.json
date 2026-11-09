@@ -6,7 +6,6 @@
 	"scripts": {
 		"dev:react": "vite --config vite.config.ts",
 		"build": "vite build --config vite.config.ts",
-		"check:svelte": "svelte-check --tsconfig ./tsconfig.json",
 		"check:tsc": "tsc --noEmit -p tsconfig.json",
 		"check:eslint": "eslint .",
 		"check:prettier": "prettier --check .",
@@ -16,11 +15,9 @@
 	"dependencies": {
 		"@marcbachmann/cel-js": "^8.0.0",
 		"react": "^19.2.8",
-		"react-dom": "^19.2.8",
-		"svelte": "^5.56.8"
+		"react-dom": "^19.2.8"
 	},
 	"devDependencies": {
-		"@sveltejs/vite-plugin-svelte": "^5.1.1",
 		"@tailwindcss/vite": "^4.3.3",
 		"@types/node": "^26.2.0",
 		"@types/react": "^19.2.18",
@@ -30,12 +27,9 @@
 		"@vitejs/plugin-react": "^5.2.0",
 		"eslint": "^9.39.5",
 		"eslint-plugin-react-hooks": "^7.1.1",
-		"eslint-plugin-svelte": "^3.22.0",
 		"globals": "^15.15.0",
 		"playwright-core": "^1.62.1",
 		"prettier": "^3.9.6",
-		"prettier-plugin-svelte": "^3.5.2",
-		"svelte-check": "^4.7.5",
 		"tailwindcss": "^4.3.3",
 		"typescript": "^5.9.3",
 		"vite": "^6.4.3"

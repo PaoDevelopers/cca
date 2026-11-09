@@ -28,7 +28,7 @@ Why these tests and not more
 Anything one process can answer belongs in a cheaper test:
 internal/db/*_test.go for the schema rules and for what they do under
 concurrent sessions, internal/web/*_test.go
-for the handlers and the hub, svelte-check and eslint for the frontend.
+for the handlers and the hub, tsc and eslint for the frontend.
 What is left over, and what lives here, is the joins between them: that
 the JSON the handlers emit is the shape the components read, that a rule
 the database enforces is also shown to the user before they hit it, and
@@ -37,7 +37,7 @@ that an event travels from one browser through the hub to another.
 The frontends are embedded in the binary
 ----------------------------------------
 
-ui/embed.go embeds student/dist and admin/dist at compile time, so a
+ui/embed.go embeds ui/dist at compile time, so a
 frontend change is not visible to these tests until the *binary* is
 rebuilt. `make check-e2e` depends on the binary for that reason; running
 `npm run check:e2e` by hand after editing a component will silently test

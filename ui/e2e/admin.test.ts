@@ -1168,11 +1168,10 @@ ${csv}`,
 		)
 	})
 
-	// A bare `value=` input is owned by the browser, so a rejected
-	// write leaves the rejected number sitting in the box next to a
-	// grade that does not have it — indefinitely, because the
-	// expression behind the box never changed and Svelte has no reason
-	// to touch the DOM.
+	// An input the browser owns keeps a rejected number sitting in
+	// the box next to a grade that does not have it — indefinitely,
+	// because the value behind the box never changed and the framework
+	// has no reason to touch the DOM.
 	it("puts a refused number back to what the server has", async (): Promise<void> => {
 		assert.ok(harness !== null)
 		const stack = harness

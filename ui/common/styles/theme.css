@@ -1,9 +1,10 @@
 /*
- * The token surface the React frontends share: the student panel and
- * the portal at the root. It lives here rather than in either of them
- * because two copies of a colour table are two copies that have to stay
- * equal, and the portal opening in a visibly different grey from the
- * panel it opens is exactly the drift nobody notices until it ships.
+ * The token surface the React frontends share: the student and admin
+ * panels and the portal at the root. It lives here rather than in any
+ * of them because two copies of a colour table are two copies that
+ * have to stay equal, and the portal opening in a visibly different
+ * grey from the panel it opens is exactly the drift nobody notices
+ * until it ships.
  *
  * Each app keeps its own `@import "tailwindcss"`, so this file is only
  * tokens and the base layer.
