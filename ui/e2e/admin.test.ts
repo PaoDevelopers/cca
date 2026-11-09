@@ -303,11 +303,8 @@ describe("admin", (): void => {
 		const y9 = page.locator("article.card", { hasText: "Y9" })
 		const y10 = page.locator("article.card", { hasText: "Y10" })
 
-		// The budget boxes are on each grade's Limits tab, inside its
-		// folded settings.
-		await y9.getByRole("button", { name: "Settings for Y9" }).click()
+		// The budget boxes are on each card's Limits tab.
 		await y9.getByRole("tab", { name: "Limits" }).click()
-		await y10.getByRole("button", { name: "Settings for Y10" }).click()
 		await y10.getByRole("tab", { name: "Limits" }).click()
 
 		// Typing commits nothing yet.
@@ -348,7 +345,6 @@ describe("admin", (): void => {
 			})
 			await heading.waitFor()
 			const card = page.locator("article.card", { has: heading })
-			await card.getByRole("button", { name: "Settings for Y9" }).click()
 			assert.match(
 				await card.innerText(),
 				/Closed; no opening or closing time is set\./,
@@ -1166,7 +1162,6 @@ ${csv}`,
 		// This administrator, whose card still shows the old opening,
 		// sets a closing date.
 		const card = page.locator("article.card", { hasText: "Y9" }).first()
-		await card.getByRole("button", { name: "Settings for Y9" }).click()
 		const closes = card.getByLabel("Window closes for Y9")
 		await closes.fill("2031-06-30T12:00")
 		await closes.blur()
@@ -1214,7 +1209,6 @@ ${csv}`,
 		})
 
 		const card = page.locator("article.card", { hasText: "Y9" }).first()
-		await card.getByRole("button", { name: "Settings for Y9" }).click()
 		await card.getByRole("tab", { name: "Limits" }).click()
 		const budget = card.getByLabel("Period budget for Y9")
 		const asStored = await budget.inputValue()
