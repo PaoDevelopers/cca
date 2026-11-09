@@ -1,5 +1,5 @@
 import type { ReactElement } from "react"
-import { Button } from "@/components/ui/button"
+import { Button } from "@common/components/ui/button"
 
 interface Props {
 	view: "cards" | "table"

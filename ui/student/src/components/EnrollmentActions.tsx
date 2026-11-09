@@ -7,7 +7,7 @@ import {
 } from "react"
 import { capacitySpoken } from "@common/capacity"
 import type { CourseActions, CourseRow } from "@/lib/enrollment"
-import { Button } from "@/components/ui/button"
+import { Button } from "@common/components/ui/button"
 
 interface Props {
 	row: CourseRow

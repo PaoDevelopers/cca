@@ -2,43 +2,8 @@
 @import "../../common/styles/theme.css";
 
 /* Scoped to this panel: the build's root is ui/, so automatic
-   detection would put the portal's classes in here too. */
+   detection would put the portal's classes in here too. The shared
+   components are scanned as well, since their classes are this
+   panel's once it renders them. */
 @source ".";
-
-/* Everything below is this panel's own; the shared tokens and base
-   layer are in the import above. */
-
-@layer base {
-	html:has(dialog:modal) {
-		overflow: hidden;
-	}
-
-	/*
-	 * The error popover. Anchor positioning has no Tailwind spelling,
-	 * so it stays here; everything else about the popover is utility
-	 * classes on the element.
-	 */
-	.error-popover {
-		position-anchor: --error-source;
-		max-width: 24rem;
-		padding: 0.5rem 0.75rem;
-		border-radius: var(--radius);
-		/* Messages carry their own line breaks: a rejection is one
-		   line and any hint about it is the next. */
-		white-space: pre-line;
-		border: 1px solid var(--destructive);
-		color: var(--foreground);
-		background-color: color-mix(
-			in oklab,
-			var(--background) 92%,
-			var(--destructive)
-		);
-	}
-
-	.error-popover.anchored {
-		margin: 0.25rem 0;
-		inset: auto;
-		position-area: block-end span-inline-end;
-		position-try-fallbacks: flip-block, flip-inline;
-	}
-}
+@source "../../common/src/components";

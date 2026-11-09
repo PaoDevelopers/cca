@@ -29,6 +29,7 @@
 	"include": [
 		"common/src/**/*.ts",
 		"common/src/**/*.svelte",
+		"common/src/**/*.tsx",
 		"student/src/**/*.ts",
 		"student/src/**/*.d.ts",
 		"student/src/**/*.svelte",

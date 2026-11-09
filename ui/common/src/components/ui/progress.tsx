@@ -2,7 +2,7 @@
 
 import * as React from "react"
 
-import { cn } from "@/lib/utils"
+import { cn } from "@common/lib/utils"
 
 function Progress({
 	className,
