@@ -95,7 +95,7 @@ export function GradesPage(): ReactElement {
 				<p className="text-muted-foreground">Loading…</p>
 			) : (
 				<>
-					<div className="grid gap-4 xl:grid-cols-2">
+					<div className="flex flex-col divide-y overflow-hidden rounded-xl border bg-card shadow-xs">
 						{data.grades.map((grade) => (
 							<GradeCard
 								key={grade.id}
@@ -110,7 +110,7 @@ export function GradesPage(): ReactElement {
 							/>
 						))}
 						{data.grades.length === 0 && (
-							<p className="text-muted-foreground">
+							<p className="px-4 py-3 text-muted-foreground">
 								No grades yet.
 							</p>
 						)}
