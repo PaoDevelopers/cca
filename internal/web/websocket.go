@@ -55,6 +55,13 @@ const wsHeartbeat = WSMessage("heartbeat")
 // sustained churn this bounds fan-out CPU at high client counts.
 const wsMinSendInterval = 100 * time.Millisecond
 
+// wsAdminMinSendInterval is the same for administrators. Every
+// student write invalidates their enrollments, and each refetch
+// re-reads the whole school, so at the student cadence an open admin
+// tab re-runs its heaviest reads back to back for the whole rush, on
+// the pool the students share.
+const wsAdminMinSendInterval = 2 * time.Second
+
 // wsMaxPerSubject bounds how many sockets one identity may hold.
 //
 // A session cookie is a bearer token with a three-day life and no
@@ -724,10 +731,15 @@ func (c *Client) sendPump(ctx context.Context) {
 			return
 		}
 
+		interval := wsMinSendInterval
+		if c.admin {
+			interval = wsAdminMinSendInterval
+		}
+
 		select {
 		case <-c.done:
 			return
-		case <-time.After(wsMinSendInterval):
+		case <-time.After(interval):
 		}
 	}
 }
