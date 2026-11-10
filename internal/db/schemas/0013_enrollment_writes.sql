@@ -388,24 +388,30 @@ CROSS JOIN LATERAL jsonb_array_elements(unaccepted_violations(
 WHERE a.u->>'rule' = 'budget';
 END;
 
--- A student enrolls themselves.
--- Gates: their grade's window must be open (YKG01)
--- and the course must not be invite-only (YKG02).
--- Then no violations are tolerated: students accept nothing.
--- Always creates a droppable, charging row.
-CREATE FUNCTION self_enroll(
+-- The student path's judgement of taking p_course_id
+-- while giving up p_old_course_ids (empty for a plain enroll):
+-- invite-only (YKG02), the window (YKG01),
+-- the rows given up must exist (P0002) and be droppable (YKG03),
+-- then no violations are tolerated (YKV01), students accepting nothing.
+-- Read-only, so self_enroll and self_swap run it twice:
+-- first without locks, so that a refusal, which writes nothing,
+-- never queues behind a popular course's lock;
+-- then inside the locks, where it is authoritative.
+-- The first pass is skipped unless every named row exists,
+-- so a missing one is still reported by the locks, first.
+CREATE FUNCTION judge_self_enrollment(
 	p_student_id localpart,
+	p_old_course_ids TEXT[],
 	p_course_id entity_id
 )
 RETURNS void
 LANGUAGE plpgsql
+STABLE
 AS $$
 DECLARE
 	v_invite_only BOOLEAN;
+	v_bad TEXT;
 BEGIN
-	PERFORM lock_courses(ARRAY[p_course_id]);
-	PERFORM lock_students(ARRAY[p_student_id]);
-
 	SELECT c.invite_only INTO v_invite_only
 	FROM courses c WHERE c.id = p_course_id;
 	IF v_invite_only THEN
@@ -423,8 +429,64 @@ BEGIN
 			USING ERRCODE = 'YKG01';
 	END IF;
 
+	SELECT u INTO v_bad
+	FROM unnest(p_old_course_ids) AS u
+	WHERE NOT EXISTS (SELECT 1
+		FROM enrollments e
+		WHERE e.student_id = p_student_id
+			AND e.course_id = u
+			AND e.student_droppable)
+	LIMIT 1;
+	IF v_bad IS NOT NULL THEN
+		IF EXISTS (SELECT 1 FROM enrollments e
+			WHERE e.student_id = p_student_id AND e.course_id = v_bad)
+		THEN
+			RAISE EXCEPTION 'enrollment of % in % is not droppable',
+				p_student_id, v_bad
+				USING ERRCODE = 'YKG03';
+		END IF;
+		RAISE EXCEPTION 'no enrollment of % in %', p_student_id, v_bad
+			USING ERRCODE = 'P0002';
+	END IF;
+
 	PERFORM raise_unaccepted(unaccepted_violations(
-		p_student_id, p_course_id, TRUE, '{}', '{}'));
+		p_student_id, p_course_id, TRUE, p_old_course_ids, '{}'));
+END;
+$$;
+
+-- Whether the student and every named course exist; see above.
+CREATE FUNCTION self_enrollment_rows_exist(
+	p_student_id localpart,
+	p_course_ids TEXT[]
+)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+BEGIN ATOMIC
+SELECT EXISTS (SELECT 1 FROM students s WHERE s.id = p_student_id)
+	AND (SELECT count(*) FROM courses c WHERE c.id = ANY (p_course_ids))
+		= (SELECT count(DISTINCT u) FROM unnest(p_course_ids) AS u);
+END;
+
+-- A student enrolls themselves.
+-- Judged by judge_self_enrollment, giving nothing up.
+-- Always creates a droppable, charging row.
+CREATE FUNCTION self_enroll(
+	p_student_id localpart,
+	p_course_id entity_id
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+	IF self_enrollment_rows_exist(p_student_id, ARRAY[p_course_id]) THEN
+		PERFORM judge_self_enrollment(p_student_id, '{}', p_course_id);
+	END IF;
+
+	PERFORM lock_courses(ARRAY[p_course_id]);
+	PERFORM lock_students(ARRAY[p_student_id]);
+
+	PERFORM judge_self_enrollment(p_student_id, '{}', p_course_id);
 
 	INSERT INTO enrollments
 		(student_id, course_id, student_droppable, counts_toward_budget)
@@ -480,8 +542,8 @@ $$;
 
 -- A student atomically replaces enrollments:
 -- every old course dropped and the new one added, or nothing.
--- Old rows must all exist (P0002) and be droppable (YKG03);
--- the replacement is judged with the old courses disregarded,
+-- Judged by judge_self_enrollment, which checks the old rows
+-- and judges the replacement with the old courses disregarded,
 -- so swapping between clashing alternatives works.
 CREATE FUNCTION self_swap(
 	p_student_id localpart,
@@ -491,52 +553,19 @@ CREATE FUNCTION self_swap(
 RETURNS void
 LANGUAGE plpgsql
 AS $$
-DECLARE
-	v_invite_only BOOLEAN;
-	v_bad TEXT;
 BEGIN
+	IF self_enrollment_rows_exist(p_student_id,
+		p_old_course_ids || p_course_id::TEXT)
+	THEN
+		PERFORM judge_self_enrollment(
+			p_student_id, p_old_course_ids, p_course_id);
+	END IF;
+
 	PERFORM lock_courses(p_old_course_ids || p_course_id::TEXT);
 	PERFORM lock_students(ARRAY[p_student_id]);
 
-	SELECT c.invite_only INTO v_invite_only
-	FROM courses c WHERE c.id = p_course_id;
-	IF v_invite_only THEN
-		RAISE EXCEPTION 'course % is invite-only', p_course_id
-			USING ERRCODE = 'YKG02';
-	END IF;
-
-	IF NOT EXISTS (SELECT 1
-		FROM v_grades g
-		JOIN students s ON s.grade_id = g.id
-		WHERE s.id = p_student_id AND g.is_open)
-	THEN
-		RAISE EXCEPTION 'enrollment window is closed for student %',
-			p_student_id
-			USING ERRCODE = 'YKG01';
-	END IF;
-
-	SELECT u INTO v_bad
-	FROM unnest(p_old_course_ids) AS u
-	WHERE NOT EXISTS (SELECT 1
-		FROM enrollments e
-		WHERE e.student_id = p_student_id
-			AND e.course_id = u
-			AND e.student_droppable)
-	LIMIT 1;
-	IF v_bad IS NOT NULL THEN
-		IF EXISTS (SELECT 1 FROM enrollments e
-			WHERE e.student_id = p_student_id AND e.course_id = v_bad)
-		THEN
-			RAISE EXCEPTION 'enrollment of % in % is not droppable',
-				p_student_id, v_bad
-				USING ERRCODE = 'YKG03';
-		END IF;
-		RAISE EXCEPTION 'no enrollment of % in %', p_student_id, v_bad
-			USING ERRCODE = 'P0002';
-	END IF;
-
-	PERFORM raise_unaccepted(unaccepted_violations(
-		p_student_id, p_course_id, TRUE, p_old_course_ids, '{}'));
+	PERFORM judge_self_enrollment(
+		p_student_id, p_old_course_ids, p_course_id);
 
 	DELETE FROM enrollments
 	WHERE student_id = p_student_id
