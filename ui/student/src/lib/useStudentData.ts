@@ -203,12 +203,34 @@ export function useStudentData(): StudentData {
 		[pull],
 	)
 
+	// Server-wide invalidations reach every page at once, and an
+	// administrator's run of edits sends several in a row; one fetch per
+	// run, not one per frame, is the difference that matters at 2000
+	// pages.
+	const coursesPull = useMemo(
+		() =>
+			coalesce((): void => {
+				pull(fetchCourses, setCourses)
+			}),
+		[pull],
+	)
+
+	const enrollmentsPull = useMemo(
+		() =>
+			coalesce((): void => {
+				pull(fetchEnrollments, setEnrollments)
+			}),
+		[pull],
+	)
+
 	useEffect(
 		() => (): void => {
 			eligibilityPull.cancel()
 			userPull.cancel()
+			coursesPull.cancel()
+			enrollmentsPull.cancel()
 		},
-		[eligibilityPull, userPull],
+		[eligibilityPull, userPull, coursesPull, enrollmentsPull],
 	)
 
 	useEffect((): void => {
@@ -224,7 +246,7 @@ export function useStudentData(): StudentData {
 				oninvalidate: (resource): void => {
 					switch (resource) {
 						case "courses":
-							pull(fetchCourses, setCourses)
+							coursesPull.trigger()
 							eligibilityPull.trigger()
 							break
 						case "categories":
@@ -243,7 +265,7 @@ export function useStudentData(): StudentData {
 							userPull.trigger()
 							break
 						case "enrollments":
-							pull(fetchEnrollments, setEnrollments)
+							enrollmentsPull.trigger()
 							userPull.trigger()
 							eligibilityPull.trigger()
 							break
@@ -274,7 +296,7 @@ export function useStudentData(): StudentData {
 					setError(reason)
 				},
 			}),
-		[eligibilityPull, userPull, pull, load],
+		[eligibilityPull, userPull, coursesPull, enrollmentsPull, pull, load],
 	)
 
 	const enrollmentByCourse = useMemo(
