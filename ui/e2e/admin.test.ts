@@ -78,6 +78,16 @@ describe("admin", (): void => {
 		return page
 	}
 
+	it("summarises the data on the home page", async (): Promise<void> => {
+		const page = await adminPage("#/")
+		const students = page
+			.locator("main")
+			.getByRole("link", { name: /^Students/ })
+		await students.waitFor()
+		assert.match(await students.innerText(), /^Students\s+2\b/)
+		await page.getByText("Requirements met, by grade").waitFor()
+	})
+
 	it("lists the seeded students", async (): Promise<void> => {
 		const page = await adminPage("#/students")
 		await page.getByText("Alice Example").waitFor()

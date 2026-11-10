@@ -166,7 +166,7 @@ function readRequirements(
 // made the two very different kinds of absence look the same: no
 // opening keeps the window closed, while no closing lets an open window
 // continue indefinitely.
-function windowSummary(grade: Grade): string {
+export function windowSummary(grade: Grade): string {
 	if (grade.is_open) {
 		return grade.closes_at === null
 			? `Open since ${formatInstant(grade.opens_at)}; no automatic closing time.`

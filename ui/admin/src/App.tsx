@@ -16,6 +16,7 @@ import { CoursesPage } from "./lib/CoursesPage"
 import { AdminData, AdminDataContext, useAdminData } from "./lib/data"
 import { EnrollmentsPage } from "./lib/EnrollmentsPage"
 import { GradesPage } from "./lib/GradesPage"
+import { HomePage } from "./lib/HomePage"
 import { PeriodsPage } from "./lib/PeriodsPage"
 import { SignOutIcon } from "./lib/icons"
 import { StudentsPage } from "./lib/StudentsPage"
@@ -240,7 +241,7 @@ function Page({
 		case "#/enrollments":
 			return <EnrollmentsPage filter={filter} setFilter={setFilter} />
 		case "#/":
-			return <p className="text-muted-foreground">Choose a section.</p>
+			return <HomePage />
 	}
 }
 
