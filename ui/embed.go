@@ -2,8 +2,8 @@ package ui
 
 import "embed"
 
-// dist holds both React pages, portal/ and student/, over one shared
-// assets/. admin/dist is the Svelte panel's own build.
+// dist holds the React pages, portal/, student/ and admin/, over one
+// shared assets/.
 //
-//go:embed all:dist all:admin/dist
+//go:embed all:dist
 var Dist embed.FS

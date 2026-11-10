@@ -17,6 +17,9 @@ env:
   GOLANGCI_VERSION: "v2.12.2"
   STATICCHECK_VERSION: "v0.8.0-rc.1"
   PGHOST: /var/run/postgresql
+  # The runner's /usr/bin/chromium is the snap, whose renderer crashes
+  # when a page opens a second same-origin tab; its Google Chrome does not.
+  CCA_E2E_CHROMIUM: /usr/bin/google-chrome
 
 jobs:
   check:
@@ -62,8 +65,7 @@ jobs:
 
       - name: Check for a browser
         run: |
-          command -v chromium || command -v chromium-browser \
-            || command -v google-chrome
+          "$CCA_E2E_CHROMIUM" --version
 
       - name: Build
         run: make

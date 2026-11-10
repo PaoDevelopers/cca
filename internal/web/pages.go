@@ -9,8 +9,8 @@ import (
 // The only server-rendered pages: the two sign-in pages. Everything
 // else is an SPA or an API.
 
-// Mirrors ui/common/styles/base.css by hand; these pages stay
-// independent of the SPA build.
+// The look of the old Svelte panel's base.css, kept by hand; these
+// pages stay independent of the SPA build.
 const pageStyle = `
 :root {
 	color-scheme: light dark;

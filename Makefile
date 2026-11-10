@@ -34,7 +34,6 @@ check-go: ui sql
 
 .PHONY: check-ui
 check-ui: ui/node_modules
-	cd ui && npm run check:svelte
 	cd ui && npm run check:tsc
 	cd ui && npm run check:eslint
 	cd ui && npm run check:prettier
@@ -45,7 +44,7 @@ check-e2e: cca
 
 .PHONY: clean
 clean:
-	rm -rf cca ui/dist ui/admin/dist ui/.e2e
+	rm -rf cca ui/dist ui/.e2e
 
 .PHONY: distclean
 distclean: clean

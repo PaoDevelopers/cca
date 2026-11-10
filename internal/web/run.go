@@ -299,7 +299,7 @@ func (app *Server) router() *http.ServeMux {
 
 	mux.HandleFunc("GET /{$}", app.handleIndex)
 	mux.HandleFunc("GET /api/session", app.handleSession)
-	// Both React pages build at base "/" out of one build, so they
+	// The React pages build at base "/" out of one build, so they
 	// share this one assets/ — which is the point of building them
 	// together, since it is where their copy of React is. No
 	// StripPrefix: the sub-FS is rooted at dist, where assets/ already
@@ -322,11 +322,10 @@ func (app *Server) router() *http.ServeMux {
 	// above, so it catches exactly what nothing else claimed.
 	mux.HandleFunc("/admin/api/", app.apiCatchAll(routes))
 	mux.Handle("/admin/static/", http.StripPrefix("/admin/", http.FileServerFS(staticFS)))
-	mux.Handle("/admin/assets/", immutable(http.StripPrefix("/admin/", http.FileServerFS(mustSubFS(ui.Dist, "admin/dist")))))
 	mux.HandleFunc("/admin", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/", http.StatusSeeOther)
 	})
-	mux.HandleFunc("/admin/", app.spaHandler(roleAdmin, "admin/dist/index.html", func(r *http.Request) error {
+	mux.HandleFunc("/admin/", app.spaHandler(roleAdmin, "dist/admin/index.html", func(r *http.Request) error {
 		_, err := app.authenticateAdmin(r)
 
 		return err
@@ -407,7 +406,7 @@ func (app *Server) serve(ctx context.Context, stop context.CancelFunc, listener 
 
 	//exhaustruct:ignore
 	server := &http.Server{
-		Handler:           securityHeaders(app.crossOriginProtection().Handler(app.router())),
+		Handler:           securityHeaders(app.crossOriginProtection().Handler(compress(app.router()))),
 		ReadHeaderTimeout: readHeaderTimeout,
 		ErrorLog:          newHTTPServerErrorLogger(),
 	}

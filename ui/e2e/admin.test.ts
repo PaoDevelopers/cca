@@ -78,6 +78,16 @@ describe("admin", (): void => {
 		return page
 	}
 
+	it("summarises the data on the home page", async (): Promise<void> => {
+		const page = await adminPage("#/")
+		const students = page
+			.locator("main")
+			.getByRole("link", { name: /^Students/ })
+		await students.waitFor()
+		assert.match(await students.innerText(), /^Students\s+2\b/)
+		await page.getByText("Requirements met, by grade").waitFor()
+	})
+
 	it("lists the seeded students", async (): Promise<void> => {
 		const page = await adminPage("#/students")
 		await page.getByText("Alice Example").waitFor()
@@ -99,8 +109,10 @@ describe("admin", (): void => {
 		const page = await context.newPage()
 		await page.goto("/admin/#/students")
 		await page.getByText("Alice Example").waitFor()
-		await page.locator("details.data-tools").getByText("Data tools").click()
 
+		// The copy is a button in the Data tools panel, which stays
+		// open once expanded.
+		await page.getByText("Data tools", { exact: true }).click()
 		const copy = page.getByRole("button", {
 			name: "Copy students’ email addresses",
 		})
@@ -149,11 +161,30 @@ describe("admin", (): void => {
 		// The tab is opened by the click itself; anything else is a
 		// pop-up as far as the browser is concerned, and this is the
 		// only test that would notice it being blocked.
+		// What both tabs said, for a failure that happens only elsewhere.
+		const seen: string[] = []
+		context.on("response", (r): void => {
+			seen.push(
+				`${String(r.status())} ${r.request().method()} ${r.url()}`,
+			)
+		})
+		context.on("console", (m): void => {
+			if (m.type() === "error") seen.push(`console: ${m.text()}`)
+		})
+		context.on("close", (): void => {
+			seen.push("context closed")
+		})
 		const opened = context.waitForEvent("page")
 		await page
 			.getByRole("button", { name: `Sign in as ${subjects.bob}` })
 			.click()
 		const student = await opened
+		student.on("pageerror", (e): void => {
+			seen.push(`pageerror: ${e.message}`)
+		})
+		student.on("close", (): void => {
+			seen.push("student tab closed")
+		})
 
 		// Bob's page, from Bob's own session: the header is served
 		// from /student/api/user_info, which reads the cookie.
@@ -163,9 +194,23 @@ describe("admin", (): void => {
 		// an unbounded wait there does not fail this test — it stalls
 		// until the whole file times out, taking every later test with
 		// it.
-		await student
-			.getByText("Bob Example")
-			.waitFor({ timeout: studentTabTimeout })
+		try {
+			await student
+				.getByText("Bob Example")
+				.waitFor({ timeout: studentTabTimeout })
+		} catch (err) {
+			const text = await student
+				.locator("body")
+				.innerText()
+				.catch((): string => "(unreadable)")
+			const admin = await page
+				.locator("body")
+				.innerText()
+				.catch((): string => "(unreadable)")
+			throw new Error(
+				`${String(err)}\nurl: ${student.url()}\nseen: ${seen.join(" | ")}\nbody: ${text.slice(0, 400)}\nadmin: ${admin.slice(0, 300)}`,
+			)
+		}
 		assert.match(student.url(), /\/student\/$/)
 		const banner = await student.getByRole("banner").innerText()
 		assert.match(banner, new RegExp(subjects.bob))
@@ -631,17 +676,17 @@ describe("admin", (): void => {
 		const row = page.locator("tr", { hasText: "Basketball" })
 		await row.getByRole("button", { name: /Edit BB/ }).click()
 
-		// Scope this to the row: the create editor also exists, collapsed
-		// in the actions above the table.
-		const editor = row
-			.locator("xpath=following-sibling::tr[1]")
+		// The edit sheet is its own dialog, named for the course.
+		const editor = page
+			.getByRole("dialog", { name: "Edit BB" })
 			.locator("form.editor")
 		await editor.getByLabel("Capacity").fill("1")
 		await editor.getByRole("button", { name: "Save" }).click()
 
 		// The refusal arrives as a dialog naming the violated fact in
-		// the database's own words, not a generic failure.
-		const dialog = page.getByRole("dialog")
+		// the database's own words, not a generic failure. It opens over
+		// the sheet, so it is picked out by its own name.
+		const dialog = page.getByRole("dialog", { name: /would break/ })
 		await dialog.waitFor()
 		await dialog.getByText(/BB is over its new capacity \(2\/1\)/).waitFor()
 
@@ -943,10 +988,11 @@ describe("admin", (): void => {
 
 		// The selector is scoped to a form, and the rename boxes in the
 		// table are not inside one — so these two are the create
-		// form's id and name, in that order. (Not "the last two on the
-		// page": the data tools below carry a text input of their own,
-		// and it is inside a form.)
-		const inputs = page.locator('form input[type="text"]')
+		// form's id and name, in that order, once the data tools'
+		// own text input (inside a form too) is left out.
+		const inputs = page.locator(
+			'form input[type="text"]:not(.data-tools *)',
+		)
 		await inputs.nth(0).fill("ROBOTICS")
 		await inputs.nth(1).fill("Robotics")
 		await page.getByRole("button", { name: "Add" }).click()
@@ -1033,6 +1079,90 @@ describe("admin", (): void => {
 		})
 	})
 
+	// A clean file goes straight in; a file with conflicts opens a
+	// draft listing every one, and only what the administrator kept
+	// is placed. Basketball and Baking both meet on MON1.
+	it("holds a conflicting enrollment file as a draft", async (): Promise<void> => {
+		const page = await adminPage("#/enrollments")
+
+		// The Data tools panel stays open across imports.
+		await page.getByText("Data tools", { exact: true }).click()
+		const upload = async (name: string, csv: string): Promise<void> => {
+			await page.getByLabel("Import CSV or XLSX").setInputFiles({
+				name,
+				mimeType: "text/csv",
+				buffer: Buffer.from(
+					`course_id,student_id,student_droppable,counts_toward_budget
+${csv}`,
+				),
+			})
+			await page
+				.getByRole("button", { name: "Import into enrollments" })
+				.click()
+		}
+
+		const held = async (): Promise<string[]> =>
+			(
+				(await (
+					await page.request.get("/admin/api/enrollments")
+				).json()) as Array<{
+					student_id: string
+					course_id: string
+				}>
+			)
+				.map((e): string => `${e.student_id}:${e.course_id}`)
+				.sort()
+
+		await upload("clean.csv", `CH,${subjects.bob},true,true\n`)
+		await page.getByRole("cell", { name: subjects.bob }).first().waitFor()
+		assert.equal(
+			await page.getByRole("dialog").count(),
+			0,
+			"a clean file opened a draft",
+		)
+		assert.deepEqual(await held(), [`${subjects.bob}:CH`])
+
+		await upload(
+			"conflicts.csv",
+			`BB,${subjects.alice},true,true\n` +
+				`BK,${subjects.alice},true,true\n` +
+				`CH,${subjects.alice},true,true\n` +
+				"CH,s9999,true,true\n",
+		)
+		const dialog = page.getByRole("dialog")
+		await dialog.getByText("1 conflict in this file").waitFor()
+		await dialog.getByText("s9999").waitFor()
+
+		const send = dialog.getByRole("button", { name: "Upload" })
+		assert.ok(
+			await send.isDisabled(),
+			"upload was offered before every conflict was decided",
+		)
+		await dialog.getByLabel(/Keep Basketball/).check()
+		await send.click()
+		await dialog.waitFor({ state: "detached" })
+
+		// The upload finishes after the dialog closes.
+		for (let i = 0; i < 50 && (await held()).length !== 3; i++) {
+			await page.waitForTimeout(100)
+		}
+		assert.deepEqual(await held(), [
+			`${subjects.alice}:BB`,
+			`${subjects.alice}:CH`,
+			`${subjects.bob}:CH`,
+		])
+
+		await page.request.delete("/admin/api/enrollments", {
+			data: {
+				course_id: "CH",
+				student_ids: [subjects.alice, subjects.bob],
+			},
+		})
+		await page.request.delete("/admin/api/enrollments", {
+			data: { course_id: "BB", student_ids: [subjects.alice] },
+		})
+	})
+
 	// A card's window boxes are seeded when the card is built and then
 	// belong to whoever is typing, which is right for a box someone is
 	// typing in and wrong for one nobody has touched: it holds a value
@@ -1085,11 +1215,10 @@ describe("admin", (): void => {
 		)
 	})
 
-	// A bare `value=` input is owned by the browser, so a rejected
-	// write leaves the rejected number sitting in the box next to a
-	// grade that does not have it — indefinitely, because the
-	// expression behind the box never changed and Svelte has no reason
-	// to touch the DOM.
+	// An input the browser owns keeps a rejected number sitting in
+	// the box next to a grade that does not have it — indefinitely,
+	// because the value behind the box never changed and the framework
+	// has no reason to touch the DOM.
 	it("puts a refused number back to what the server has", async (): Promise<void> => {
 		assert.ok(harness !== null)
 		const stack = harness

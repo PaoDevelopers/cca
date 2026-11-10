@@ -1,9 +1,14 @@
 import type { ReactElement } from "react"
 import type { Category, Grade, StudentInfo } from "@common/types"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@common/components/ui/card"
+import { Progress } from "@common/components/ui/progress"
+import { Separator } from "@common/components/ui/separator"
+import { cn } from "@common/lib/utils"
 
 interface Props {
 	user: StudentInfo | null

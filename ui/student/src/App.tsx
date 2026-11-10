@@ -2,17 +2,17 @@
 // useStudentData; nothing here reads the network or judges a rule.
 import { useMemo, useState, type ReactElement, type ReactNode } from "react"
 import { CourseList } from "./components/CourseList"
-import { ErrorPopup } from "./components/ErrorPopup"
-import { Footer } from "./components/Footer"
+import { ErrorPopup } from "@common/components/ErrorPopup"
+import { Footer } from "@common/components/Footer"
 import { HomePage, SelectionBudget } from "./components/HomePage"
 import { RequirementsProgress } from "./components/Requirements"
 import { Sidebar } from "./components/Sidebar"
 import { ViewToggle } from "./components/ViewToggle"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+import { Button } from "@common/components/ui/button"
+import { Separator } from "@common/components/ui/separator"
 import { courseRows, type CourseActions } from "./lib/enrollment"
 import { useStudentData } from "./lib/useStudentData"
-import { cn } from "./lib/utils"
+import { cn } from "@common/lib/utils"
 
 type Page = "home" | "mine" | "available"
 

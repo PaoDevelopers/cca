@@ -6,9 +6,9 @@ import {
 	CardContent,
 	CardHeader,
 	CardTitle,
-} from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
+} from "@common/components/ui/card"
+import { Progress } from "@common/components/ui/progress"
+import { Separator } from "@common/components/ui/separator"
 import { RequirementsOverview } from "./Requirements"
 
 interface Props {

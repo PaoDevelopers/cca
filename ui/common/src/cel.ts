@@ -6,7 +6,37 @@
 // Errors are reported rather than swallowed: a typo like `course.nmae`
 // should read as an error, not as an inexplicably empty table.
 
-import { parse } from "@marcbachmann/cel-js"
+import type { parse as celParse } from "@marcbachmann/cel-js"
+import { useEffect, useState } from "react"
+
+// The parser is most of the admin bundle and only CEL mode needs it, so
+// it is fetched the first time a list switches to CEL. Until it lands,
+// every expression reads as not yet compiled: the list shows everything
+// and, being unfiltered, offers no bulk action on it.
+type Parse = typeof celParse
+let parse: Parse | null = null
+let loading: Promise<void> | null = null
+
+function loadParser(): Promise<void> {
+	loading ??= import("@marcbachmann/cel-js").then((module): void => {
+		parse = module.parse
+	})
+	return loading
+}
+
+// Call from a page with a CEL mode: it re-renders once the parser is
+// in, and says whether it is, for a page that memoizes its filtering.
+export function useCelParser(mode: FilterMode): boolean {
+	const [loaded, setLoaded] = useState(parse !== null)
+	useEffect((): void => {
+		if (mode === "cel" && parse === null) {
+			void loadParser().then((): void => {
+				setLoaded(true)
+			})
+		}
+	}, [mode])
+	return loaded
+}
 
 export interface CompiledFilter {
 	// Rows that throw do not match.
@@ -35,6 +65,10 @@ export function compileFilter(expression: string): CompileResult {
 			filter: { matches: (): boolean => true, runtimeError: null },
 			parseError: null,
 		}
+	}
+
+	if (parse === null) {
+		return { filter: null, parseError: "Loading CEL…" }
 	}
 
 	let run: (context: Record<string, unknown>) => unknown

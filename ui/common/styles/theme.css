@@ -1,12 +1,10 @@
 /*
- * The token surface the React frontends share: the student panel and
- * the portal at the root. It lives here rather than in either of them
- * because two copies of a colour table are two copies that have to stay
- * equal, and the portal opening in a visibly different grey from the
- * panel it opens is exactly the drift nobody notices until it ships.
- *
- * The Svelte admin panel is on the older base.css beside this file and
- * does not import this one.
+ * The token surface the React frontends share: the student and admin
+ * panels and the portal at the root. It lives here rather than in any
+ * of them because two copies of a colour table are two copies that
+ * have to stay equal, and the portal opening in a visibly different
+ * grey from the panel it opens is exactly the drift nobody notices
+ * until it ships.
  *
  * Each app keeps its own `@import "tailwindcss"`, so this file is only
  * tokens and the base layer.
@@ -123,5 +121,82 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
+	}
+
+	html:has(dialog:modal) {
+		overflow: hidden;
+	}
+
+	/*
+	 * The error popover. Anchor positioning has no Tailwind spelling,
+	 * so it stays here; everything else about the popover is utility
+	 * classes on the element.
+	 */
+	.error-popover {
+		position-anchor: --error-source;
+		max-width: 24rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: var(--radius);
+		/* Messages carry their own line breaks: a rejection is one
+		   line and any hint about it is the next. */
+		white-space: pre-line;
+		border: 1px solid var(--destructive);
+		color: var(--foreground);
+		background-color: color-mix(
+			in oklab,
+			var(--background) 92%,
+			var(--destructive)
+		);
+	}
+
+	.error-popover.anchored {
+		margin: 0.25rem 0;
+		inset: auto;
+		position-area: block-end span-inline-end;
+		position-try-fallbacks: flip-block, flip-inline;
+	}
+
+	/* The native arrow ignores padding and sits against the border, so
+	 * the select draws its own, inset like the text. Mid grey reads on
+	 * both themes; a background image cannot use currentColor. */
+	[data-slot="native-select"] {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.75rem center;
+		background-size: 1rem;
+	}
+
+	.anchored-tooltip {
+		margin: 0.375rem 0;
+		inset: auto;
+		position-area: block-start;
+		position-try-fallbacks: flip-block, flip-inline;
+	}
+}
+
+@layer base {
+	/* Anchor positioning, as for the error popover above. */
+	.anchored-menu {
+		margin: 0.25rem 0;
+		inset: auto;
+		position-area: block-end span-inline-start;
+		position-try-fallbacks: flip-block, flip-inline;
+	}
+
+	/* The native arrow ignores padding and sits against the border, so
+	 * the select draws its own, inset like the text. Mid grey reads on
+	 * both themes; a background image cannot use currentColor. */
+	[data-slot="native-select"] {
+		background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+		background-repeat: no-repeat;
+		background-position: right 0.75rem center;
+		background-size: 1rem;
+	}
+
+	.anchored-tooltip {
+		margin: 0.375rem 0;
+		inset: auto;
+		position-area: block-start;
+		position-try-fallbacks: flip-block, flip-inline;
 	}
 }
