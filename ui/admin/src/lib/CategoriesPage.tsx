@@ -16,6 +16,7 @@ import {
 import { toast } from "@common/components/ui/toast"
 import { useEffect, useState, type ReactElement } from "react"
 import { ConfirmDelete } from "./ConfirmDelete"
+import { BookIcon } from "./icons"
 import { DataTools } from "./DataTools"
 import { useAdminData } from "./data"
 
@@ -122,15 +123,17 @@ export function CategoriesPage(): ReactElement {
 										<div className="flex justify-end gap-1">
 											<Button
 												variant="ghost"
-												size="sm"
+												size="icon"
+												className="text-muted-foreground hover:text-foreground"
 												aria-label={`View courses in ${category.id}`}
+												tooltip={`View courses in ${category.id}`}
 												onClick={(): void => {
 													window.location.hash = `#/courses?q=${encodeURIComponent(
 														`category:${category.id}`,
 													)}`
 												}}
 											>
-												Courses
+												<BookIcon />
 											</Button>
 											<ConfirmDelete
 												action="Delete"

@@ -344,7 +344,7 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 							/>
 							<Button
 								type="button"
-								variant="ghost"
+								variant="outline"
 								size="sm"
 								onClick={(): void => {
 									setSelected([])

@@ -28,7 +28,7 @@ import {
 	type ReactNode,
 } from "react"
 import { ConfirmDelete } from "./ConfirmDelete"
-import { TrashIcon } from "./icons"
+import { TrashIcon, UsersIcon } from "./icons"
 import { formatInstant, fromLocalInput, toLocalInput } from "./datetime"
 
 interface Props {
@@ -664,7 +664,7 @@ export function GradeCard({
 				</Button>
 				<Button
 					type="button"
-					variant="ghost"
+					variant="outline"
 					size="sm"
 					onClick={(): void => {
 						setTouched(null)
@@ -720,15 +720,17 @@ export function GradeCard({
 					<div className="ml-auto flex items-center gap-1">
 						<Button
 							variant="ghost"
-							size="sm"
+							size="icon"
+							className="text-muted-foreground hover:text-foreground"
 							aria-label={`View students in ${grade.id}`}
+							tooltip={`View students in ${grade.id}`}
 							onClick={(): void => {
 								window.location.hash = `#/students?q=${encodeURIComponent(
 									`grade:${grade.id}`,
 								)}`
 							}}
 						>
-							Students
+							<UsersIcon />
 						</Button>
 						<div className="flex items-center rounded-md border">
 							<Button
@@ -736,6 +738,7 @@ export function GradeCard({
 								size="icon-sm"
 								className="rounded-r-none"
 								aria-label={`Move ${grade.id} up`}
+								tooltip={`Move ${grade.id} up`}
 								disabled={busy}
 								onClick={(): void => {
 									move("up")
@@ -748,6 +751,7 @@ export function GradeCard({
 								size="icon-sm"
 								className="rounded-l-none border-l"
 								aria-label={`Move ${grade.id} down`}
+								tooltip={`Move ${grade.id} down`}
 								disabled={busy}
 								onClick={(): void => {
 									move("down")

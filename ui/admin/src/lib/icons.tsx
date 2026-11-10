@@ -125,3 +125,38 @@ export function UploadIcon(): ReactElement {
 		</svg>
 	)
 }
+
+export function UsersIcon(): ReactElement {
+	return (
+		<svg
+			aria-hidden="true"
+			viewBox="0 0 16 16"
+			className="size-[1.125rem]"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<circle cx="6" cy="5.5" r="2.5" />
+			<path d="M1.5 13.5c0-2.5 2-4 4.5-4s4.5 1.5 4.5 4M10.5 3.2a2.5 2.5 0 0 1 0 4.6M12 9.8c1.5.4 2.5 1.7 2.5 3.7" />
+		</svg>
+	)
+}
+
+export function BookIcon(): ReactElement {
+	return (
+		<svg
+			aria-hidden="true"
+			viewBox="0 0 16 16"
+			className="size-[1.125rem]"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.5"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d="M2.5 3.5A1 1 0 0 1 3.5 2.5H7a1 1 0 0 1 1 1v10a1.5 1.5 0 0 0-1.5-1.5h-4zM13.5 3.5a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v10a1.5 1.5 0 0 1 1.5-1.5h4z" />
+		</svg>
+	)
+}

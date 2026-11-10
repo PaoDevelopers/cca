@@ -17,6 +17,7 @@ import {
 import { toast } from "@common/components/ui/toast"
 import { useEffect, useState, type ReactElement } from "react"
 import { ConfirmDelete } from "./ConfirmDelete"
+import { BookIcon } from "./icons"
 import { DataTools } from "./DataTools"
 import { useAdminData } from "./data"
 import { reordered } from "./ordering"
@@ -130,20 +131,23 @@ export function PeriodsPage(): ReactElement {
 										<div className="flex justify-end gap-1">
 											<Button
 												variant="ghost"
-												size="sm"
+												size="icon"
+												className="text-muted-foreground hover:text-foreground"
 												aria-label={`View courses meeting in ${period.id}`}
+												tooltip={`View courses meeting in ${period.id}`}
 												onClick={(): void => {
 													window.location.hash = `#/courses?q=${encodeURIComponent(
 														`period:${period.id}`,
 													)}`
 												}}
 											>
-												Courses
+												<BookIcon />
 											</Button>
 											<Button
 												variant="ghost"
 												size="icon-sm"
 												aria-label={`Move ${period.id} up`}
+												tooltip={`Move ${period.id} up`}
 												disabled={data.busy}
 												onClick={(): void => {
 													move(period.id, "up")
@@ -155,6 +159,7 @@ export function PeriodsPage(): ReactElement {
 												variant="ghost"
 												size="icon-sm"
 												aria-label={`Move ${period.id} down`}
+												tooltip={`Move ${period.id} down`}
 												disabled={data.busy}
 												onClick={(): void => {
 													move(period.id, "down")
