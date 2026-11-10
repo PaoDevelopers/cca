@@ -166,6 +166,17 @@ describe("admin", (): void => {
 			.getByRole("button", { name: `Sign in as ${subjects.bob}` })
 			.click()
 		const student = await opened
+		// What the tab said, for a failure that happens only elsewhere.
+		const seen: string[] = []
+		student.on("console", (m): void => {
+			if (m.type() === "error") seen.push(`console: ${m.text()}`)
+		})
+		student.on("pageerror", (e): void => {
+			seen.push(`pageerror: ${e.message}`)
+		})
+		student.on("response", (r): void => {
+			if (r.status() >= 400) seen.push(`${String(r.status())} ${r.url()}`)
+		})
 
 		// Bob's page, from Bob's own session: the header is served
 		// from /student/api/user_info, which reads the cookie.
@@ -175,9 +186,19 @@ describe("admin", (): void => {
 		// an unbounded wait there does not fail this test — it stalls
 		// until the whole file times out, taking every later test with
 		// it.
-		await student
-			.getByText("Bob Example")
-			.waitFor({ timeout: studentTabTimeout })
+		try {
+			await student
+				.getByText("Bob Example")
+				.waitFor({ timeout: studentTabTimeout })
+		} catch (err) {
+			const text = await student
+				.locator("body")
+				.innerText()
+				.catch((): string => "(unreadable)")
+			throw new Error(
+				`${String(err)}\nurl: ${student.url()}\nseen: ${seen.join(" | ")}\nbody: ${text.slice(0, 400)}`,
+			)
+		}
 		assert.match(student.url(), /\/student\/$/)
 		const banner = await student.getByRole("banner").innerText()
 		assert.match(banner, new RegExp(subjects.bob))
