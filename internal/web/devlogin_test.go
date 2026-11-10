@@ -47,7 +47,9 @@ func TestDevLoginGoesThroughTheAdminList(t *testing.T) {
 	app := &Server{devLogin: true, sessionKey: testSessionKey(t)}
 	app.config.Admins = map[string]struct{}{"dev.admin": {}}
 
-	post := func(form url.Values) *http.Response {
+	// The recorder rather than its Result: status, headers and cookies
+	// are all this reads, and a Result carries a body to close.
+	post := func(form url.Values) *httptest.ResponseRecorder {
 		r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "http://127.0.0.1/dev/login",
 			strings.NewReader(form.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -55,12 +57,12 @@ func TestDevLoginGoesThroughTheAdminList(t *testing.T) {
 		w := httptest.NewRecorder()
 		app.handleDevLogin(w, r)
 
-		return w.Result()
+		return w
 	}
 
-	cookie := func(res *http.Response, name string) string {
-		for _, c := range res.Cookies() {
-			if c.Name == name {
+	cookie := func(res *httptest.ResponseRecorder, name string) string {
+		for _, line := range res.Header().Values("Set-Cookie") {
+			if c, err := http.ParseSetCookie(line); err == nil && c.Name == name {
 				return c.Value
 			}
 		}
@@ -69,8 +71,8 @@ func TestDevLoginGoesThroughTheAdminList(t *testing.T) {
 	}
 
 	res := post(url.Values{"role": {roleAdmin}, "email": {"dev.admin"}})
-	if res.StatusCode != http.StatusSeeOther || res.Header.Get("Location") != "/admin/" {
-		t.Fatalf("listed admin: status %d to %q, want 303 to /admin/", res.StatusCode, res.Header.Get("Location"))
+	if res.Code != http.StatusSeeOther || res.Header().Get("Location") != "/admin/" {
+		t.Fatalf("listed admin: status %d to %q, want 303 to /admin/", res.Code, res.Header().Get("Location"))
 	}
 
 	subject, err := app.sessionKey.decodeSession(roleAdmin, cookie(res, adminCookie), time.Now())
@@ -80,10 +82,10 @@ func TestDevLoginGoesThroughTheAdminList(t *testing.T) {
 
 	res = post(url.Values{"role": {roleAdmin}, "email": {"someone.else"}})
 	if cookie(res, adminCookie) != "" || cookie(res, flashCookie) != "not_admin" {
-		t.Errorf("unlisted admin was not refused: cookies %v", res.Cookies())
+		t.Errorf("unlisted admin was not refused: cookies %v", res.Header().Values("Set-Cookie"))
 	}
 
-	if res = post(url.Values{"role": {"root"}, "email": {"dev.admin"}}); res.StatusCode != http.StatusBadRequest {
-		t.Errorf("unknown role: status %d, want 400", res.StatusCode)
+	if res = post(url.Values{"role": {"root"}, "email": {"dev.admin"}}); res.Code != http.StatusBadRequest {
+		t.Errorf("unknown role: status %d, want 400", res.Code)
 	}
 }

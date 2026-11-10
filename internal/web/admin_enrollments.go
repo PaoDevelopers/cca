@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"maps"
 	"net/http"
@@ -240,12 +241,12 @@ func dropRows(rows [][]string, drop []string) [][]string {
 func unknownRows(ctx context.Context, qtx *db.Queries, rows [][]string) ([][]string, []importSeat, error) {
 	students, err := qtx.GetStudents(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("list students: %w", err)
 	}
 
 	courses, err := qtx.GetCourses(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("list courses: %w", err)
 	}
 
 	knownStudents := make(map[string]struct{}, len(students))
@@ -288,6 +289,8 @@ func unknownRows(ctx context.Context, qtx *db.Queries, rows [][]string) ([][]str
 // other shape — upsert_courses holds the whole loop, so that one opens
 // no transaction at all. The pointer here used to send a reader to
 // that function for the reason this one does the opposite.
+//
+//nolint:maintidx // one check-or-commit pass over the file; splitting it would scatter the transaction it holds
 func (app *Server) handleAdmEnrollmentsImport(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
 	app.logRequestStart(r, "handleAdmEnrollmentsImport", slog.String("admin_username", aui.Username))
 
@@ -358,13 +361,13 @@ func (app *Server) handleAdmEnrollmentsImport(w http.ResponseWriter, r *http.Req
 
 		sp, err := tx.Begin(ctx)
 		if err != nil {
-			return err
+			return fmt.Errorf("open savepoint: %w", err)
 		}
 
 		err = call(nil)
 		if vs := violationsOf(err); vs != nil {
 			if err := sp.Rollback(ctx); err != nil {
-				return err
+				return fmt.Errorf("roll back savepoint: %w", err)
 			}
 
 			codes := make([]string, len(vs))
@@ -374,7 +377,7 @@ func (app *Server) handleAdmEnrollmentsImport(w http.ResponseWriter, r *http.Req
 			}
 
 			if sp, err = tx.Begin(ctx); err != nil {
-				return err
+				return fmt.Errorf("reopen savepoint: %w", err)
 			}
 
 			err = call(codes)
