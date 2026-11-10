@@ -17,13 +17,13 @@ import (
 // courseViolations runs the batched read and returns, per course, its
 // sorted violation codes. Courses with no violations appear with an
 // empty slice; courses absent from the result are absent from the map.
-func courseViolations(t *testing.T, q *db.Queries, student string, charging bool) map[string][]string {
+func courseViolations(t *testing.T, q *db.Queries, student string) map[string][]string {
 	t.Helper()
 
 	rows, err := q.StudentCourseViolations(context.Background(),
 		db.StudentCourseViolationsParams{
 			PStudentID:          student,
-			PCountsTowardBudget: charging,
+			PCountsTowardBudget: true,
 		})
 	if err != nil {
 		t.Fatalf("StudentCourseViolations: %v", err)
@@ -105,7 +105,7 @@ func TestStudentCourseViolationsAgreesWithPerCourse(t *testing.T) {
 
 	// The unscheduled course charges nothing yet still reports the
 	// budget s4 has already exceeded.
-	if codes := courseViolations(t, q, "s4", true)["PENDING"]; !slices.Equal(codes, []string{"budget:s4"}) {
+	if codes := courseViolations(t, q, "s4")["PENDING"]; !slices.Equal(codes, []string{"budget:s4"}) {
 		t.Errorf("PENDING for s4: %v", codes)
 	}
 }
@@ -120,7 +120,7 @@ func TestStudentCourseViolationsCoversEveryCandidate(t *testing.T) {
 
 	// s3 (Y10, M, uncapped) holds nothing, so every course is a
 	// candidate. Each restricted one reports its own rule.
-	got := courseViolations(t, q, "s3", true)
+	got := courseViolations(t, q, "s3")
 
 	if codes := got["Y9GRADE"]; !slices.Equal(codes, []string{"grade:s3:Y9GRADE"}) {
 		t.Errorf("Y9GRADE for s3: %v", codes)
@@ -153,13 +153,13 @@ func TestStudentCourseViolationsExcludesHeldCourses(t *testing.T) {
 	seedViolations(t, pool)
 
 	// s2 holds TINY, the full course.
-	if codes, ok := courseViolations(t, q, "s2", true)["TINY"]; ok {
+	if codes, ok := courseViolations(t, q, "s2")["TINY"]; ok {
 		t.Errorf("held TINY judged for its own holder: %v", codes)
 	}
 
 	// s1 holds TWICE, so ARTMON's clash against it is still reported
 	// (ARTMON is a candidate) but TWICE itself is not.
-	got := courseViolations(t, q, "s1", true)
+	got := courseViolations(t, q, "s1")
 
 	if _, ok := got["TWICE"]; ok {
 		t.Errorf("held TWICE judged for its own holder")
