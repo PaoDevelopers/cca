@@ -161,21 +161,29 @@ describe("admin", (): void => {
 		// The tab is opened by the click itself; anything else is a
 		// pop-up as far as the browser is concerned, and this is the
 		// only test that would notice it being blocked.
+		// What both tabs said, for a failure that happens only elsewhere.
+		const seen: string[] = []
+		context.on("response", (r): void => {
+			seen.push(
+				`${String(r.status())} ${r.request().method()} ${r.url()}`,
+			)
+		})
+		context.on("console", (m): void => {
+			if (m.type() === "error") seen.push(`console: ${m.text()}`)
+		})
+		context.on("close", (): void => {
+			seen.push("context closed")
+		})
 		const opened = context.waitForEvent("page")
 		await page
 			.getByRole("button", { name: `Sign in as ${subjects.bob}` })
 			.click()
 		const student = await opened
-		// What the tab said, for a failure that happens only elsewhere.
-		const seen: string[] = []
-		student.on("console", (m): void => {
-			if (m.type() === "error") seen.push(`console: ${m.text()}`)
-		})
 		student.on("pageerror", (e): void => {
 			seen.push(`pageerror: ${e.message}`)
 		})
-		student.on("response", (r): void => {
-			if (r.status() >= 400) seen.push(`${String(r.status())} ${r.url()}`)
+		student.on("close", (): void => {
+			seen.push("student tab closed")
 		})
 
 		// Bob's page, from Bob's own session: the header is served
@@ -195,8 +203,12 @@ describe("admin", (): void => {
 				.locator("body")
 				.innerText()
 				.catch((): string => "(unreadable)")
+			const admin = await page
+				.locator("body")
+				.innerText()
+				.catch((): string => "(unreadable)")
 			throw new Error(
-				`${String(err)}\nurl: ${student.url()}\nseen: ${seen.join(" | ")}\nbody: ${text.slice(0, 400)}`,
+				`${String(err)}\nurl: ${student.url()}\nseen: ${seen.join(" | ")}\nbody: ${text.slice(0, 400)}\nadmin: ${admin.slice(0, 300)}`,
 			)
 		}
 		assert.match(student.url(), /\/student\/$/)
