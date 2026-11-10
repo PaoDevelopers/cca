@@ -193,11 +193,21 @@ END;
 -- The student catalogue needs the violation set of every course
 -- at once, to say why a course cannot be taken
 -- before the student tries.
--- Asking enrollment_violations once per course
--- is one round trip per course;
--- this is a lateral over the same function,
--- so the rules keep their single definition
--- and PostgreSQL inlines the body into the join.
+--
+-- This restates enrollment_violations' rules over the whole set of
+-- candidates rather than calling it per course. The per-course
+-- lateral was the single definition, but it recomputed the student's
+-- budget and periods once per course — about 15x the work on a
+-- 180-course catalogue, on the read every open page repeats.
+-- Here each rule is one join: the student's facts are read once and
+-- the restrictions are scanned once rather than probed per course.
+-- TestStudentCourseViolationsAgreesWithPerCourse holds the two
+-- definitions to the same rows, so a rule changed in one place and
+-- not the other fails there rather than drifting silently.
+-- Because no candidate is held, the per-course exclusions
+-- enrollment_violations needs for re-judging (a course's own
+-- enrollment in clash and budget) cannot arise, and there is nothing
+-- to disregard.
 --
 -- Courses the student already holds are excluded:
 -- eligibility is a question about courses they might enter,
@@ -221,12 +231,90 @@ RETURNS TABLE (
 )
 STABLE
 BEGIN ATOMIC
-	SELECT c.id, v.rule, v.code, v.other_course_id,
-		v.period_id, v.detail
+WITH candidate AS (
+	SELECT c.id
 	FROM courses c
-	CROSS JOIN LATERAL enrollment_violations(
-		p_student_id, c.id, p_counts_toward_budget, '{}') v
 	WHERE NOT EXISTS (
 		SELECT 1 FROM enrollments e
-		WHERE e.student_id = p_student_id AND e.course_id = c.id);
+		WHERE e.student_id = p_student_id AND e.course_id = c.id)
+)
+SELECT a.course_id, 'legal_sex',
+	'legal_sex:' || p_student_id || ':' || a.course_id,
+	NULL, NULL,
+	format('legal sex %s is not allowed', s.legal_sex)
+FROM students s
+JOIN course_allowed_legal_sexes a ON TRUE
+JOIN candidate c ON c.id = a.course_id
+WHERE s.id = p_student_id
+GROUP BY a.course_id, s.legal_sex
+HAVING NOT bool_or(a.legal_sex = s.legal_sex)
+
+UNION ALL
+
+SELECT a.course_id, 'grade',
+	'grade:' || p_student_id || ':' || a.course_id,
+	NULL, NULL,
+	format('grade %s is not allowed', s.grade_id)
+FROM students s
+JOIN course_allowed_grades a ON TRUE
+JOIN candidate c ON c.id = a.course_id
+WHERE s.id = p_student_id
+GROUP BY a.course_id, s.grade_id
+HAVING NOT bool_or(a.grade_id = s.grade_id)
+
+UNION ALL
+
+SELECT v.id, 'capacity',
+	'capacity:' || p_student_id || ':' || v.id,
+	NULL, NULL,
+	format('%s is full (%s/%s)', v.id, v.current_students, v.max_students)
+FROM v_courses v
+JOIN candidate c ON c.id = v.id
+WHERE v.current_students >= v.max_students
+
+UNION ALL
+
+SELECT cpn.course_id, 'clash',
+	'clash:' || p_student_id || ':'
+		|| least(cpn.course_id::TEXT, e.course_id::TEXT) || ':'
+		|| greatest(cpn.course_id::TEXT, e.course_id::TEXT) || ':'
+		|| cpn.period_id,
+	e.course_id,
+	cpn.period_id,
+	format('Clashes with %s (%s) in %s',
+		other_course.name, e.course_id, cpn.period_id)
+FROM enrollments e
+JOIN courses other_course ON other_course.id = e.course_id
+JOIN course_periods cpo ON cpo.course_id = e.course_id
+JOIN course_periods cpn ON cpn.period_id = cpo.period_id
+JOIN candidate c ON c.id = cpn.course_id
+WHERE e.student_id = p_student_id
+
+UNION ALL
+
+SELECT c.id, 'budget',
+	'budget:' || p_student_id,
+	NULL, NULL,
+	format('would occupy %s of %s budgeted periods',
+		used.n + COALESCE(new.n, 0), g.max_budgeted_periods)
+FROM students s
+JOIN grades g ON g.id = s.grade_id
+CROSS JOIN (
+	SELECT count(*) AS n
+	FROM enrollments e
+	JOIN course_periods cp ON cp.course_id = e.course_id
+	WHERE e.student_id = p_student_id
+		AND e.counts_toward_budget
+) used
+CROSS JOIN candidate c
+-- LEFT: an unscheduled course adds nothing, but a student already
+-- over budget is still over it.
+LEFT JOIN (
+	SELECT cp.course_id, count(*) AS n
+	FROM course_periods cp
+	GROUP BY cp.course_id
+) new ON new.course_id = c.id
+WHERE s.id = p_student_id
+	AND p_counts_toward_budget
+	AND used.n + COALESCE(new.n, 0) > g.max_budgeted_periods;
 END;

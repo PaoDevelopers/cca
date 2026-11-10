@@ -17,13 +17,13 @@ import (
 // courseViolations runs the batched read and returns, per course, its
 // sorted violation codes. Courses with no violations appear with an
 // empty slice; courses absent from the result are absent from the map.
-func courseViolations(t *testing.T, q *db.Queries, student string, charging bool) map[string][]string {
+func courseViolations(t *testing.T, q *db.Queries, student string) map[string][]string {
 	t.Helper()
 
 	rows, err := q.StudentCourseViolations(context.Background(),
 		db.StudentCourseViolationsParams{
 			PStudentID:          student,
-			PCountsTowardBudget: charging,
+			PCountsTowardBudget: true,
 		})
 	if err != nil {
 		t.Fatalf("StudentCourseViolations: %v", err)
@@ -46,47 +46,67 @@ func courseViolations(t *testing.T, q *db.Queries, student string, charging bool
 	return byCourse
 }
 
-// The batched read must agree with the per-course one, course for
-// course. That equivalence is the whole reason it may exist: it is an
-// optimisation of the round trips, not a second statement of the
-// rules.
+// The batched read restates enrollment_violations' rules set-wise, so
+// it must produce exactly the rows the per-course function would for
+// every unheld course — details included, since the budget arithmetic
+// only shows there. That equivalence is the whole reason it may exist.
 func TestStudentCourseViolationsAgreesWithPerCourse(t *testing.T) {
 	t.Parallel()
 	pool, q := fresh(t)
 	seedViolations(t, pool)
 
-	for _, student := range []string{"s1", "s2", "s3"} {
-		for _, charging := range []bool{true, false} {
-			batched := courseViolations(t, q, student, charging)
+	// Beyond seedViolations: an unscheduled course, a restriction the
+	// student partly matches, and s4 already over budget (5 of 4) by
+	// an administrative placement, so every candidate breaks budget.
+	exec(t, pool, `INSERT INTO courses (id, name, description, max_students,
+			invite_only, teacher, teacher_email, location, term, cost, category_id) VALUES
+			('PENDING', 'Not yet scheduled', '', NULL, FALSE, '', '', '', 'Season', '', 'ART'),
+			('MIXED', 'F or M', '', 10, FALSE, '', '', '', 'Season', '', 'ART'),
+			('WIDE', 'Three periods', '', 10, FALSE, '', '', '', 'Season', '', 'ART');
+		INSERT INTO course_periods (course_id, period_id) VALUES
+			('MIXED', 'TUE1'), ('WIDE', 'MON1'), ('WIDE', 'TUE1'), ('WIDE', 'WED1');
+		INSERT INTO course_allowed_legal_sexes (course_id, legal_sex) VALUES
+			('MIXED', 'F'), ('MIXED', 'M');
+		INSERT INTO course_allowed_grades (course_id, grade_id) VALUES
+			('MIXED', 'Y9'), ('MIXED', 'Y10');
+		INSERT INTO students (id, name, grade_id, legal_sex) VALUES
+			('s4', 'Student Four', 'Y9', 'X');
+		INSERT INTO enrollments (student_id, course_id, student_droppable, counts_toward_budget) VALUES
+			('s4', 'TWICE', FALSE, TRUE), ('s4', 'WIDE', FALSE, TRUE)`)
 
-			for _, course := range []string{"TWICE", "ARTMON", "TINY", "GIRLS", "Y9GRADE"} {
-				held := count(t, pool,
-					`SELECT count(*) FROM enrollments WHERE student_id = '`+student+
-						`' AND course_id = '`+course+`'`)
+	const judged = `
+		SELECT s.id, b.charging, v.*
+		FROM students s
+		CROSS JOIN (VALUES (TRUE), (FALSE)) b (charging)
+		CROSS JOIN student_course_violations(s.id, b.charging) v`
 
-				// A held course is not a candidate, so the batched
-				// read omits it however it would have judged.
-				if held > 0 {
-					if _, ok := batched[course]; ok {
-						t.Errorf("%s/%s: held course present in batched read", student, course)
-					}
+	const perCourse = `
+		SELECT s.id, b.charging, c.id::TEXT, v.*
+		FROM students s
+		CROSS JOIN (VALUES (TRUE), (FALSE)) b (charging)
+		CROSS JOIN courses c
+		CROSS JOIN enrollment_violations(s.id, c.id, b.charging, '{}') v
+		WHERE NOT EXISTS (SELECT 1 FROM enrollments e
+			WHERE e.student_id = s.id AND e.course_id = c.id)`
 
-					continue
-				}
+	if n := count(t, pool, `SELECT count(*) FROM (
+			(`+judged+` EXCEPT ALL `+perCourse+`)
+			UNION ALL
+			(`+perCourse+` EXCEPT ALL `+judged+`)) d`); n != 0 {
+		t.Fatalf("batched and per-course reads differ in %d rows", n)
+	}
 
-				want := violationCodes(t, q, "", violations(student, course, charging))
-				got := batched[course]
+	// Agreement on an empty set would prove nothing: every rule must
+	// actually fire somewhere in the fixture.
+	if n := count(t, pool, `SELECT count(DISTINCT v.rule)
+			FROM (`+judged+`) v`); n != 5 {
+		t.Fatalf("fixture exercises %d of the 5 rules", n)
+	}
 
-				if len(want) == 0 && len(got) == 0 {
-					continue
-				}
-
-				if !slices.Equal(got, want) {
-					t.Errorf("%s/%s charging=%v: batched %v, per-course %v",
-						student, course, charging, got, want)
-				}
-			}
-		}
+	// The unscheduled course charges nothing yet still reports the
+	// budget s4 has already exceeded.
+	if codes := courseViolations(t, q, "s4")["PENDING"]; !slices.Equal(codes, []string{"budget:s4"}) {
+		t.Errorf("PENDING for s4: %v", codes)
 	}
 }
 
@@ -100,7 +120,7 @@ func TestStudentCourseViolationsCoversEveryCandidate(t *testing.T) {
 
 	// s3 (Y10, M, uncapped) holds nothing, so every course is a
 	// candidate. Each restricted one reports its own rule.
-	got := courseViolations(t, q, "s3", true)
+	got := courseViolations(t, q, "s3")
 
 	if codes := got["Y9GRADE"]; !slices.Equal(codes, []string{"grade:s3:Y9GRADE"}) {
 		t.Errorf("Y9GRADE for s3: %v", codes)
@@ -133,13 +153,13 @@ func TestStudentCourseViolationsExcludesHeldCourses(t *testing.T) {
 	seedViolations(t, pool)
 
 	// s2 holds TINY, the full course.
-	if codes, ok := courseViolations(t, q, "s2", true)["TINY"]; ok {
+	if codes, ok := courseViolations(t, q, "s2")["TINY"]; ok {
 		t.Errorf("held TINY judged for its own holder: %v", codes)
 	}
 
 	// s1 holds TWICE, so ARTMON's clash against it is still reported
 	// (ARTMON is a candidate) but TWICE itself is not.
-	got := courseViolations(t, q, "s1", true)
+	got := courseViolations(t, q, "s1")
 
 	if _, ok := got["TWICE"]; ok {
 		t.Errorf("held TWICE judged for its own holder")

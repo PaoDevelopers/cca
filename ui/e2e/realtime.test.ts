@@ -82,6 +82,74 @@ describe("realtime", (): void => {
 		await bobContext.close()
 	})
 
+	// Capacity is the one verdict another student's enrollment changes,
+	// and the page derives it from the live count rather than re-reading
+	// its eligibility map: one read per open page per filled course was
+	// what overloaded the database in a busy window.
+	it("marks a course full from the live count, without re-reading eligibility", async (): Promise<void> => {
+		assert.ok(harness !== null)
+		const stack = harness
+
+		stack.exec("UPDATE courses SET max_students = 1 WHERE id = 'BB'")
+
+		try {
+			const aliceContext = await stack.contextFor(
+				"student",
+				subjects.alice,
+			)
+			const alice = await aliceContext.newPage()
+			await alice.goto("/student/")
+			await alice.getByRole("button", { name: /All courses/ }).click()
+			const basketball = alice.locator("article.card", {
+				hasText: "Basketball",
+			})
+			await basketball.getByText("0/1").waitFor()
+
+			let eligibilityReads = 0
+			alice.on("request", (request): void => {
+				if (request.url().endsWith("/student/api/eligibility")) {
+					eligibilityReads++
+				}
+			})
+
+			const bobContext = await stack.contextFor("student", subjects.bob)
+			const bob = await bobContext.newPage()
+			await bob.goto("/student/")
+			await bob.getByRole("button", { name: /All courses/ }).click()
+			await bob
+				.locator("article.card", { hasText: "Basketball" })
+				.getByRole("button", { name: /Enroll\b.*\bin Basketball/ })
+				.click()
+
+			// The server's wording, from the count alone.
+			await basketball
+				.getByText("BB is full (1/1)")
+				.waitFor({ timeout: 10_000 })
+
+			await bob.getByRole("button", { name: /Your selections/ }).click()
+			await bob
+				.getByRole("button", { name: /Drop\b.*\bBasketball/ })
+				.click()
+			await bob
+				.getByRole("button", { name: /Confirm dropping Basketball/ })
+				.click()
+
+			await basketball.getByText("0/1").waitFor({ timeout: 10_000 })
+			assert.equal(await basketball.getByText(/is full/).count(), 0)
+			assert.equal(
+				eligibilityReads,
+				0,
+				"a seat change re-read eligibility",
+			)
+
+			await aliceContext.close()
+			await bobContext.close()
+		} finally {
+			stack.exec("DELETE FROM enrollments WHERE course_id = 'BB'")
+			stack.exec("UPDATE courses SET max_students = 2 WHERE id = 'BB'")
+		}
+	})
+
 	// Everything sent while the socket was down is gone: the hub keeps
 	// no per-client queue, and the snapshot a reconnecting client gets
 	// covers the counts and nothing else. So an invalidation that
