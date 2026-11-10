@@ -5,7 +5,7 @@ import {
 	type CourseInput,
 } from "@common/adminApi"
 import { capacityLabel } from "@common/capacity"
-import { filterByCel, type FilterMode } from "@common/cel"
+import { filterByCel, useCelParser, type FilterMode } from "@common/cel"
 import { Button } from "@common/components/ui/button"
 import { Dialog, DialogHeader, DialogTitle } from "@common/components/ui/dialog"
 import { Checkbox } from "@common/components/ui/input"
@@ -20,7 +20,7 @@ import {
 import { toast } from "@common/components/ui/toast"
 import { matchesFilter } from "@common/filter"
 import type { Course } from "@common/types"
-import { useEffect, useState, type ReactElement } from "react"
+import { useDeferredValue, useEffect, useState, type ReactElement } from "react"
 import { ConfirmDelete } from "./ConfirmDelete"
 import { CourseEditor } from "./CourseEditor"
 import { courseCelContext } from "./courses"
@@ -57,11 +57,14 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 	}, [data])
 
 	const [mode, setMode] = useState<FilterMode>("simple")
+	useCelParser(mode)
 	// The course in the sheet: an ID, "new" for the create sheet, or
 	// nothing. A course deleted elsewhere closes its own sheet.
 	const [editing, setEditing] = useState<string | null>(null)
 	const [creating, setCreating] = useState(false)
 	const [sort, setSort] = useState<Sort<SortKey> | null>(null)
+	// The box answers each keystroke at once; the rows follow.
+	const query = useDeferredValue(filter)
 
 	// Row selection for bulk deletion, keyed by course ID. Pairs with
 	// the term filter to clear out a season in one go.
@@ -95,14 +98,14 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 
 	const celResult =
 		mode === "cel"
-			? filterByCel(filter, data.courses, courseCelContext)
+			? filterByCel(query, data.courses, courseCelContext)
 			: { rows: data.courses, error: null, unfiltered: false }
 
 	const filtered =
 		mode === "cel"
 			? celResult.rows
 			: data.courses.filter((c): boolean =>
-					matchesFilter(filter, {
+					matchesFilter(query, {
 						id: { exact: c.id },
 						name: c.name,
 						category: { exact: c.category_id },

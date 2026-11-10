@@ -406,7 +406,7 @@ func (app *Server) serve(ctx context.Context, stop context.CancelFunc, listener 
 
 	//exhaustruct:ignore
 	server := &http.Server{
-		Handler:           securityHeaders(app.crossOriginProtection().Handler(app.router())),
+		Handler:           securityHeaders(app.crossOriginProtection().Handler(compress(app.router()))),
 		ReadHeaderTimeout: readHeaderTimeout,
 		ErrorLog:          newHTTPServerErrorLogger(),
 	}

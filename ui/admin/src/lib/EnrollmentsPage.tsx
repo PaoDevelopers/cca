@@ -4,7 +4,7 @@ import {
 	removeEnrollments,
 	type EnrollmentImportCheck,
 } from "@common/adminApi"
-import { filterByCel, type FilterMode } from "@common/cel"
+import { filterByCel, useCelParser, type FilterMode } from "@common/cel"
 import { Button } from "@common/components/ui/button"
 import {
 	Card,
@@ -83,6 +83,7 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 	}
 
 	const [mode, setMode] = useState<FilterMode>("simple")
+	useCelParser(mode)
 	// Row selection for bulk deletion.
 	const [selected, setSelected] = useState<string[]>([])
 	const [sort, setSort] = useState<Sort<Column> | null>(null)

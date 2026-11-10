@@ -4,7 +4,7 @@ import {
 	upsertStudents,
 	type AdminStudent,
 } from "@common/adminApi"
-import { filterByCel, type FilterMode } from "@common/cel"
+import { filterByCel, useCelParser, type FilterMode } from "@common/cel"
 import { Button } from "@common/components/ui/button"
 import {
 	Table,
@@ -17,7 +17,14 @@ import {
 import { toast } from "@common/components/ui/toast"
 import { matchesFilter } from "@common/filter"
 import type { LegalSex } from "@common/types"
-import { useEffect, useState, type ReactElement, type ReactNode } from "react"
+import {
+	startTransition,
+	useDeferredValue,
+	useEffect,
+	useState,
+	type ReactElement,
+	type ReactNode,
+} from "react"
 import { DataTools } from "./DataTools"
 import { useAdminData } from "./data"
 import { FilterBar } from "./FilterBar"
@@ -71,15 +78,40 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 	// The student whose weekly schedule is expanded under their row.
 	const [scheduleFor, setScheduleFor] = useState<string | null>(null)
 	const [mode, setMode] = useState<FilterMode>("simple")
+	useCelParser(mode)
 	// The student in the Sheet: "new" to add one, an id to edit, null
 	// when it is closed.
 	const [editing, setEditing] = useState<string | null>(null)
 	// null keeps the server's order.
-	const [sort, setSort] = useState<Sort<SortKey> | null>(null)
+	const [sort, setSortNow] = useState<Sort<SortKey> | null>(null)
+	// A roster is hundreds of rows, and re-rendering them is what makes
+	// a keystroke or a sort feel slow. Both render in the background, so
+	// the box and the header answer at once and the rows follow.
+	const query = useDeferredValue(filter)
+	const setSort = (next: Sort<SortKey> | null): void => {
+		startTransition((): void => {
+			setSortNow(next)
+		})
+	}
+	// The first screenful paints at once and the rest follows, rather
+	// than the page staying blank until every row is laid out.
+	const ready = data.ready(
+		"students",
+		"grades",
+		"courses",
+		"periods",
+		"enrollments",
+	)
+	const [allRows, setAllRows] = useState(false)
+	useEffect((): void => {
+		if (ready) {
+			startTransition((): void => {
+				setAllRows(true)
+			})
+		}
+	}, [ready])
 
-	if (
-		!data.ready("students", "grades", "courses", "periods", "enrollments")
-	) {
+	if (!ready) {
 		return (
 			<Section>
 				<p className="text-muted-foreground">Loading…</p>
@@ -156,7 +188,7 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 
 	const celResult =
 		mode === "cel"
-			? filterByCel(filter, data.students, (s) =>
+			? filterByCel(query, data.students, (s) =>
 					studentCelContext(
 						s,
 						coursesOf.get(s.id) ?? [],
@@ -169,7 +201,7 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 		mode === "cel"
 			? celResult.rows
 			: data.students.filter((s): boolean =>
-					matchesFilter(filter, {
+					matchesFilter(query, {
 						id: { exact: s.id },
 						name: s.name,
 						grade: { exact: s.grade_id },
@@ -195,7 +227,8 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 		}
 	}
 
-	const shown = sortRows(filtered, sort, sortValue)
+	const sorted = sortRows(filtered, sort, sortValue)
+	const shown = allRows ? sorted : sorted.slice(0, 50)
 
 	// The listed students, not every student: an administrator who has
 	// filtered to one grade means that grade.
