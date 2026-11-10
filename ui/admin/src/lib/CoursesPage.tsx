@@ -368,10 +368,10 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 								{course.invite_only ? "Yes" : "No"}
 							</TableCell>
 							<TableCell>
-								<div className="flex justify-end gap-0.5">
+								<div className="flex justify-end gap-1">
 									<Button
 										type="button"
-										variant="ghost"
+										variant="outline"
 										size="icon"
 										className="text-muted-foreground hover:text-foreground"
 										aria-label={`View enrollments of ${course.id}`}
@@ -386,7 +386,7 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 									</Button>
 									<Button
 										type="button"
-										variant="ghost"
+										variant="outline"
 										size="icon"
 										className="text-muted-foreground hover:text-foreground"
 										disabled={data.busy}

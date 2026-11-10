@@ -61,15 +61,15 @@ function StudentRowImpl({
 					</Badge>
 				</TableCell>
 				<TableCell>
-					<div className="flex flex-wrap gap-0.5">
+					<div className="flex flex-wrap gap-1">
 						<Button
-							variant="ghost"
+							variant="outline"
 							size="icon"
 							// Pressed-looking while the schedule is open under the
 							// row, which is what "Close" used to say in words.
 							className={
 								scheduleOpen
-									? "bg-accent text-foreground"
+									? "bg-accent! text-foreground"
 									: "text-muted-foreground hover:text-foreground"
 							}
 							aria-expanded={scheduleOpen}
@@ -88,7 +88,7 @@ function StudentRowImpl({
 							<CalendarIcon />
 						</Button>
 						<Button
-							variant="ghost"
+							variant="outline"
 							size="icon"
 							className="text-muted-foreground hover:text-foreground"
 							aria-label={`View enrollments of ${student.id}`}
@@ -102,7 +102,7 @@ function StudentRowImpl({
 							<ListIcon />
 						</Button>
 						<Button
-							variant="ghost"
+							variant="outline"
 							size="icon"
 							className="text-muted-foreground hover:text-foreground"
 							disabled={busy}
@@ -113,7 +113,7 @@ function StudentRowImpl({
 							<SignInIcon />
 						</Button>
 						<Button
-							variant="ghost"
+							variant="outline"
 							size="icon"
 							className="text-muted-foreground hover:text-foreground"
 							disabled={busy}

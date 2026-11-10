@@ -17,7 +17,7 @@ import {
 import { toast } from "@common/components/ui/toast"
 import { useEffect, useState, type ReactElement } from "react"
 import { ConfirmDelete } from "./ConfirmDelete"
-import { BookIcon } from "./icons"
+import { BookIcon, Chevron } from "./icons"
 import { DataTools } from "./DataTools"
 import { useAdminData } from "./data"
 import { reordered } from "./ordering"
@@ -130,7 +130,7 @@ export function PeriodsPage(): ReactElement {
 									<TableCell>
 										<div className="flex justify-end gap-1">
 											<Button
-												variant="ghost"
+												variant="outline"
 												size="icon"
 												className="text-muted-foreground hover:text-foreground"
 												aria-label={`View courses meeting in ${period.id}`}
@@ -143,30 +143,34 @@ export function PeriodsPage(): ReactElement {
 											>
 												<BookIcon />
 											</Button>
-											<Button
-												variant="ghost"
-												size="icon-sm"
-												aria-label={`Move ${period.id} up`}
-												tooltip={`Move ${period.id} up`}
-												disabled={data.busy}
-												onClick={(): void => {
-													move(period.id, "up")
-												}}
-											>
-												↑
-											</Button>
-											<Button
-												variant="ghost"
-												size="icon-sm"
-												aria-label={`Move ${period.id} down`}
-												tooltip={`Move ${period.id} down`}
-												disabled={data.busy}
-												onClick={(): void => {
-													move(period.id, "down")
-												}}
-											>
-												↓
-											</Button>
+											<div className="flex items-center rounded-md border bg-background shadow-xs dark:border-input dark:bg-input/30">
+												<Button
+													variant="ghost"
+													size="icon"
+													className="rounded-r-none"
+													aria-label={`Move ${period.id} up`}
+													tooltip={`Move ${period.id} up`}
+													disabled={data.busy}
+													onClick={(): void => {
+														move(period.id, "up")
+													}}
+												>
+													<Chevron direction="up" />
+												</Button>
+												<Button
+													variant="ghost"
+													size="icon"
+													className="rounded-l-none border-l"
+													aria-label={`Move ${period.id} down`}
+													tooltip={`Move ${period.id} down`}
+													disabled={data.busy}
+													onClick={(): void => {
+														move(period.id, "down")
+													}}
+												>
+													<Chevron direction="down" />
+												</Button>
+											</div>
 											<ConfirmDelete
 												action="Delete"
 												target={period.id}

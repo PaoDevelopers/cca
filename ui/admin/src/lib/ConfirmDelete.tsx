@@ -39,9 +39,9 @@ export function ConfirmDelete({
 		<>
 			<Button
 				type="button"
-				variant="ghost"
+				variant="outline"
 				size="icon"
-				className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+				className="text-muted-foreground hover:bg-destructive/10! hover:text-destructive"
 				disabled={disabled}
 				aria-label={`${action} ${target}`}
 				// The icon alone says "delete"; the tooltip says what.

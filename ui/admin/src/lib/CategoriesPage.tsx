@@ -122,7 +122,7 @@ export function CategoriesPage(): ReactElement {
 									<TableCell>
 										<div className="flex justify-end gap-1">
 											<Button
-												variant="ghost"
+												variant="outline"
 												size="icon"
 												className="text-muted-foreground hover:text-foreground"
 												aria-label={`View courses in ${category.id}`}

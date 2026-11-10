@@ -28,7 +28,7 @@ import {
 	type ReactNode,
 } from "react"
 import { ConfirmDelete } from "./ConfirmDelete"
-import { TrashIcon, UsersIcon } from "./icons"
+import { Chevron, TrashIcon, UsersIcon } from "./icons"
 import { formatInstant, fromLocalInput, toLocalInput } from "./datetime"
 
 interface Props {
@@ -45,23 +45,6 @@ interface Props {
 }
 
 // A drawn chevron, one stroke weight with the rest of the card's marks.
-function Chevron({ direction }: { direction: "up" | "down" }): ReactElement {
-	return (
-		<svg
-			aria-hidden="true"
-			viewBox="0 0 16 16"
-			className="size-4"
-			fill="none"
-			stroke="currentColor"
-			strokeWidth="1.75"
-			strokeLinecap="round"
-			strokeLinejoin="round"
-		>
-			<path d={direction === "up" ? "M4 10l4-4 4 4" : "M4 6l4 4 4-4"} />
-		</svg>
-	)
-}
-
 type SaveState = "saving" | "saved" | null
 
 // What an autosaving field says about its last write. "Saved" fades
@@ -115,7 +98,7 @@ function Help({
 			trigger={(props): ReactElement => (
 				<Button
 					type="button"
-					variant="ghost"
+					variant="outline"
 					size="icon-sm"
 					aria-label={label}
 					{...props}
@@ -587,9 +570,9 @@ export function GradeCard({
 							<TableCell className="text-right">
 								<Button
 									type="button"
-									variant="ghost"
+									variant="outline"
 									size="icon"
-									className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+									className="text-muted-foreground hover:bg-destructive/10! hover:text-destructive"
 									aria-label="Remove this requirement"
 									tooltip="Remove this requirement"
 									onClick={(): void => {
@@ -708,7 +691,7 @@ export function GradeCard({
 					*/}
 					<Input
 						type="text"
-						className="h-8 w-48 border-transparent! bg-transparent px-2 shadow-none! hover:border-input! focus-visible:border-ring! dark:bg-transparent"
+						className="h-8 w-24 max-w-48 flex-1 border-transparent! bg-transparent px-2 shadow-none! hover:border-input! focus-visible:border-ring! dark:bg-transparent"
 						aria-label={`Name of ${grade.id}`}
 						value={nameDraft ?? grade.name}
 						onChange={(event): void => {
@@ -719,7 +702,7 @@ export function GradeCard({
 					<SaveStatus state={nameState} />
 					<div className="ml-auto flex items-center gap-1">
 						<Button
-							variant="ghost"
+							variant="outline"
 							size="icon"
 							className="text-muted-foreground hover:text-foreground"
 							aria-label={`View students in ${grade.id}`}
@@ -732,10 +715,10 @@ export function GradeCard({
 						>
 							<UsersIcon />
 						</Button>
-						<div className="flex items-center rounded-md border">
+						<div className="flex items-center rounded-md border bg-background shadow-xs dark:border-input dark:bg-input/30">
 							<Button
 								variant="ghost"
-								size="icon-sm"
+								size="icon"
 								className="rounded-r-none"
 								aria-label={`Move ${grade.id} up`}
 								tooltip={`Move ${grade.id} up`}
@@ -748,7 +731,7 @@ export function GradeCard({
 							</Button>
 							<Button
 								variant="ghost"
-								size="icon-sm"
+								size="icon"
 								className="rounded-l-none border-l"
 								aria-label={`Move ${grade.id} down`}
 								tooltip={`Move ${grade.id} down`}

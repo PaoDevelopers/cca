@@ -160,3 +160,24 @@ export function BookIcon(): ReactElement {
 		</svg>
 	)
 }
+
+export function Chevron({
+	direction,
+}: {
+	direction: "up" | "down"
+}): ReactElement {
+	return (
+		<svg
+			aria-hidden="true"
+			viewBox="0 0 16 16"
+			className="size-4"
+			fill="none"
+			stroke="currentColor"
+			strokeWidth="1.75"
+			strokeLinecap="round"
+			strokeLinejoin="round"
+		>
+			<path d={direction === "up" ? "M4 10l4-4 4 4" : "M4 6l4 4 4-4"} />
+		</svg>
+	)
+}

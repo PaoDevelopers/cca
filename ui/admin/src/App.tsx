@@ -140,7 +140,7 @@ function Shell(): ReactElement {
 						<form method="post" action="/admin/logout">
 							<Button
 								type="submit"
-								variant="ghost"
+								variant="outline"
 								size="icon"
 								className="text-muted-foreground hover:text-foreground"
 								aria-label="Sign out"

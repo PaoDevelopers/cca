@@ -19,7 +19,7 @@ export function FilterHelp({ fields, mode, example }: Props): ReactElement {
 			trigger={(props): ReactElement => (
 				<Button
 					type="button"
-					variant="ghost"
+					variant="outline"
 					size="icon"
 					aria-label="Filter syntax help"
 					{...props}
