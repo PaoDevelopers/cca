@@ -157,6 +157,7 @@ func newServer(ctx context.Context, configPath string, devLogin bool) (*Server, 
 	}
 
 	app.queries = db.New(app.pool)
+	app.studentWriteSlots = make(chan struct{}, max(1, app.config.Database.MaxConns/2))
 
 	if err := checkSchemaVersion(ctx, app.queries); err != nil {
 		return nil, err

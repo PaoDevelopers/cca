@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -116,6 +117,38 @@ func TestCapacityHoldsUnderConcurrentEnrollment(t *testing.T) {
 	if n := count(t, pool, `SELECT count(*) FROM enrollments WHERE course_id = 'RACE'`); n != 1 {
 		t.Fatalf("enrollments = %d, want 1", n)
 	}
+}
+
+// A refusal does not queue for the course lock: with the seat taken
+// and the course row held by another transaction, a second student
+// is turned away at once rather than waiting behind the holder.
+func TestRefusalDoesNotWaitForCourseLock(t *testing.T) {
+	t.Parallel()
+	pool, q := fresh(t)
+
+	seedRace(t, pool, 2, 1)
+
+	ctx := context.Background()
+	if err := q.SelfEnroll(ctx, db.SelfEnrollParams{PStudentID: "s1", PCourseID: "RACE"}); err != nil {
+		t.Fatalf("first seat: %v", err)
+	}
+
+	holder, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin: %v", err)
+	}
+
+	defer func() { _ = holder.Rollback(ctx) }()
+
+	if _, err := holder.Exec(ctx, `SELECT lock_courses(ARRAY['RACE'])`); err != nil {
+		t.Fatalf("hold course lock: %v", err)
+	}
+
+	short, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	err = q.SelfEnroll(short, db.SelfEnrollParams{PStudentID: "s2", PCourseID: "RACE"})
+	expectCodes(t, err, "capacity:s2:RACE")
 }
 
 // raceCourse restates the RACE course as seeded, with the timetable

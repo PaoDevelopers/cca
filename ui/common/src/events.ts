@@ -56,6 +56,11 @@ const statusTooManySockets = 4001
 const reconnectBaseDelay = 1000
 const reconnectMaxDelay = 30000
 
+// How long a socket must stay open before the backoff starts over.
+// Resetting on open alone meant a server that accepted the herd and
+// then fell over under it was hit again within a second, every time.
+const reconnectStableAfter = 30000
+
 // How long a socket may go without a frame before it is presumed dead.
 //
 // The server sends a heartbeat every 45 seconds (wsPingInterval in
@@ -84,6 +89,7 @@ export function connectEvents(
 	let timer: number | null = null
 	let closed = false
 	let attempt = 0
+	let openedAt = 0
 	let lastFrameAt = Date.now()
 	// The first open is not a reconnect: whoever called this has just
 	// loaded everything, and telling them to load it again is waste.
@@ -92,8 +98,8 @@ export function connectEvents(
 	function open(): void {
 		socket = new WebSocket(url)
 		socket.onopen = (): void => {
-			attempt = 0
-			lastFrameAt = Date.now()
+			openedAt = Date.now()
+			lastFrameAt = openedAt
 			if (everOpened) {
 				handlers.onreconnect?.()
 			}
@@ -134,6 +140,14 @@ export function connectEvents(
 
 				return
 			}
+
+			if (
+				openedAt !== 0 &&
+				Date.now() - openedAt > reconnectStableAfter
+			) {
+				attempt = 0
+			}
+			openedAt = 0
 
 			// Exponential up to the cap, then a full random spread over
 			// the whole interval rather than a small wobble around it:

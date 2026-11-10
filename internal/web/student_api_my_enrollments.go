@@ -149,6 +149,16 @@ func (app *Server) handleStuAPIMyEnrollments(w http.ResponseWriter, r *http.Requ
 	ctx, cancel := writeCtx(r.Context())
 	defer cancel()
 
+	select {
+	case app.studentWriteSlots <- struct{}{}:
+		defer func() { <-app.studentWriteSlots }()
+	case <-ctx.Done():
+		app.apiDBError(r, w, ctx.Err(),
+			slog.String("operation", write.operation), slog.String("student_id", sui.ID))
+
+		return
+	}
+
 	if err := write.call(ctx, app.queries, sui.ID, body); err != nil {
 		app.apiDBError(r, w, err,
 			slog.String("operation", write.operation),

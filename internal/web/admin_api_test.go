@@ -69,6 +69,8 @@ func testServer(err error) *Server {
 	return &Server{
 		queries: queries,
 		wsHub:   NewWebSocketHub(queries),
+
+		studentWriteSlots: make(chan struct{}, 1),
 	}
 }
 
