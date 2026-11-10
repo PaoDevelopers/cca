@@ -19,6 +19,13 @@ type Server struct {
 	verifyKey jwt.Keyfunc
 	wsHub     *WebSocketHub
 
+	// Seats for concurrent student writes, half the pool, so that a
+	// rush queued on one popular course's lock cannot hold every
+	// connection and stall the reads everyone else is waiting on.
+	// A channel's waiters are served in arrival order, which is what
+	// keeps the queue fair.
+	studentWriteSlots chan struct{}
+
 	// The HMAC key behind the signed session cookies. Checked once
 	// at startup so a missing or short key fails there rather than
 	// on the first sign-in.
