@@ -20,7 +20,13 @@ import {
 import { toast } from "@common/components/ui/toast"
 import { matchesFilter } from "@common/filter"
 import type { Course } from "@common/types"
-import { useDeferredValue, useEffect, useState, type ReactElement } from "react"
+import {
+	startTransition,
+	useDeferredValue,
+	useEffect,
+	useState,
+	type ReactElement,
+} from "react"
 import { ConfirmDelete } from "./ConfirmDelete"
 import { CourseEditor } from "./CourseEditor"
 import { courseCelContext } from "./courses"
@@ -62,7 +68,12 @@ export function CoursesPage({ filter, setFilter }: Props): ReactElement {
 	// nothing. A course deleted elsewhere closes its own sheet.
 	const [editing, setEditing] = useState<string | null>(null)
 	const [creating, setCreating] = useState(false)
-	const [sort, setSort] = useState<Sort<SortKey> | null>(null)
+	const [sort, setSortNow] = useState<Sort<SortKey> | null>(null)
+	const setSort = (next: Sort<SortKey> | null): void => {
+		startTransition((): void => {
+			setSortNow(next)
+		})
+	}
 	// The box answers each keystroke at once; the rows follow.
 	const query = useDeferredValue(filter)
 

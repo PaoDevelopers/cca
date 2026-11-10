@@ -24,9 +24,10 @@ function loadParser(): Promise<void> {
 	return loading
 }
 
-// Call from a page with a CEL mode: it re-renders once the parser is in.
-export function useCelParser(mode: FilterMode): void {
-	const [, setLoaded] = useState(parse !== null)
+// Call from a page with a CEL mode: it re-renders once the parser is
+// in, and says whether it is, for a page that memoizes its filtering.
+export function useCelParser(mode: FilterMode): boolean {
+	const [loaded, setLoaded] = useState(parse !== null)
 	useEffect((): void => {
 		if (mode === "cel" && parse === null) {
 			void loadParser().then((): void => {
@@ -34,6 +35,7 @@ export function useCelParser(mode: FilterMode): void {
 			})
 		}
 	}, [mode])
+	return loaded
 }
 
 export interface CompiledFilter {

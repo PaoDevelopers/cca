@@ -25,7 +25,15 @@ import { toast } from "@common/components/ui/toast"
 import { matchesFilter } from "@common/filter"
 import { isViolationError } from "@common/http"
 import type { Course, Enrollment } from "@common/types"
-import { useEffect, useMemo, useState, type ReactElement } from "react"
+import {
+	memo,
+	startTransition,
+	useDeferredValue,
+	useEffect,
+	useMemo,
+	useState,
+	type ReactElement,
+} from "react"
 import { ConfirmDelete } from "./ConfirmDelete"
 import { DataTools } from "./DataTools"
 import { useAdminData } from "./data"
@@ -83,10 +91,29 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 	}
 
 	const [mode, setMode] = useState<FilterMode>("simple")
-	useCelParser(mode)
+	const celLoaded = useCelParser(mode)
 	// Row selection for bulk deletion.
 	const [selected, setSelected] = useState<string[]>([])
-	const [sort, setSort] = useState<Sort<Column> | null>(null)
+	const [sort, setSortNow] = useState<Sort<Column> | null>(null)
+	// Thousands of rows once a window has run: a keystroke or a sort
+	// renders them in the background, so the box and the header answer
+	// at once and the rows follow.
+	const query = useDeferredValue(filter)
+	const setSort = (next: Sort<Column> | null): void => {
+		startTransition((): void => {
+			setSortNow(next)
+		})
+	}
+	// The first screenful paints at once and the rest follows.
+	const ready = data.ready("enrollments", "courses")
+	const [allRows, setAllRows] = useState(false)
+	useEffect((): void => {
+		if (ready) {
+			startTransition((): void => {
+				setAllRows(true)
+			})
+		}
+	}, [ready])
 
 	function run(action: () => Promise<void>): Promise<boolean> {
 		return data.run(action, "enrollments", "courses")
@@ -179,31 +206,59 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 		})
 	}
 
-	const celResult =
-		mode === "cel"
-			? filterByCel(filter, data.enrollments, (s) =>
-					enrollmentCelContext(s, courseByID.get(s.course_id)),
-				)
-			: { rows: data.enrollments, error: null, unfiltered: false }
+	// Memoized on what it reads: the box's own keystroke re-renders the
+	// page before the deferred query moves, and that render should not
+	// filter thousands of rows again only to get the same answer.
+	const { celResult, filtered } = useMemo(() => {
+		const cel =
+			mode === "cel"
+				? filterByCel(query, data.enrollments, (s) =>
+						enrollmentCelContext(s, courseByID.get(s.course_id)),
+					)
+				: { rows: data.enrollments, error: null, unfiltered: false }
 
-	const matching =
-		mode === "cel"
-			? celResult.rows
-			: data.enrollments.filter((s): boolean =>
-					matchesFilter(filter, {
-						student: { exact: s.student_id },
-						name: s.student_name,
-						grade: { exact: s.grade_id },
-						course: { exact: s.course_id },
-						title: s.course_name,
-						period: { exact: coursePeriods(s.course_id) },
-						policy: policyLabel(s),
-						droppable: s.student_droppable ? "yes" : "no",
-						budgeted: s.counts_toward_budget ? "yes" : "no",
-					}),
-				)
+		const matching =
+			mode === "cel"
+				? cel.rows
+				: data.enrollments.filter((s): boolean =>
+						matchesFilter(query, {
+							student: { exact: s.student_id },
+							name: s.student_name,
+							grade: { exact: s.grade_id },
+							course: { exact: s.course_id },
+							title: s.course_name,
+							period: {
+								exact:
+									courseByID.get(s.course_id)?.period_ids ??
+									[],
+							},
+							policy: policyLabel(s),
+							droppable: s.student_droppable ? "yes" : "no",
+							budgeted: s.counts_toward_budget ? "yes" : "no",
+						}),
+					)
 
-	const filtered = sortRows(matching, sort, (e, column) => columns[column](e))
+		const sorted = sortRows(matching, sort, (e, column) =>
+			columns[column](e),
+		)
+		return { celResult: cel, filtered: sorted }
+		// celLoaded is read by filterByCel through the module, not here:
+		// it is the signal that the parser arrived and the answer moved.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [mode, query, data.enrollments, courseByID, sort, celLoaded])
+
+	const shown = allRows ? filtered : filtered.slice(0, 50)
+
+	// Functional updates, so a row that skipped a render still toggles
+	// against the current selection rather than the one it last saw.
+	const toggle = (k: string, checked: boolean): void => {
+		setSelected((current): string[] =>
+			checked ? [...current, k] : current.filter((s): boolean => s !== k),
+		)
+	}
+	const removeOne = (enrollment: Enrollment): void => {
+		removeMany([enrollment])
+	}
 
 	// An enrollment deleted elsewhere leaves a stale key behind.
 	// Dropping those at read time rather than writing the selection back
@@ -431,90 +486,25 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 							</TableRow>
 						</TableHeader>
 						<TableBody>
-							{filtered.map((enrollment) => {
+							{shown.map((enrollment) => {
 								const k = key(enrollment)
-								const periods = coursePeriods(
-									enrollment.course_id,
-								)
 								return (
-									<TableRow
+									<EnrollmentRow
 										key={k}
-										data-state={
-											selectedSet.has(k)
-												? "selected"
-												: undefined
-										}
-									>
-										<TableCell>
-											<Checkbox
-												aria-label={`Select the enrollment of ${enrollment.course_id} for ${enrollment.student_id}`}
-												checked={selectedSet.has(k)}
-												onChange={(event): void => {
-													setSelected(
-														event.currentTarget
-															.checked
-															? [...selected, k]
-															: selected.filter(
-																	(
-																		s,
-																	): boolean =>
-																		s !== k,
-																),
-													)
-												}}
-											/>
-										</TableCell>
-										<th
-											scope="row"
-											className="px-3 py-2 text-left font-medium"
-										>
-											{enrollment.student_id}
-										</th>
-										<TableCell>
-											{enrollment.student_name}
-										</TableCell>
-										<TableCell>
-											{enrollment.grade_id}
-										</TableCell>
-										<TableCell>
-											<code className="rounded bg-muted px-1 py-0.5 text-xs">
-												{enrollment.course_id}
-											</code>
-										</TableCell>
-										<TableCell>
-											{courseLabel(
-												enrollment.course_id,
-												enrollment.course_name,
-											)}
-										</TableCell>
-										{/*
-											Labelled when blank, as in the courses table: an
-											empty cell read out as nothing says only that the
-											reader lost their place.
-										*/}
-										<TableCell
-											aria-label={
-												periods.length === 0
-													? "None"
-													: undefined
-											}
-										>
-											{periods.join(", ")}
-										</TableCell>
-										<TableCell>
-											{policyLabel(enrollment)}
-										</TableCell>
-										<TableCell className="text-right">
-											<ConfirmDelete
-												action="Delete"
-												target={`the enrollment of ${enrollment.course_id} for ${enrollment.student_id}`}
-												disabled={data.busy}
-												onconfirm={(): void => {
-													removeMany([enrollment])
-												}}
-											/>
-										</TableCell>
-									</TableRow>
+										enrollment={enrollment}
+										rowKey={k}
+										selected={selectedSet.has(k)}
+										busy={data.busy}
+										periods={coursePeriods(
+											enrollment.course_id,
+										).join(", ")}
+										label={courseLabel(
+											enrollment.course_id,
+											enrollment.course_name,
+										)}
+										ontoggle={toggle}
+										ondelete={removeOne}
+									/>
 								)
 							})}
 							{filtered.length === 0 && (
@@ -555,3 +545,80 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 		</section>
 	)
 }
+
+// One enrollment's row. It re-renders only when what it shows changes:
+// the callbacks are ignored, since they reach the page's state through
+// functional updates and the shared AdminData, never a captured value.
+function EnrollmentRowImpl({
+	enrollment,
+	rowKey,
+	selected,
+	busy,
+	periods,
+	label,
+	ontoggle,
+	ondelete,
+}: {
+	enrollment: Enrollment
+	rowKey: string
+	selected: boolean
+	busy: boolean
+	periods: string
+	label: string
+	ontoggle: (k: string, checked: boolean) => void
+	ondelete: (enrollment: Enrollment) => void
+}): ReactElement {
+	return (
+		<TableRow data-state={selected ? "selected" : undefined}>
+			<TableCell>
+				<Checkbox
+					aria-label={`Select the enrollment of ${enrollment.course_id} for ${enrollment.student_id}`}
+					checked={selected}
+					onChange={(event): void => {
+						ontoggle(rowKey, event.currentTarget.checked)
+					}}
+				/>
+			</TableCell>
+			<th scope="row" className="px-3 py-2 text-left font-medium">
+				{enrollment.student_id}
+			</th>
+			<TableCell>{enrollment.student_name}</TableCell>
+			<TableCell>{enrollment.grade_id}</TableCell>
+			<TableCell>
+				<code className="rounded bg-muted px-1 py-0.5 text-xs">
+					{enrollment.course_id}
+				</code>
+			</TableCell>
+			<TableCell>{label}</TableCell>
+			{/*
+				Labelled when blank, as in the courses table: an empty
+				cell read out as nothing says only that the reader lost
+				their place.
+			*/}
+			<TableCell aria-label={periods === "" ? "None" : undefined}>
+				{periods}
+			</TableCell>
+			<TableCell>{policyLabel(enrollment)}</TableCell>
+			<TableCell className="text-right">
+				<ConfirmDelete
+					action="Delete"
+					target={`the enrollment of ${enrollment.course_id} for ${enrollment.student_id}`}
+					disabled={busy}
+					onconfirm={(): void => {
+						ondelete(enrollment)
+					}}
+				/>
+			</TableCell>
+		</TableRow>
+	)
+}
+
+const EnrollmentRow = memo(
+	EnrollmentRowImpl,
+	(a, b): boolean =>
+		a.enrollment === b.enrollment &&
+		a.selected === b.selected &&
+		a.busy === b.busy &&
+		a.periods === b.periods &&
+		a.label === b.label,
+)
