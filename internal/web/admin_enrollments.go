@@ -402,11 +402,12 @@ func (app *Server) handleAdmEnrollmentsImport(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	pending.OnlySource = hold
+
 	// What is set aside waits as a draft named after the file. A resumed
 	// draft is rebuilt as CSV, whose name the parser reads the format
 	// from, so it says its own name in source instead.
 	pending.Source = "upload"
-	pending.OnlySource = hold
 	if files := r.MultipartForm.File["spreadsheet"]; len(files) > 0 && files[0].Filename != "" {
 		pending.Source = files[0].Filename
 	}
