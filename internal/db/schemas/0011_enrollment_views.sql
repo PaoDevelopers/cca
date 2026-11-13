@@ -80,26 +80,39 @@ JOIN grades g ON g.id = s.grade_id;
 --
 -- Advisory: reported to students and administrators,
 -- never enforced as a transition rule.
+--
+-- Counted in one aggregate over enrollments and joined on, not in a
+-- lateral per (student, group). The lateral let the planner drive
+-- each of those loops from the group's categories through every
+-- course and period in them before probing the student's
+-- enrollments, and it chose that whenever its picture of enrollments
+-- was stale — which is the first minutes of every window, when the
+-- table grows from empty faster than autoanalyze follows. The full
+-- listing, which an administrator's Students page refetches on every
+-- enrollment change, then took about 900 ms against 1500 students
+-- and was most of the database's time under load. The aggregate's
+-- plan does not depend on those estimates, and a student_id
+-- predicate still reaches inside it through the join.
 CREATE VIEW v_student_requirements AS
 SELECT
 	s.id AS student_id,
 	s.grade_id,
 	rg.id AS requirement_category_id,
 	rg.min_period_count,
-	sat.satisfied_periods,
-	sat.satisfied_periods >= rg.min_period_count AS met
+	COALESCE(sat.satisfied_periods, 0)::BIGINT AS satisfied_periods,
+	COALESCE(sat.satisfied_periods, 0) >= rg.min_period_count AS met
 FROM students s
 JOIN grade_requirement_groups rg ON rg.grade_id = s.grade_id
-CROSS JOIN LATERAL (
-	SELECT count(*)::BIGINT AS satisfied_periods
+LEFT JOIN (
+	SELECT e.student_id, m.requirement_category_id,
+		count(*) AS satisfied_periods
 	FROM enrollments e
 	JOIN courses c ON c.id = e.course_id
 	JOIN course_periods cp ON cp.course_id = e.course_id
-	WHERE e.student_id = s.id
-		AND c.category_id IN (SELECT m.category_id
-			FROM grade_requirement_group_categories m
-			WHERE m.requirement_category_id = rg.id)
-) sat;
+	JOIN grade_requirement_group_categories m
+		ON m.category_id = c.category_id
+	GROUP BY e.student_id, m.requirement_category_id
+) sat ON sat.student_id = s.id AND sat.requirement_category_id = rg.id;
 
 -- The PowerSchool hand-off: one row per (student, course, period)
 -- occupancy cell, flat and denormalised because the receiving end

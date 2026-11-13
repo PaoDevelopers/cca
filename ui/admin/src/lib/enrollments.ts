@@ -33,12 +33,44 @@ export function policyLabel(e: Enrollment): string {
 	return e.counts_toward_budget ? "Committed" : "Placed"
 }
 
+// The keys of every enrollment that shares a period with another of
+// the same student's: the same pairs the database's clash rule names.
+// Only an administrator can make one, by accepting it, so this is the
+// list of clashes that were let through, live from what is stored.
+export function clashingKeys(
+	courseByID: Map<string, Course>,
+	enrollments: Enrollment[],
+): Set<string> {
+	const bySlot = new Map<string, string[]>()
+	for (const e of enrollments) {
+		for (const period of courseByID.get(e.course_id)?.period_ids ?? []) {
+			const slot = `${e.student_id}:${period}`
+			const keys = bySlot.get(slot)
+			if (keys === undefined) {
+				bySlot.set(slot, [enrollmentKey(e)])
+			} else {
+				keys.push(enrollmentKey(e))
+			}
+		}
+	}
+	const out = new Set<string>()
+	for (const keys of bySlot.values()) {
+		if (keys.length > 1) {
+			for (const k of keys) {
+				out.add(k)
+			}
+		}
+	}
+	return out
+}
+
 // The enrolled course is nested, so expressions can reach course
 // attributes the simple syntax cannot. A course that is no longer
 // listed yields empty values rather than breaking the expression.
 export function enrollmentCelContext(
 	e: Enrollment,
 	course: Course | undefined,
+	clash: boolean,
 ): Record<string, unknown> {
 	return {
 		student: {
@@ -64,5 +96,6 @@ export function enrollmentCelContext(
 		},
 		droppable: e.student_droppable,
 		budgeted: e.counts_toward_budget,
+		clash,
 	}
 }

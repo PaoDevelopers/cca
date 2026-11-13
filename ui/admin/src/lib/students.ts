@@ -6,7 +6,46 @@
 // and presentation.
 
 import type { StudentStatus, AdminStudent } from "@common/adminApi"
+import { toast } from "@common/components/ui/toast"
 import type { Course, Enrollment } from "@common/types"
+
+// A student's address is their id under the student domain. There is no
+// email column to read: 0002_types.sql defines the key as "the
+// localpart of the school email address", and the auth boundary is
+// where the two halves were last together.
+//
+// That same file allows a staff localpart as a student key, for a
+// teacher enrolled to test with. Those really live under ykpaoschool.cn
+// and nothing stored here tells them apart, so a roster holding one
+// yields one wrong address — visible in the To: field, where it can be
+// fixed.
+const studentDomain = "stu.ykpaoschool.cn"
+
+export function studentAddress(id: string): string {
+	return `${id}@${studentDomain}`
+}
+
+// Puts the students' addresses on the clipboard, once each, for pasting
+// into a mail's recipients.
+export async function copyStudentAddresses(
+	studentIDs: string[],
+	report: (err: unknown, fallback: string) => void,
+): Promise<void> {
+	const addresses = [...new Set(studentIDs)].map(studentAddress)
+	try {
+		// Semicolons: Outlook splits recipients on them. It splits on
+		// commas only if that setting has been turned on, and it is
+		// off by default — a comma-separated paste then lands as one
+		// long unresolvable recipient instead of a class.
+		await navigator.clipboard.writeText(addresses.join("; "))
+		toast(`Copied ${String(addresses.length)}.`)
+	} catch (err) {
+		// Writing to the clipboard needs a secure context, which a
+		// plain-HTTP deployment is not. Better said out loud than left
+		// as a paste of whatever was in there before.
+		report(err, "Could not copy to the clipboard")
+	}
+}
 
 // Enrollments naming a course that is no longer listed are skipped
 // rather than counted blind.

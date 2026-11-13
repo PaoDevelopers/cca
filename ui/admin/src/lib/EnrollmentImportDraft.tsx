@@ -1,17 +1,23 @@
-// An enrollment file that would break rules, held as a draft until the
-// administrator has decided every conflict. Nothing is saved until
-// Upload, and then everything is saved at once.
+// An enrollment file that would break rules, held open until the
+// administrator decides. Upload places everything decided and sets
+// every undecided conflict aside; closing places nothing and sets the
+// whole file aside. Either way what is set aside waits as a draft on
+// the Enrollments page, so nothing is lost by walking away.
 //
 // A decision is about rows: which of the file's rows to leave out.
 // What is accepted follows from that — every violation whose rows all
 // stay is sent back as accepted, and one whose row was left out no
 // longer arises. A row can appear in more than one conflict; leaving it
 // out in any of them leaves it out.
+//
+// A conflict left without a choice is decided later: its rows are left
+// out for now, the server keeps them, the Enrollments page offers to
+// resume them, and resuming brings them back through this same dialog.
+// Meanwhile the student's address is copied from here to email them.
 import type { EnrollmentImportCheck, ImportViolation } from "@common/adminApi"
 import { Button } from "@common/components/ui/button"
 import {
 	Dialog,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
@@ -27,8 +33,11 @@ interface Props {
 	// can only be settled by keeping or dropping the new row.
 	holds: (studentID: string, courseID: string) => boolean
 	courseLabel: (id: string) => string
-	upload: (drop: string[], accept: string[]) => void
-	cancel: () => void
+	copyAddresses: (studentIDs: string[]) => void
+	upload: (drop: string[], accept: string[], later: string[]) => void
+	// Closed without uploading, by the button, Escape or the backdrop:
+	// the whole file is kept as a draft.
+	hold: () => void
 }
 
 interface Option {
@@ -39,11 +48,11 @@ interface Option {
 interface Conflict {
 	key: string
 	studentID: string
-	details: string[]
+	violations: ImportViolation[]
 	options: Option[]
 }
 
-const row = (courseID: string, studentID: string): string =>
+export const row = (courseID: string, studentID: string): string =>
 	`${courseID}:${studentID}`
 
 function conflictKey(v: ImportViolation): string {
@@ -59,9 +68,11 @@ export function EnrollmentImportDraft({
 	check,
 	holds,
 	courseLabel,
+	copyAddresses,
 	upload,
-	cancel,
+	hold,
 }: Props): ReactElement {
+	// Drop stays last in every list: "Drop all" relies on it.
 	function optionsFor(v: ImportViolation, studentID: string): Option[] {
 		const here = row(v.course_id, studentID)
 		const other = v.other_course_id
@@ -78,9 +89,13 @@ export function EnrollmentImportDraft({
 			]
 		}
 		const there = row(other, studentID)
+		// Keeping both is a real choice, not an oversight to be fixed
+		// later: a student on two teams that share a slot is placed in
+		// both, and the coaches split the sessions between them.
 		return [
 			{ label: `Keep ${courseLabel(v.course_id)}`, drop: [there] },
 			{ label: `Keep ${courseLabel(other)}`, drop: [here] },
+			{ label: "Keep both anyway", drop: [] },
 			{ label: "Drop both", drop: [here, there] },
 		]
 	}
@@ -93,13 +108,13 @@ export function EnrollmentImportDraft({
 		const key = conflictKey(v)
 		const conflict = byKey.get(key)
 		if (conflict !== undefined) {
-			conflict.details.push(v.detail)
+			conflict.violations.push(v)
 			continue
 		}
 		byKey.set(key, {
 			key,
 			studentID,
-			details: [v.detail],
+			violations: [v],
 			options: optionsFor(v, studentID),
 		})
 	}
@@ -127,11 +142,27 @@ export function EnrollmentImportDraft({
 		const drop = new Set(
 			check.unknown.map((u): string => row(u.course_id, u.student_id)),
 		)
+		const later = new Set<string>()
 		for (const c of conflicts) {
-			const chosen = c.options[choices[c.key] ?? -1]
-			for (const d of chosen?.drop ?? []) {
+			const chosen = choices[c.key]
+			if (chosen === undefined) {
+				// Nobody chose: it waits, rather than the file being
+				// refused or a guess being made for the student. Every
+				// option's rows are this conflict's rows, and the last
+				// option, Drop, names them all.
+				for (const r of c.options.at(-1)?.drop ?? []) {
+					later.add(r)
+				}
+				continue
+			}
+			for (const d of c.options[chosen]?.drop ?? []) {
 				drop.add(d)
 			}
+		}
+		// Dropped in one conflict and set aside in another is dropped:
+		// there is nothing left to decide about a row already let go.
+		for (const d of drop) {
+			later.delete(d)
 		}
 		const accept = check.violations
 			.filter((v): boolean => {
@@ -140,33 +171,59 @@ export function EnrollmentImportDraft({
 				if (v.other_course_id !== null) {
 					rows.push(row(v.other_course_id, studentID))
 				}
-				return rows.every((r): boolean => !drop.has(r))
+				return rows.every((r): boolean => !drop.has(r) && !later.has(r))
 			})
 			.map((v): string => v.code)
-		upload([...drop], accept)
+		upload([...drop], accept, [...later])
 	}
 
 	return (
 		<Dialog
-			className="max-w-3xl"
+			// Important: cn joins rather than merges, so the dialog's own
+			// max-w-lg would otherwise win.
+			className="max-w-6xl!"
 			aria-labelledby="import-draft-title"
 			onClose={(value): void => {
 				if (value === "upload") {
 					submit()
 				} else {
-					cancel()
+					hold()
 				}
 			}}
 		>
 			<DialogHeader>
-				<DialogTitle id="import-draft-title">
-					{conflicts.length} conflict
-					{conflicts.length === 1 ? "" : "s"} in this file
-				</DialogTitle>
-				<DialogDescription>
-					Choose what to do with each one. Rows without a conflict are
-					uploaded as they are. Nothing has been saved yet.
-				</DialogDescription>
+				<div className="flex flex-wrap items-center justify-between gap-2">
+					<DialogTitle id="import-draft-title">
+						{conflicts.length} conflict
+						{conflicts.length === 1 ? "" : "s"} in this file
+					</DialogTitle>
+					{conflicts.length > 0 && (
+						<div className="flex flex-wrap gap-2">
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onClick={(): void => {
+									copyAddresses(
+										conflicts.map(
+											(c): string => c.studentID,
+										),
+									)
+								}}
+							>
+								Copy all their email addresses
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								onClick={dropAll}
+							>
+								Drop all conflicting rows
+							</Button>
+						</div>
+					)}
+				</div>
 			</DialogHeader>
 
 			{check.unknown.length > 0 && (
@@ -185,19 +242,6 @@ export function EnrollmentImportDraft({
 				</section>
 			)}
 
-			{conflicts.length > 0 && (
-				<div className="mb-2 flex justify-end">
-					<Button
-						type="button"
-						variant="outline"
-						size="sm"
-						onClick={dropAll}
-					>
-						Drop all conflicting rows
-					</Button>
-				</div>
-			)}
-
 			<ul className="flex flex-col gap-2">
 				{conflicts.map((c) => (
 					<li key={c.key}>
@@ -205,11 +249,24 @@ export function EnrollmentImportDraft({
 							<legend className="px-1">
 								<strong>{c.studentID}</strong>
 							</legend>
-							<ul className="mb-2 list-disc pl-5 text-sm">
-								{c.details.map((detail, i) => (
-									<li key={i}>{detail}</li>
-								))}
-							</ul>
+							<div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+								<ul className="list-disc pl-5 text-sm">
+									{c.violations.map((v, i) => (
+										<li key={i}>{v.detail}</li>
+									))}
+								</ul>
+								<Button
+									type="button"
+									variant="outline"
+									size="sm"
+									aria-label={`Copy email of ${c.studentID}`}
+									onClick={(): void => {
+										copyAddresses([c.studentID])
+									}}
+								>
+									Copy email
+								</Button>
+							</div>
 							<div className="flex flex-wrap gap-x-4 gap-y-2">
 								{c.options.map((option, i) => (
 									<Label key={i} className="font-normal">
@@ -234,9 +291,11 @@ export function EnrollmentImportDraft({
 				))}
 			</ul>
 
-			<DialogFooter className="sticky -bottom-6 items-center bg-background py-3">
-				<span className="mr-auto text-sm text-muted-foreground">
+			<DialogFooter className="sticky -bottom-6 flex-wrap items-center bg-background py-3">
+				<span className="mr-auto basis-full text-sm text-muted-foreground sm:basis-auto">
 					{decided} of {conflicts.length} decided
+					{decided < conflicts.length &&
+						`; ${String(conflicts.length - decided)} will wait as a draft`}
 				</span>
 				<Button
 					type="button"
@@ -246,12 +305,11 @@ export function EnrollmentImportDraft({
 						closeDialog(event.currentTarget, "cancel")
 					}}
 				>
-					Cancel
+					Keep all as draft
 				</Button>
 				<Button
 					type="button"
 					size="default"
-					disabled={decided < conflicts.length}
 					onClick={(event): void => {
 						closeDialog(event.currentTarget, "upload")
 					}}

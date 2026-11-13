@@ -28,4 +28,5 @@ SELECT
 	EXISTS (SELECT 1 FROM v_enrollments) AS has_enrollments,
 	EXISTS (SELECT 1 FROM v_student_status) AS has_student_status,
 	EXISTS (SELECT 1 FROM v_student_requirements) AS has_student_requirements,
-	EXISTS (SELECT 1 FROM v_export_enrollments) AS has_export_enrollments;
+	EXISTS (SELECT 1 FROM v_export_enrollments) AS has_export_enrollments,
+	EXISTS (SELECT 1 FROM pending_enrollments) AS has_pending_enrollments;

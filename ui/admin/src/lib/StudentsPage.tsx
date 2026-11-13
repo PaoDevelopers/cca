@@ -32,6 +32,7 @@ import { SortableHead, sortRows, type Sort } from "./sorting"
 import { StudentEditor } from "./StudentEditor"
 import { StudentRow } from "./StudentRow"
 import {
+	copyStudentAddresses,
 	coursesByStudent,
 	statusByStudent,
 	studentCelContext,
@@ -45,18 +46,6 @@ interface Props {
 }
 
 const sexes: LegalSex[] = ["F", "M", "X"]
-
-// A student's address is their id under the student domain. There is no
-// email column to read: 0002_types.sql defines the key as "the
-// localpart of the school email address", and the auth boundary is
-// where the two halves were last together.
-//
-// That same file allows a staff localpart as a student key, for a
-// teacher enrolled to test with. Those really live under ykpaoschool.cn
-// and nothing stored here tells them apart, so a roster holding one
-// yields one wrong address — visible in the To: field, where it can be
-// fixed.
-const studentDomain = "stu.ykpaoschool.cn"
 
 type SortKey = "id" | "name" | "grade" | "sex" | "budget" | "requirements"
 const columns: Array<{ key: SortKey; label: string }> = [
@@ -232,23 +221,13 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 
 	// The listed students, not every student: an administrator who has
 	// filtered to one grade means that grade.
-	const addresses = filtered.map((s): string => `${s.id}@${studentDomain}`)
-
-	const copyAddresses = async (): Promise<void> => {
-		try {
-			// Semicolons: Outlook splits recipients on them. It splits on
-			// commas only if that setting has been turned on, and it is
-			// off by default — a comma-separated paste then lands as one
-			// long unresolvable recipient instead of a class.
-			await navigator.clipboard.writeText(addresses.join("; "))
-			toast(`Copied ${String(addresses.length)}.`)
-		} catch (err) {
-			// Writing to the clipboard needs a secure context, which a
-			// plain-HTTP deployment is not. Better said out loud than left
-			// as a paste of whatever was in there before.
-			data.report(err, "Could not copy to the clipboard")
-		}
-	}
+	const copyAddresses = (): Promise<void> =>
+		copyStudentAddresses(
+			filtered.map((s): string => s.id),
+			(err, fallback): void => {
+				data.report(err, fallback)
+			},
+		)
 
 	const editingStudent =
 		editing === null || editing === "new"
@@ -279,7 +258,7 @@ export function StudentsPage({ filter, setFilter }: Props): ReactElement {
 						type="button"
 						variant="outline"
 						size="sm"
-						disabled={addresses.length === 0}
+						disabled={filtered.length === 0}
 						onClick={(): void => {
 							void copyAddresses()
 						}}

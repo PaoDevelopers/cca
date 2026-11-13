@@ -101,6 +101,8 @@ func (app *Server) registerAdminAPI(mux *http.ServeMux, routes *apiRoutes) {
 	handle("POST /admin/api/students/{id}/session", "apiStudentsImpersonate", app.apiStudentsImpersonate)
 
 	handle("GET /admin/api/enrollments", "apiEnrollmentsList", app.apiEnrollmentsList)
+	handle("GET /admin/api/enrollments/pending", "apiEnrollmentsPending", app.apiEnrollmentsPending)
+	handle("DELETE /admin/api/enrollments/pending", "apiEnrollmentsPendingDiscard", app.apiEnrollmentsPendingDiscard)
 	handle("POST /admin/api/enrollments", "apiEnrollmentsPlace", app.apiEnrollmentsPlace)
 	handle("PUT /admin/api/enrollments/policy", "apiEnrollmentsPolicy", app.apiEnrollmentsPolicy)
 	handle("DELETE /admin/api/enrollments", "apiEnrollmentsRemove", app.apiEnrollmentsRemove)

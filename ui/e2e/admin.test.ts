@@ -1134,11 +1134,11 @@ ${csv}`,
 		await dialog.getByText("s9999").waitFor()
 
 		const send = dialog.getByRole("button", { name: "Upload" })
-		assert.ok(
-			await send.isDisabled(),
-			"upload was offered before every conflict was decided",
-		)
+		await dialog
+			.getByText("0 of 1 decided; 1 will wait as a draft")
+			.waitFor()
 		await dialog.getByLabel(/Keep Basketball/).check()
+		await dialog.getByText("1 of 1 decided", { exact: true }).waitFor()
 		await send.click()
 		await dialog.waitFor({ state: "detached" })
 
@@ -1161,6 +1161,218 @@ ${csv}`,
 		await page.request.delete("/admin/api/enrollments", {
 			data: { course_id: "BB", student_ids: [subjects.alice] },
 		})
+	})
+
+	// A clash kept on purpose — one student on two teams that share a
+	// slot — and then found again later from the enrollments list, to
+	// email the student and settle it once they answer.
+	it("keeps both sides of a clash and lists it to revisit", async (): Promise<void> => {
+		assert.ok(harness !== null)
+		const context = await harness.contextFor("admin", subjects.admin)
+		await context.grantPermissions(["clipboard-read", "clipboard-write"])
+		const page = await context.newPage()
+		await page.goto("/admin/#/enrollments")
+
+		await page.getByText("Data tools", { exact: true }).click()
+		const showClashes = page.getByRole("button", { name: /clashes/ })
+		await page.getByRole("button", { name: "No clashes" }).waitFor()
+
+		await page.getByLabel("Import CSV or XLSX").setInputFiles({
+			name: "teams.csv",
+			mimeType: "text/csv",
+			buffer: Buffer.from(
+				`course_id,student_id,student_droppable,counts_toward_budget
+BB,${subjects.alice},true,true
+BK,${subjects.alice},true,true
+CH,${subjects.bob},true,true
+`,
+			),
+		})
+		await page
+			.getByRole("button", { name: "Import into enrollments" })
+			.click()
+		const dialog = page.getByRole("dialog")
+		await dialog.getByText("1 conflict in this file").waitFor()
+		await dialog.getByLabel("Keep both anyway").check()
+		await dialog.getByRole("button", { name: "Upload" }).click()
+		await dialog.waitFor({ state: "detached" })
+
+		await page
+			.getByRole("button", { name: "Show clashes (1 student)" })
+			.waitFor()
+		await showClashes.click()
+		await page.getByText("2 of 3 enrollments shown").waitFor()
+		assert.equal(await page.getByText("Clash", { exact: true }).count(), 2)
+		assert.equal(
+			await page.getByRole("cell", { name: subjects.bob }).count(),
+			0,
+			"an enrollment without a clash was listed as one",
+		)
+
+		// One address per student, however many of their rows clash.
+		await page
+			.getByRole("button", { name: "Copy students’ email addresses" })
+			.click()
+		await page.getByText("Copied 1.").waitFor()
+		assert.equal(
+			await page.evaluate((): Promise<string> =>
+				navigator.clipboard.readText(),
+			),
+			`${subjects.alice}@stu.ykpaoschool.cn`,
+		)
+
+		// Settled: dropping one side empties the list.
+		await page.request.delete("/admin/api/enrollments", {
+			data: { course_id: "BK", student_ids: [subjects.alice] },
+		})
+		await page.getByRole("button", { name: "No clashes" }).waitFor()
+
+		await page.request.delete("/admin/api/enrollments", {
+			data: { course_id: "BB", student_ids: [subjects.alice] },
+		})
+		await page.request.delete("/admin/api/enrollments", {
+			data: { course_id: "CH", student_ids: [subjects.bob] },
+		})
+	})
+
+	// A conflict put off until the student answers: the clean rows go in
+	// now, the clashing pair waits on the server — not enrolled — and
+	// resuming brings it back through the same draft.
+	it("sets an undecided conflict aside, copies the student's address, and resumes it later", async (): Promise<void> => {
+		assert.ok(harness !== null)
+		const context = await harness.contextFor("admin", subjects.admin)
+		await context.grantPermissions(["clipboard-read", "clipboard-write"])
+		const page = await context.newPage()
+		await page.goto("/admin/#/enrollments")
+		const held = async (): Promise<string[]> =>
+			(
+				(await (
+					await page.request.get("/admin/api/enrollments")
+				).json()) as Array<{ student_id: string; course_id: string }>
+			)
+				.map((e): string => `${e.student_id}:${e.course_id}`)
+				.sort()
+		const waiting = async (): Promise<number> =>
+			(
+				(await (
+					await page.request.get("/admin/api/enrollments/pending")
+				).json()) as unknown[]
+			).length
+
+		await page.getByText("Data tools", { exact: true }).click()
+		await page.getByLabel("Import CSV or XLSX").setInputFiles({
+			name: "teams.csv",
+			mimeType: "text/csv",
+			buffer: Buffer.from(
+				`course_id,student_id,student_droppable,counts_toward_budget
+BB,${subjects.alice},true,true
+BK,${subjects.alice},true,true
+CH,${subjects.bob},true,true
+`,
+			),
+		})
+		await page
+			.getByRole("button", { name: "Import into enrollments" })
+			.click()
+		const dialog = page.getByRole("dialog")
+		await dialog.getByText("1 conflict in this file").waitFor()
+
+		// The student to email about it, one click from the conflict.
+		await dialog
+			.getByRole("button", { name: `Copy email of ${subjects.alice}` })
+			.click()
+		await page.getByText("Copied 1.").waitFor()
+		assert.equal(
+			await page.evaluate((): Promise<string> =>
+				navigator.clipboard.readText(),
+			),
+			`${subjects.alice}@stu.ykpaoschool.cn`,
+		)
+
+		// Nothing chosen is deciding later.
+		await dialog.getByRole("button", { name: "Upload" }).click()
+		await dialog.waitFor({ state: "detached" })
+
+		const resolve = page.getByRole("button", {
+			name: "Resolve conflicts in teams.csv",
+		})
+		await resolve.waitFor()
+		assert.deepEqual(await held(), [`${subjects.bob}:CH`])
+		assert.equal(await waiting(), 2)
+
+		// The student answered: they need both.
+		await resolve.click()
+		await dialog.getByText("1 conflict in this file").waitFor()
+		await dialog.getByLabel("Keep both anyway").check()
+		await dialog.getByRole("button", { name: "Upload" }).click()
+		await resolve.waitFor({ state: "detached" })
+		assert.deepEqual(await held(), [
+			`${subjects.alice}:BB`,
+			`${subjects.alice}:BK`,
+			`${subjects.bob}:CH`,
+		])
+		assert.equal(await waiting(), 0)
+
+		await page.request.delete("/admin/api/enrollments", {
+			data: { course_id: "BB", student_ids: [subjects.alice] },
+		})
+		await page.request.delete("/admin/api/enrollments", {
+			data: { course_id: "BK", student_ids: [subjects.alice] },
+		})
+		await page.request.delete("/admin/api/enrollments", {
+			data: { course_id: "CH", student_ids: [subjects.bob] },
+		})
+	})
+
+	// Walking away from the dialog loses nothing and imports nothing:
+	// the whole file waits as the draft until it is resumed or thrown
+	// away.
+	it("keeps a closed import as a draft and can discard it", async (): Promise<void> => {
+		const page = await adminPage("#/enrollments")
+		const count = async (path: string): Promise<number> =>
+			((await (await page.request.get(path)).json()) as unknown[] | null)
+				?.length ?? 0
+
+		await page.getByText("Data tools", { exact: true }).click()
+		await page.getByLabel("Import CSV or XLSX").setInputFiles({
+			name: "teams.csv",
+			mimeType: "text/csv",
+			buffer: Buffer.from(
+				`course_id,student_id,student_droppable,counts_toward_budget
+BB,${subjects.alice},true,true
+BK,${subjects.alice},true,true
+CH,${subjects.bob},true,true
+CH,s9999,true,true
+`,
+			),
+		})
+		await page
+			.getByRole("button", { name: "Import into enrollments" })
+			.click()
+		const dialog = page.getByRole("dialog")
+		await dialog.getByText("1 conflict in this file").waitFor()
+		await page.keyboard.press("Escape")
+		await dialog.waitFor({ state: "detached" })
+
+		// Every real row, the clean one included; the unknown student
+		// cannot be kept.
+		await page
+			.getByRole("button", { name: "Resolve conflicts in teams.csv" })
+			.waitFor()
+		assert.equal(await count("/admin/api/enrollments"), 0)
+		assert.equal(await count("/admin/api/enrollments/pending"), 3)
+
+		await page
+			.getByRole("button", { name: "Discard the draft teams.csv" })
+			.click()
+		await page
+			.getByRole("button", {
+				name: "Confirm discard of the draft teams.csv",
+			})
+			.click()
+		await page.getByText("Discarded teams.csv.").waitFor()
+		assert.equal(await count("/admin/api/enrollments/pending"), 0)
+		assert.equal(await count("/admin/api/enrollments"), 0)
 	})
 
 	// A card's window boxes are seeded when the card is built and then

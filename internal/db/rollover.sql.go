@@ -68,6 +68,7 @@ func (q *Queries) DeleteAllCourses(ctx context.Context) error {
 
 const deleteAllEnrollments = `-- name: DeleteAllEnrollments :exec
 
+WITH pending AS (DELETE FROM pending_enrollments)
 DELETE FROM enrollments
 `
 
@@ -89,6 +90,8 @@ DELETE FROM enrollments
 // the foreign keys refuse it and the refusal is the message. The two
 // sit next to each other on the same page and read as one operation;
 // they are not, which is why this says so.
+// Pending import rows go with them: a new season's file is not
+// the answer to last season's postponed questions.
 func (q *Queries) DeleteAllEnrollments(ctx context.Context) error {
 	_, err := q.db.Exec(ctx, deleteAllEnrollments)
 	return err

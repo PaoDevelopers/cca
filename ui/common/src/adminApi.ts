@@ -291,6 +291,25 @@ export async function fetchEnrollments(): Promise<Enrollment[]> {
 	return asArray(await getJSON<Enrollment[] | null>("/admin/api/enrollments"))
 }
 
+// An import row set aside to decide later. Not an enrollment: the
+// student holds no seat until it is resumed and kept.
+export interface PendingEnrollment {
+	student_id: StudentID
+	course_id: EntityID
+	student_droppable: boolean
+	counts_toward_budget: boolean
+	// The uploaded file it came from; each file is its own draft.
+	source: string
+}
+
+export async function fetchPendingEnrollments(): Promise<PendingEnrollment[]> {
+	return asArray(
+		await getJSON<PendingEnrollment[] | null>(
+			"/admin/api/enrollments/pending",
+		),
+	)
+}
+
 // One course, many students: that is the unit the database locks and
 // judges as a whole. The student order matters — they compete for the
 // same seats, and earlier entries win when a course fills mid-batch —
@@ -369,6 +388,14 @@ export interface EnrollmentImportCheck {
 
 const enrollmentImportURL = "/admin/api/enrollments/import"
 
+// One field per list, a line per entry: the server parses at most 1000
+// form parts, and a whole-school draft can name more rows than that.
+function setList(form: FormData, name: string, values: string[]): void {
+	if (values.length > 0) {
+		form.set(name, values.join("\n"))
+	}
+}
+
 export async function checkEnrollmentImport(
 	file: File,
 ): Promise<EnrollmentImportCheck> {
@@ -385,22 +412,73 @@ export async function checkEnrollmentImport(
 	}
 }
 
-// drop names rows as "course_id:student_id"; accept names the
-// violations the administrator chose to keep.
-export function commitEnrollmentImport(
+// drop and later name rows as "course_id:student_id": left out, or left
+// out and kept on the server to decide later, in the draft named
+// source. accept names the violations the administrator chose to keep.
+// Resolves to how many rows were kept as a draft, which can be fewer
+// than later names.
+export async function commitEnrollmentImport(
 	file: File,
 	drop: string[],
 	accept: string[],
-): Promise<void> {
+	later: string[] = [],
+	source: string = file.name,
+): Promise<number> {
 	const form = new FormData()
 	form.set("spreadsheet", file)
-	for (const d of drop) {
-		form.append("drop", d)
+	form.set("source", source)
+	setList(form, "drop", drop)
+	setList(form, "accept", accept)
+	setList(form, "later", later)
+	if (later.length === 0) {
+		await sendForm(enrollmentImportURL, form)
+		return 0
 	}
-	for (const a of accept) {
-		form.append("accept", a)
-	}
-	return sendForm(enrollmentImportURL, form)
+	const { kept } = await getJSON<{ kept: number }>(enrollmentImportURL, {
+		method: "POST",
+		body: form,
+	})
+	return kept
+}
+
+// A draft closed without deciding: nothing is placed, and every row
+// but those dropped is kept on the server to resume. Resolves to how
+// many rows were kept.
+export async function holdEnrollmentImport(
+	file: File,
+	drop: string[],
+	source: string = file.name,
+): Promise<number> {
+	const form = new FormData()
+	form.set("spreadsheet", file)
+	form.set("source", source)
+	form.set("hold", "1")
+	setList(form, "drop", drop)
+	const { kept } = await getJSON<{ kept: number }>(enrollmentImportURL, {
+		method: "POST",
+		body: form,
+	})
+	return kept
+}
+
+export function discardPendingEnrollments(source: string): Promise<void> {
+	return sendJSON("/admin/api/enrollments/pending", "DELETE", { source })
+}
+
+// The pending rows as an import file, so resuming them goes through the
+// same check and draft as any upload. Always CSV, whatever the draft's
+// own name: the server reads the format from the file name.
+export function pendingAsFile(pending: PendingEnrollment[]): File {
+	const lines = [
+		"course_id,student_id,student_droppable,counts_toward_budget\n",
+		...pending.map(
+			(p): string =>
+				`${p.course_id},${p.student_id},${String(p.student_droppable)},${String(p.counts_toward_budget)}\n`,
+		),
+	]
+	return new File([lines.join("")], "draft.csv", {
+		type: "text/csv",
+	})
 }
 
 export function clearSection(section: string): Promise<void> {

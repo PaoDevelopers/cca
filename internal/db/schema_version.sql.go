@@ -31,7 +31,8 @@ SELECT
 	EXISTS (SELECT 1 FROM v_enrollments) AS has_enrollments,
 	EXISTS (SELECT 1 FROM v_student_status) AS has_student_status,
 	EXISTS (SELECT 1 FROM v_student_requirements) AS has_student_requirements,
-	EXISTS (SELECT 1 FROM v_export_enrollments) AS has_export_enrollments
+	EXISTS (SELECT 1 FROM v_export_enrollments) AS has_export_enrollments,
+	EXISTS (SELECT 1 FROM pending_enrollments) AS has_pending_enrollments
 `
 
 type ReadyProbeRow struct {
@@ -43,6 +44,7 @@ type ReadyProbeRow struct {
 	HasStudentStatus       bool  `json:"has_student_status"`
 	HasStudentRequirements bool  `json:"has_student_requirements"`
 	HasExportEnrollments   bool  `json:"has_export_enrollments"`
+	HasPendingEnrollments  bool  `json:"has_pending_enrollments"`
 }
 
 // The same version, plus proof that the objects requests actually go
@@ -73,6 +75,7 @@ func (q *Queries) ReadyProbe(ctx context.Context) (ReadyProbeRow, error) {
 		&i.HasStudentStatus,
 		&i.HasStudentRequirements,
 		&i.HasExportEnrollments,
+		&i.HasPendingEnrollments,
 	)
 	return i, err
 }
