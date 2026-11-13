@@ -11,6 +11,56 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deletePendingEnrollments = `-- name: DeletePendingEnrollments :exec
+DELETE FROM pending_enrollments p
+USING unnest($1::TEXT[], $2::TEXT[])
+	AS u (course_id, student_id)
+WHERE p.course_id = u.course_id AND p.student_id = u.student_id
+	AND (NOT $3::BOOLEAN OR p.source = $4::TEXT)
+`
+
+type DeletePendingEnrollmentsParams struct {
+	CourseIds  []string `json:"course_ids"`
+	StudentIds []string `json:"student_ids"`
+	OnlySource bool     `json:"only_source"`
+	Source     string   `json:"source"`
+}
+
+// Clears the pending rows an import names: the upload decides each one,
+// whether by placing it, leaving it out, or setting it aside again. A
+// file closed undecided (only_source) clears only its own draft's.
+func (q *Queries) DeletePendingEnrollments(ctx context.Context, arg DeletePendingEnrollmentsParams) error {
+	_, err := q.db.Exec(ctx, deletePendingEnrollments,
+		arg.CourseIds,
+		arg.StudentIds,
+		arg.OnlySource,
+		arg.Source,
+	)
+	return err
+}
+
+const deletePendingSource = `-- name: DeletePendingSource :exec
+DELETE FROM pending_enrollments WHERE source = $1
+`
+
+// One file's draft, thrown away.
+func (q *Queries) DeletePendingSource(ctx context.Context, source string) error {
+	_, err := q.db.Exec(ctx, deletePendingSource, source)
+	return err
+}
+
+const deleteSettledPending = `-- name: DeleteSettledPending :exec
+DELETE FROM pending_enrollments p
+USING enrollments e
+WHERE e.student_id = p.student_id AND e.course_id = p.course_id
+`
+
+// The settled rows GetPendingEnrollments hides, cleared by each import.
+func (q *Queries) DeleteSettledPending(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, deleteSettledPending)
+	return err
+}
+
 const enrollmentViolations = `-- name: EnrollmentViolations :many
 SELECT rule, code, other_course_id, period_id, detail
 FROM enrollment_violations($1, $2, $3, $4)
@@ -178,6 +228,101 @@ func (q *Queries) GetEnrollmentsExport(ctx context.Context) ([]GetEnrollmentsExp
 		return nil, err
 	}
 	return items, nil
+}
+
+const getPendingEnrollments = `-- name: GetPendingEnrollments :many
+SELECT student_id, course_id, student_droppable, counts_toward_budget, source
+FROM pending_enrollments p
+WHERE NOT EXISTS (SELECT 1 FROM enrollments e
+	WHERE e.student_id = p.student_id AND e.course_id = p.course_id)
+ORDER BY source, position
+`
+
+type GetPendingEnrollmentsRow struct {
+	StudentID          string `json:"student_id"`
+	CourseID           string `json:"course_id"`
+	StudentDroppable   bool   `json:"student_droppable"`
+	CountsTowardBudget bool   `json:"counts_toward_budget"`
+	Source             string `json:"source"`
+}
+
+// Import rows set aside to decide later; see 0008. A draft holds only
+// seats not taken: one enrolled since, by the student or by hand, is
+// settled, and resuming it would overwrite that enrollment's policy.
+func (q *Queries) GetPendingEnrollments(ctx context.Context) ([]GetPendingEnrollmentsRow, error) {
+	rows, err := q.db.Query(ctx, getPendingEnrollments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetPendingEnrollmentsRow
+	for rows.Next() {
+		var i GetPendingEnrollmentsRow
+		if err := rows.Scan(
+			&i.StudentID,
+			&i.CourseID,
+			&i.StudentDroppable,
+			&i.CountsTowardBudget,
+			&i.Source,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const insertPendingEnrollments = `-- name: InsertPendingEnrollments :execrows
+INSERT INTO pending_enrollments
+	(course_id, student_id, student_droppable, counts_toward_budget, source, position)
+SELECT u.course_id, u.student_id, u.droppable, u.budgeted,
+	$1::TEXT, u.position
+FROM unnest($2::TEXT[], $3::TEXT[],
+	$4::BOOLEAN[], $5::BOOLEAN[])
+	WITH ORDINALITY AS u (course_id, student_id, droppable, budgeted, position)
+WHERE EXISTS (SELECT 1 FROM students s WHERE s.id = u.student_id)
+	AND EXISTS (SELECT 1 FROM courses c WHERE c.id = u.course_id)
+	AND NOT EXISTS (SELECT 1 FROM enrollments e
+		WHERE e.student_id = u.student_id AND e.course_id = u.course_id)
+ON CONFLICT (student_id, course_id) DO UPDATE SET
+	student_droppable = excluded.student_droppable,
+	counts_toward_budget = excluded.counts_toward_budget,
+	source = excluded.source,
+	position = excluded.position
+WHERE NOT $6::BOOLEAN
+	OR pending_enrollments.source = excluded.source
+`
+
+type InsertPendingEnrollmentsParams struct {
+	Source     string   `json:"source"`
+	CourseIds  []string `json:"course_ids"`
+	StudentIds []string `json:"student_ids"`
+	Droppable  []bool   `json:"droppable"`
+	Budgeted   []bool   `json:"budgeted"`
+	OnlySource bool     `json:"only_source"`
+}
+
+// Rows naming a student or course that no longer exists are skipped,
+// not refused: one deleted since the check has nothing to wait for; so
+// are seats already taken, which a draft does not hold (above). A
+// row another draft holds moves here only when the administrator chose
+// to set it aside, not when a file was merely closed (only_source).
+func (q *Queries) InsertPendingEnrollments(ctx context.Context, arg InsertPendingEnrollmentsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertPendingEnrollments,
+		arg.Source,
+		arg.CourseIds,
+		arg.StudentIds,
+		arg.Droppable,
+		arg.Budgeted,
+		arg.OnlySource,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const placeEnrollments = `-- name: PlaceEnrollments :exec

@@ -1,10 +1,15 @@
 import {
 	checkEnrollmentImport,
 	commitEnrollmentImport,
+	discardPendingEnrollments,
+	holdEnrollmentImport,
+	pendingAsFile,
 	removeEnrollments,
 	type EnrollmentImportCheck,
+	type PendingEnrollment,
 } from "@common/adminApi"
 import { filterByCel, useCelParser, type FilterMode } from "@common/cel"
+import { Badge } from "@common/components/ui/badge"
 import { Button } from "@common/components/ui/button"
 import {
 	Card,
@@ -38,8 +43,9 @@ import { ConfirmDelete } from "./ConfirmDelete"
 import { DataTools } from "./DataTools"
 import { useAdminData } from "./data"
 import { EnrollmentForm } from "./EnrollmentForm"
-import { EnrollmentImportDraft } from "./EnrollmentImportDraft"
+import { EnrollmentImportDraft, row } from "./EnrollmentImportDraft"
 import {
+	clashingKeys,
 	courseLabel as courseLabelOf,
 	enrollmentCelContext,
 	enrollmentKey as key,
@@ -47,6 +53,7 @@ import {
 } from "./enrollments"
 import { FilterBar } from "./FilterBar"
 import { SortableHead, sortRows, type Sort } from "./sorting"
+import { copyStudentAddresses } from "./students"
 
 interface Props {
 	// The route's ?q=, owned by the shell so the box and the URL stay
@@ -82,6 +89,23 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 	function courseLabel(id: string, name: string): string {
 		return courseLabelOf(courseByID, id, name)
 	}
+
+	// Clashes an administrator let through, kept to be revisited: the
+	// student is emailed from this list and one side dropped once they
+	// answer — or both kept for good, as for two teams sharing a slot.
+	const clashes = useMemo(
+		(): Set<string> => clashingKeys(courseByID, data.enrollments),
+		[courseByID, data.enrollments],
+	)
+	const clashingStudents = useMemo(
+		(): number =>
+			new Set(
+				data.enrollments
+					.filter((e): boolean => clashes.has(key(e)))
+					.map((e): string => e.student_id),
+			).size,
+		[data.enrollments, clashes],
+	)
 
 	// When the course meets. Held on the course rather than the
 	// enrollment, so a course that is no longer listed leaves this
@@ -128,57 +152,141 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 		return data.runAccepting(action, "enrollments", "courses")
 	}
 
-	// A clean file goes straight in; one with conflicts is held as a
-	// draft until every conflict has been decided. Numbered so a
-	// reopened draft starts with no choices made.
-	const [draft, setDraft] = useState<{
+	// A clean file goes straight in; one with conflicts is held open
+	// until the administrator uploads or closes it. Numbered so a
+	// reopened dialog starts with no choices made. source names the
+	// draft whatever it leaves behind waits in: the file's own name, or
+	// the draft's when one is being resolved.
+	interface OpenImport {
 		id: number
 		file: File
+		source: string
 		check: EnrollmentImportCheck
-	} | null>(null)
+	}
+	const [draft, setDraft] = useState<OpenImport | null>(null)
 
-	function importFile(file: File): void {
+	// A new upload never joins an existing draft that shares its name:
+	// that draft's rows would merge into it and go with its discard.
+	function freshSource(name: string): string {
+		const taken = new Set(data.pendingImport.map((p): string => p.source))
+		let source = name
+		for (let n = 2; taken.has(source); n++) {
+			source = name.replace(/(\.[^.]*)?$/, ` (${String(n)})$1`)
+		}
+		return source
+	}
+
+	function importFile(file: File, source = freshSource(file.name)): void {
 		let held = false
 		void run(async (): Promise<void> => {
 			const check = await checkEnrollmentImport(file)
 			if (check.violations.length === 0 && check.unknown.length === 0) {
-				await commitEnrollmentImport(file, [], [])
+				await commitEnrollmentImport(file, [], [], [], source)
 			} else {
 				held = true
-				setDraft({ id: Date.now(), file, check })
+				setDraft({ id: Date.now(), file, source, check })
 			}
 		}).then((ok): void => {
 			if (ok && !held) {
-				toast(`Imported ${file.name} into enrollments.`)
+				toast(`Imported ${source} into enrollments.`)
 			}
 		})
 	}
 
 	// Something changed between the check and the upload if the upload
-	// is refused, so the file is checked again and the draft reopened.
-	function commitDraft(file: File, drop: string[], accept: string[]): void {
+	// is refused, so the file is checked again and the dialog reopened.
+	// Any other failure reopens it as it was: the file is only here.
+	function commitDraft(
+		open: OpenImport,
+		drop: string[],
+		accept: string[],
+		later: string[],
+	): void {
 		setDraft(null)
 		let reopened = false
+		let kept = 0
 		void run(async (): Promise<void> => {
 			try {
-				await commitEnrollmentImport(file, drop, accept)
+				kept = await commitEnrollmentImport(
+					open.file,
+					drop,
+					accept,
+					later,
+					open.source,
+				)
 			} catch (err) {
+				reopened = true
 				if (!isViolationError(err)) {
+					setDraft({ ...open, id: Date.now() })
 					throw err
 				}
-				reopened = true
-				setDraft({
-					id: Date.now(),
-					file,
-					check: await checkEnrollmentImport(file),
-				})
+				let check = open.check
+				try {
+					check = await checkEnrollmentImport(open.file)
+				} finally {
+					setDraft({ ...open, id: Date.now(), check })
+				}
 			}
 		}).then((ok): void => {
 			if (ok && !reopened) {
-				toast(`Imported ${file.name} into enrollments.`)
+				const lost = later.length - kept
+				const parts = [`Imported ${open.source} into enrollments`]
+				if (kept > 0) {
+					parts.push(
+						`${String(kept)} ${kept === 1 ? "row" : "rows"} kept as a draft`,
+					)
+				}
+				if (lost > 0) {
+					parts.push(
+						`${String(lost)} ${lost === 1 ? "row" : "rows"} left undecided weren’t applied or kept: the student is already enrolled, or the student or course was removed`,
+					)
+				}
+				toast(`${parts.join("; ")}.`)
 			}
 		})
 	}
+
+	// Closed without uploading: nothing is placed, and the file waits as
+	// a draft. Rows naming no such student or course cannot be kept. If
+	// keeping it fails the dialog reopens, so the file is not lost.
+	function holdDraft(open: OpenImport): void {
+		setDraft(null)
+		let kept = 0
+		void run(async (): Promise<void> => {
+			try {
+				kept = await holdEnrollmentImport(
+					open.file,
+					open.check.unknown.map((u): string =>
+						row(u.course_id, u.student_id),
+					),
+					open.source,
+				)
+			} catch (err) {
+				setDraft({ ...open, id: Date.now() })
+				throw err
+			}
+		}).then((ok): void => {
+			if (ok) {
+				toast(
+					kept === 0
+						? `Nothing from ${open.source} was imported or kept: every row names an unknown student or course, is already enrolled, or is in another draft.`
+						: `Kept ${open.source} as a draft; nothing was imported.`,
+				)
+			}
+		})
+	}
+
+	// One draft per uploaded file, in the server's order (by name).
+	const bySource = new Map<string, PendingEnrollment[]>()
+	for (const p of data.pendingImport) {
+		const rows = bySource.get(p.source)
+		if (rows === undefined) {
+			bySource.set(p.source, [p])
+		} else {
+			rows.push(p)
+		}
+	}
+	const drafts = [...bySource].map(([source, rows]) => ({ source, rows }))
 
 	// Removals are grouped by course: remove_enrollments takes one
 	// course and many students, which is also the order its locks are
@@ -213,7 +321,11 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 		const cel =
 			mode === "cel"
 				? filterByCel(query, data.enrollments, (s) =>
-						enrollmentCelContext(s, courseByID.get(s.course_id)),
+						enrollmentCelContext(
+							s,
+							courseByID.get(s.course_id),
+							clashes.has(key(s)),
+						),
 					)
 				: { rows: data.enrollments, error: null, unfiltered: false }
 
@@ -235,6 +347,7 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 							policy: policyLabel(s),
 							droppable: s.student_droppable ? "yes" : "no",
 							budgeted: s.counts_toward_budget ? "yes" : "no",
+							clash: clashes.has(key(s)) ? "yes" : "no",
 						}),
 					)
 
@@ -245,7 +358,7 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 		// celLoaded is read by filterByCel through the module, not here:
 		// it is the signal that the parser arrived and the answer moved.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [mode, query, data.enrollments, courseByID, sort, celLoaded])
+	}, [mode, query, data.enrollments, courseByID, clashes, sort, celLoaded])
 
 	const shown = allRows ? filtered : filtered.slice(0, 50)
 
@@ -306,7 +419,102 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 					onimport={importFile}
 					busy={data.busy}
 					run={run}
+					extra={
+						<>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								disabled={clashes.size === 0}
+								onClick={(): void => {
+									setMode("simple")
+									setFilter("clash:yes")
+								}}
+							>
+								{clashes.size === 0
+									? "No clashes"
+									: `Show clashes (${String(clashingStudents)} ${clashingStudents === 1 ? "student" : "students"})`}
+							</Button>
+							<Button
+								type="button"
+								variant="outline"
+								size="sm"
+								disabled={
+									filtered.length === 0 || bulkUnavailable
+								}
+								onClick={(): void => {
+									void copyStudentAddresses(
+										filtered.map(
+											(e): string => e.student_id,
+										),
+										(err, fallback): void => {
+											data.report(err, fallback)
+										},
+									)
+								}}
+							>
+								Copy students’ email addresses
+							</Button>
+						</>
+					}
 				/>
+			)}
+
+			{data.ready("enrollments", "courses") && drafts.length > 0 && (
+				<Card>
+					<CardHeader>
+						<CardTitle>
+							<h3>Draft</h3>
+						</CardTitle>
+					</CardHeader>
+					<CardContent>
+						<ul className="flex flex-col divide-y">
+							{drafts.map((d) => (
+								<li
+									key={d.source}
+									className="flex items-center gap-3 py-2 first:pt-0 last:pb-0"
+								>
+									<span className="mr-auto min-w-0 font-medium break-words">
+										{d.source}
+									</span>
+									<Button
+										type="button"
+										size="sm"
+										disabled={data.busy}
+										aria-label={`Resolve conflicts in ${d.source}`}
+										onClick={(): void => {
+											importFile(
+												pendingAsFile(d.rows),
+												d.source,
+											)
+										}}
+									>
+										Resolve Conflicts
+									</Button>
+									<ConfirmDelete
+										action="Discard"
+										target={`the draft ${d.source}`}
+										detail={`Its ${String(d.rows.length)} ${d.rows.length === 1 ? "row is" : "rows are"} thrown away; none is enrolled.`}
+										disabled={data.busy}
+										onconfirm={(): void => {
+											void run(() =>
+												discardPendingEnrollments(
+													d.source,
+												),
+											).then((ok): void => {
+												if (ok) {
+													toast(
+														`Discarded ${d.source}.`,
+													)
+												}
+											})
+										}}
+									/>
+								</li>
+							))}
+						</ul>
+					</CardContent>
+				</Card>
 			)}
 
 			{!data.ready("enrollments", "courses") ? (
@@ -315,7 +523,9 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 				<>
 					<Card>
 						<CardHeader>
-							<CardTitle>Place students</CardTitle>
+							<CardTitle>
+								<h3>Place students</h3>
+							</CardTitle>
 						</CardHeader>
 						<CardContent>
 							<EnrollmentForm
@@ -348,6 +558,7 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 							policy: "Own pick, Invitation, Committed, or Placed",
 							droppable: "may the student drop it (yes or no)",
 							budgeted: "does it charge their budget (yes or no)",
+							clash: "shares a period with another of the student’s (yes or no)",
 						}}
 						celFields={{
 							"student.id": "student ID",
@@ -371,6 +582,7 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 								"enrolled count (number)",
 							droppable: "may the student drop it (boolean)",
 							budgeted: "does it charge their budget (boolean)",
+							clash: "shares a period with another of the student’s (boolean)",
 						}}
 						celExample={
 							'course.category_id == "SPORT" && student.grade == "Y9"'
@@ -498,6 +710,7 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 										periods={coursePeriods(
 											enrollment.course_id,
 										).join(", ")}
+										clash={clashes.has(k)}
 										label={courseLabel(
 											enrollment.course_id,
 											enrollment.course_name,
@@ -534,11 +747,19 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 					courseLabel={(id): string =>
 						courseLabel(id, courseByID.get(id)?.name ?? id)
 					}
-					upload={(drop, accept): void => {
-						commitDraft(draft.file, drop, accept)
+					copyAddresses={(studentIDs): void => {
+						void copyStudentAddresses(
+							studentIDs,
+							(err, fallback): void => {
+								data.report(err, fallback)
+							},
+						)
 					}}
-					cancel={(): void => {
-						setDraft(null)
+					upload={(drop, accept, later): void => {
+						commitDraft(draft, drop, accept, later)
+					}}
+					hold={(): void => {
+						holdDraft(draft)
 					}}
 				/>
 			)}
@@ -555,6 +776,7 @@ function EnrollmentRowImpl({
 	selected,
 	busy,
 	periods,
+	clash,
 	label,
 	ontoggle,
 	ondelete,
@@ -564,6 +786,7 @@ function EnrollmentRowImpl({
 	selected: boolean
 	busy: boolean
 	periods: string
+	clash: boolean
 	label: string
 	ontoggle: (k: string, checked: boolean) => void
 	ondelete: (enrollment: Enrollment) => void
@@ -597,8 +820,15 @@ function EnrollmentRowImpl({
 			*/}
 			<TableCell aria-label={periods === "" ? "None" : undefined}>
 				{periods}
+				{clash && (
+					<Badge variant="destructive" className="ml-2">
+						Clash
+					</Badge>
+				)}
 			</TableCell>
-			<TableCell>{policyLabel(enrollment)}</TableCell>
+			<TableCell className="whitespace-nowrap">
+				{policyLabel(enrollment)}
+			</TableCell>
 			<TableCell className="text-right">
 				<ConfirmDelete
 					action="Delete"
@@ -620,5 +850,6 @@ const EnrollmentRow = memo(
 		a.selected === b.selected &&
 		a.busy === b.busy &&
 		a.periods === b.periods &&
+		a.clash === b.clash &&
 		a.label === b.label,
 )

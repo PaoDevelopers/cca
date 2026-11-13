@@ -9,7 +9,7 @@ package db
 // It has to agree with the value inserted by schemas/0001_version.sql.
 // Nothing can enforce that across the two languages, so
 // TestSchemaVersionMatchesTheSchema does.
-const ExpectedSchemaVersion = 1
+const ExpectedSchemaVersion = 2
 
 // SchemaFingerprint is the SHA-256 of every file under schemas/, in
 // name order, each preceded by its name.
@@ -30,4 +30,4 @@ const ExpectedSchemaVersion = 1
 // A fingerprint change is not automatically a version bump. Rewriting
 // a comment, or a function whose behaviour is unchanged, moves the
 // fingerprint and not the version. The changelog records which it was.
-const SchemaFingerprint = "1947457aceb88ac4bc289b7a6b4c113940752355c4443e5961a918ffd1e71d52"
+const SchemaFingerprint = "b0d4ded5ae361a0b4a8f9f199e96fd1870069e3d135bdaaf230013ce3c7c3b38"

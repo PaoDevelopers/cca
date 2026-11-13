@@ -16,6 +16,13 @@
  * of its look anybody recognises. Everything else is shadcn's neutral
  * base — the point of adopting a component library is not to relitigate
  * its greys.
+ *
+ * Two light-mode lightnesses are lower than their sources, for contrast
+ * and nothing else. The green keeps its hue and chroma at 0.53, where
+ * white text on it and it as text on white both clear 4.5:1 (0.62 gave
+ * 3.3:1). The muted foreground is 0.53 rather than shadcn's 0.556 so it
+ * clears 4.5:1 on the muted surface table headers sit on, not only on
+ * white.
  */
 @theme inline {
 	--color-background: var(--background);
@@ -51,19 +58,19 @@
 	--card-foreground: oklch(0.145 0 0);
 	--popover: oklch(1 0 0);
 	--popover-foreground: oklch(0.145 0 0);
-	--primary: oklch(0.62 0.153 142.5);
+	--primary: oklch(0.53 0.153 142.5);
 	--primary-foreground: oklch(0.985 0 0);
 	--secondary: oklch(0.97 0 0);
 	--secondary-foreground: oklch(0.205 0 0);
 	--muted: oklch(0.97 0 0);
-	--muted-foreground: oklch(0.556 0 0);
+	--muted-foreground: oklch(0.53 0 0);
 	--accent: oklch(0.97 0 0);
 	--accent-foreground: oklch(0.205 0 0);
 	--destructive: oklch(0.577 0.245 27.325);
 	--destructive-foreground: oklch(0.985 0 0);
 	--border: oklch(0.922 0 0);
 	--input: oklch(0.922 0 0);
-	--ring: oklch(0.62 0.153 142.5);
+	--ring: oklch(0.53 0.153 142.5);
 }
 
 @media (prefers-color-scheme: dark) {

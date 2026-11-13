@@ -116,6 +116,15 @@ type GradeRequirementGroupCategory struct {
 	CategoryID            string `json:"category_id"`
 }
 
+type PendingEnrollment struct {
+	StudentID          string `json:"student_id"`
+	CourseID           string `json:"course_id"`
+	StudentDroppable   bool   `json:"student_droppable"`
+	CountsTowardBudget bool   `json:"counts_toward_budget"`
+	Source             string `json:"source"`
+	Position           int32  `json:"position"`
+}
+
 type Period struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`

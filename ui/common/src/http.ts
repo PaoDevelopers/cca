@@ -210,6 +210,16 @@ async function request(url: string, init: RequestInit): Promise<Response> {
 			throw new TimeoutError()
 		}
 
+		// fetch rejects with a TypeError only when no response arrived at
+		// all; its own message ("Failed to fetch") tells an administrator
+		// nothing about what to do.
+		if (err instanceof TypeError) {
+			throw new Error(
+				"Couldn’t reach the server. Check the connection and try again.",
+				{ cause: err },
+			)
+		}
+
 		throw err
 	}
 }

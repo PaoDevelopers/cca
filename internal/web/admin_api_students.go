@@ -145,5 +145,8 @@ func (app *Server) apiStudentsDelete(w http.ResponseWriter, r *http.Request, aui
 
 	app.logInfo(r, logMsgAdminStudentsDelete, slog.String("admin_username", aui.Username), slog.String("student_id", id))
 	app.wsHub.Broadcast(WSMessage("invalidate_students"))
+	// Their draft rows went with them (ON DELETE CASCADE), and the
+	// admin pages read drafts with enrollments.
+	app.wsHub.BroadcastToStudentsAndAdmins(nil, WSMessage("invalidate_enrollments"))
 	w.WriteHeader(http.StatusNoContent)
 }

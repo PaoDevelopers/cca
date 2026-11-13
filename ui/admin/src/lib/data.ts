@@ -13,10 +13,12 @@ import {
 	fetchCategories,
 	fetchEnrollments,
 	fetchGrades,
+	fetchPendingEnrollments,
 	fetchPeriods,
 	fetchStudentStatus,
 	fetchStudents,
 	type AdminStudent,
+	type PendingEnrollment,
 	type StudentStatus,
 } from "@common/adminApi"
 import { connectEvents } from "@common/events"
@@ -68,6 +70,7 @@ export class AdminData {
 	public courses: Course[] = []
 	public students: AdminStudent[] = []
 	public enrollments: Enrollment[] = []
+	public pendingImport: PendingEnrollment[] = []
 
 	// Advisory standing, read from the server rather than derived
 	// here: requirement satisfaction is a rule, and the rules have one
@@ -216,7 +219,14 @@ export class AdminData {
 			this.studentStatus = status
 		},
 		enrollments: async (): Promise<void> => {
-			this.enrollments = await fetchEnrollments()
+			// Together: an import moves both in one transaction, and the
+			// server announces it as one enrollments change.
+			const [enrollments, pending] = await Promise.all([
+				fetchEnrollments(),
+				fetchPendingEnrollments(),
+			])
+			this.enrollments = enrollments
+			this.pendingImport = pending
 			// Standing is a function of enrollments, so it goes stale
 			// whenever they move.
 			if (this.#loaded.has("students")) {

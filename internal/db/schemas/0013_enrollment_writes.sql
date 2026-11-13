@@ -273,6 +273,14 @@ $$;
 -- The violations of one prospective enrollment, as JSONB,
 -- excluding codes in p_accept.
 -- Factored out so every write path builds the payload identically.
+--
+-- plpgsql rather than sql, for its plan cache. A scalar sql function
+-- that cannot be inlined, as this one cannot, has its body planned
+-- afresh on every call from plpgsql, and planning the five rules
+-- (v_courses included) cost about ten times executing them: 0.58 ms
+-- against 0.05 ms per call, on a path every student write takes
+-- twice. plpgsql plans the query once per session, with
+-- enrollment_violations inlined into it.
 CREATE FUNCTION unaccepted_violations(
 	p_student_id localpart,
 	p_course_id entity_id,
@@ -281,20 +289,22 @@ CREATE FUNCTION unaccepted_violations(
 	p_accept TEXT[]
 )
 RETURNS JSONB
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
-BEGIN ATOMIC
-SELECT COALESCE(jsonb_agg(jsonb_build_object(
-		'student_id', p_student_id,
-		'rule', v.rule,
-		'code', v.code,
-		'other_course_id', v.other_course_id,
-		'period_id', v.period_id,
-		'detail', v.detail)), '[]'::JSONB)
-FROM enrollment_violations(p_student_id, p_course_id,
-	p_counts_toward_budget, p_disregard_course_ids) v
-WHERE NOT (v.code = ANY (COALESCE(p_accept, '{}')));
+AS $$
+BEGIN
+	RETURN (SELECT COALESCE(jsonb_agg(jsonb_build_object(
+			'student_id', p_student_id,
+			'rule', v.rule,
+			'code', v.code,
+			'other_course_id', v.other_course_id,
+			'period_id', v.period_id,
+			'detail', v.detail)), '[]'::JSONB)
+	FROM enrollment_violations(p_student_id, p_course_id,
+		p_counts_toward_budget, p_disregard_course_ids) v
+	WHERE NOT (v.code = ANY (COALESCE(p_accept, '{}'))));
 END;
+$$;
 
 -- Re-judging helpers.
 --

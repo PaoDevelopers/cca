@@ -122,11 +122,6 @@ export function DataTools({
 							})
 						}}
 					>
-						<p className="max-w-3xl text-sm text-muted-foreground">
-							Upload that CSV format directly, or put the same
-							columns in the first row of one visible worksheet in
-							an XLSX file. Paste formulas as values first.
-						</p>
 						<div className="flex flex-wrap items-end gap-2">
 							<Label className="flex-col items-start">
 								Import CSV or XLSX

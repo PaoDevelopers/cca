@@ -38,6 +38,49 @@ func (app *Server) apiEnrollmentsList(w http.ResponseWriter, r *http.Request, _ 
 	app.writeJSON(r, w, enrollments)
 }
 
+// The import rows set aside to decide later. Resuming sends them back
+// through the import, so this lists them in its row shape.
+func (app *Server) apiEnrollmentsPending(w http.ResponseWriter, r *http.Request, _ *UserInfoAdmin) {
+	ctx, cancel := readCtx(r.Context())
+	defer cancel()
+
+	pending, err := app.queries.GetPendingEnrollments(ctx)
+	if err != nil {
+		app.apiDBError(r, w, err)
+
+		return
+	}
+
+	app.writeJSON(r, w, pending)
+}
+
+// Throws one file's draft away. Nothing it holds is enrolled, so
+// nothing else moves.
+func (app *Server) apiEnrollmentsPendingDiscard(w http.ResponseWriter, r *http.Request, aui *UserInfoAdmin) {
+	ctx, cancel := writeCtx(r.Context())
+	defer cancel()
+
+	body, err := decodeBody[struct {
+		Source string `json:"source"`
+	}](w, r)
+	if err != nil || body.Source == "" {
+		app.apiBadRequest(r, w, `expected {"source": "..."}`, err)
+
+		return
+	}
+
+	if err := app.queries.DeletePendingSource(ctx, body.Source); err != nil {
+		app.apiDBError(r, w, err, slog.String("admin_username", aui.Username))
+
+		return
+	}
+
+	app.logInfo(r, logMsgAdminEnrollmentsPendingDiscard,
+		slog.String("admin_username", aui.Username), slog.String("source", body.Source))
+	app.wsHub.BroadcastToStudentsAndAdmins(nil, WSMessage("invalidate_enrollments"))
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // placementInput is shared by place and policy: both name a course, a
 // set of students, and the policy the resulting enrollments carry.
 type placementInput struct {

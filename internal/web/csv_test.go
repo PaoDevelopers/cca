@@ -465,3 +465,35 @@ func TestXLSXArchiveExpansionIsBounded(t *testing.T) {
 		t.Errorf("expanded XLSX error = %v, want errUploadTooLarge", err)
 	}
 }
+
+// A pair the file repeats is set aside once, in its first position:
+// Postgres refuses an upsert that names the same key twice.
+func TestSetAsideKeepsARepeatedPairOnce(t *testing.T) {
+	t.Parallel()
+
+	got, err := setAside([][]string{
+		{"BB", "s2", "true", "false"},
+		{"BB", "s1", "true", "true"},
+		{"BB", "s2", "false", "true"},
+		{"CH", "s1", "true", "true"},
+	}, []string{"BB:s2", "BB:s1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !slices.Equal(got.StudentIds, []string{"s2", "s1"}) ||
+		!slices.Equal(got.Droppable, []bool{true, true}) {
+		t.Errorf("set aside %v %v, want s2 then s1, each as first stated", got.StudentIds, got.Droppable)
+	}
+}
+
+// A list arrives as one field of lines, or as repeated fields from an
+// older client; both read the same, and blank lines are no entries.
+func TestFormListReadsLinesAndRepeatedFields(t *testing.T) {
+	t.Parallel()
+
+	got := formList([]string{"BB:s1\nBB:s2\r\n\n", "CH:s3"})
+	if want := []string{"BB:s1", "BB:s2", "CH:s3"}; !slices.Equal(got, want) {
+		t.Errorf("formList = %q, want %q", got, want)
+	}
+}

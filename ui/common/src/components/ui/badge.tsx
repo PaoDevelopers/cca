@@ -5,7 +5,10 @@ import { cn } from "@common/lib/utils"
 const variants = {
 	default: "border-transparent bg-primary text-primary-foreground",
 	secondary: "border-transparent bg-secondary text-secondary-foreground",
-	destructive: "border-transparent bg-destructive/15 text-destructive",
+	// The red darkened for its own tint in light mode, where plain
+	// destructive on destructive/15 is 3.6:1; dark mode's red is light.
+	destructive:
+		"border-transparent bg-destructive/15 text-[color-mix(in_oklch,var(--destructive),black_25%)] dark:text-destructive",
 	outline: "text-foreground",
 } as const
 
