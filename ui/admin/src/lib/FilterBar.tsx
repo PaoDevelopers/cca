@@ -43,7 +43,9 @@ export function FilterBar({
 					value, so a wrapping label's name would grow with every
 					expression typed into it.
 				*/}
-				<div className="flex min-w-0 flex-1 items-center gap-2">
+				{/* A row of its own below lg, or the controls beside it
+				    squeeze the box to nothing. */}
+				<div className="flex min-w-0 flex-1 basis-full items-center gap-2 lg:basis-0">
 					{mode === "cel" ? (
 						<Textarea
 							rows={2}
