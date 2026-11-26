@@ -77,13 +77,18 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 	const data = useAdminData()
 
 	useEffect((): void => {
-		data.want("enrollments", "courses")
+		data.want("enrollments", "courses", "students")
 	}, [data])
 
 	const courseByID = useMemo(
 		(): Map<string, Course> =>
 			new Map(data.courses.map((c): [string, Course] => [c.id, c])),
 		[data.courses],
+	)
+	const studentNameByID = useMemo(
+		(): Map<string, string> =>
+			new Map(data.students.map((s): [string, string] => [s.id, s.name])),
+		[data.students],
 	)
 
 	function courseLabel(id: string, name: string): string {
@@ -747,6 +752,7 @@ export function EnrollmentsPage({ filter, setFilter }: Props): ReactElement {
 					courseLabel={(id): string =>
 						courseLabel(id, courseByID.get(id)?.name ?? id)
 					}
+					studentName={(id): string => studentNameByID.get(id) ?? ""}
 					copyAddresses={(studentIDs): void => {
 						void copyStudentAddresses(
 							studentIDs,

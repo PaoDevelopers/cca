@@ -33,6 +33,7 @@ interface Props {
 	// can only be settled by keeping or dropping the new row.
 	holds: (studentID: string, courseID: string) => boolean
 	courseLabel: (id: string) => string
+	studentName: (studentID: string) => string
 	copyAddresses: (studentIDs: string[]) => void
 	upload: (drop: string[], accept: string[], later: string[]) => void
 	// Closed without uploading, by the button, Escape or the backdrop:
@@ -68,6 +69,7 @@ export function EnrollmentImportDraft({
 	check,
 	holds,
 	courseLabel,
+	studentName,
 	copyAddresses,
 	upload,
 	hold,
@@ -234,8 +236,10 @@ export function EnrollmentImportDraft({
 					<ul className="list-disc pl-5 text-sm">
 						{check.unknown.map((u) => (
 							<li key={row(u.course_id, u.student_id)}>
-								<strong>{u.student_id}</strong> in{" "}
-								{courseLabel(u.course_id)}
+								<strong>{u.student_id}</strong>
+								{studentName(u.student_id) &&
+									` ${studentName(u.student_id)}`}{" "}
+								in {courseLabel(u.course_id)}
 							</li>
 						))}
 					</ul>
@@ -248,6 +252,8 @@ export function EnrollmentImportDraft({
 						<fieldset className="rounded-md border p-3">
 							<legend className="px-1">
 								<strong>{c.studentID}</strong>
+								{studentName(c.studentID) &&
+									` ${studentName(c.studentID)}`}
 							</legend>
 							<div className="mb-2 flex flex-wrap items-start justify-between gap-2">
 								<ul className="list-disc pl-5 text-sm">
@@ -259,7 +265,7 @@ export function EnrollmentImportDraft({
 									type="button"
 									variant="outline"
 									size="sm"
-									aria-label={`Copy email of ${c.studentID}`}
+									aria-label={`Copy email of ${c.studentID} ${studentName(c.studentID)}`.trimEnd()}
 									onClick={(): void => {
 										copyAddresses([c.studentID])
 									}}
