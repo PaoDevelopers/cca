@@ -19,7 +19,6 @@ type Page = "home" | "mine" | "available"
 // Links that leave the app. They read as tabs because that is where
 // people look for help, but nothing here can ever be the current page.
 const support = [
-	{ label: "Chat Support", href: "https://webirc.runxiyu.org/kiwiirc/#chat" },
 	{
 		label: "Email Us",
 		href: "mailto:sj-cca@ykpaoschool.cn?cc=runxiyu@umich.edu,me@runxiyu.org,s23321@stu.ykpaoschool.cn",
